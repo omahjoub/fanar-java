@@ -1,0 +1,3 @@
+# .github/CODEOWNERS
+# Default: core maintainers review everything
+* @omahjoub

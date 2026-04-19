@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Java ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '26' ]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Verify
+        run: mvn -B verify
+
+  check-docs:
+    name: Check documentation links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify all referenced docs exist
+        run: |
+          missing=0
+          for file in \
+              docs/ARCHITECTURE.md \
+              docs/CONTRIBUTING.md \
+              docs/adr/INDEX.md; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: $file referenced but does not exist"
+              missing=1
+            fi
+          done
+          if [ $missing -ne 0 ]; then
+            exit 1
+          fi
+          echo "All documentation links valid"
