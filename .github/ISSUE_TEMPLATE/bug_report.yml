@@ -1,0 +1,47 @@
+name: Bug Report
+description: Something isn't working as expected
+labels: [ "type: bug", "status: needs triage" ]
+body:
+  - type: input
+    id: module
+    attributes:
+      label: Module
+      description: Which module is affected?
+      placeholder: "e.g. fanar-**"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly and concisely.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps or code snippet to reproduce the issue.
+  - type: input
+    id: version
+    attributes:
+      label: SDK version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      placeholder: "e.g. 26"
+  - type: input
+    id: framework-version
+    attributes:
+      label: Spring Boot
+      placeholder: "e.g. Spring Boot 4.0.5"

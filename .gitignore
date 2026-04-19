@@ -1,4 +1,29 @@
+# Build output
 target/
+build/
+
+# IDE
+.idea/*
+!.idea/codeStyles/
+!.idea/codeStyles/**
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+.factorypath
+.vscode/
+*.code-workspace
+.nb-gradle/
+nbproject/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Maven
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
@@ -7,11 +32,19 @@ release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
-# https://maven.apache.org/wrapper/#usage-without-binary-jar
 .mvn/wrapper/maven-wrapper.jar
 
-# Eclipse m2e generated files
-# Eclipse Core
-.project
-# JDT-specific (Eclipse Java Development Tools)
-.classpath
+# Gradle (if ever used)
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# Logs
+*.log
+
+# Test output
+hs_err_pid*
+replay_pid*
+
+# LLM
+CLAUDE.md
+.claude
