@@ -1,6 +1,6 @@
 # Architecture
 
-> Java 21+ · Spring Boot 4 · OpenAPI 3.1.0 — 12 endpoints, 14 models
+> OpenAPI 3.1.0 — 12 endpoints, 14 models
 
 ---
 

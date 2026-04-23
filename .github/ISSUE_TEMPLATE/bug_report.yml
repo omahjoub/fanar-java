@@ -7,7 +7,7 @@ body:
     attributes:
       label: Module
       description: Which module is affected?
-      placeholder: "e.g. fanar-**"
+      placeholder: "e.g. core, or a framework-integration module"
     validations:
       required: true
   - type: textarea
@@ -39,9 +39,10 @@ body:
     id: java-version
     attributes:
       label: Java version
-      placeholder: "e.g. 26"
+      placeholder: "e.g. 21, 25"
   - type: input
     id: framework-version
     attributes:
-      label: Spring Boot
-      placeholder: "e.g. Spring Boot 4.0.5"
+      label: Framework & version (if applicable)
+      description: Which framework is this SDK being used with, and what version?
+      placeholder: "e.g. Spring Boot 3.3.0 — or leave blank if none"

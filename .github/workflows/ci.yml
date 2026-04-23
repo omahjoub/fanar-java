@@ -17,7 +17,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '26' ]
+        # Cover the declared minimum Java version and the current LTS.
+        # Update both entries together when bumping the Java floor or the LTS target.
+        java: [ '21', '25' ]
     steps:
       - uses: actions/checkout@v6
 
@@ -29,6 +31,10 @@ jobs:
           cache: 'maven'
 
       - name: Verify
+        # mvn verify transitively invokes:
+        #   - maven-compiler-plugin with -Xdoclint:all,-missing (Javadoc quality gate)
+        #   - maven-dependency-plugin:analyze-only with failOnWarning=true (undeclared/unused deps)
+        #   - jacoco:check
         run: mvn -B verify
 
   check-docs:
@@ -42,8 +48,12 @@ jobs:
           missing=0
           for file in \
               docs/ARCHITECTURE.md \
+              docs/COMPATIBILITY.md \
               docs/CONTRIBUTING.md \
-              docs/adr/INDEX.md; do
+              docs/JAVA_LIBRARY_BEST_PRACTICES.md \
+              docs/adr/INDEX.md \
+              .github/pull_request_template.md \
+              .github/SECURITY.md; do
             if [ ! -f "$file" ]; then
               echo "ERROR: $file referenced but does not exist"
               missing=1

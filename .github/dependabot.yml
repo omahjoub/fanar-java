@@ -1,6 +1,7 @@
 version: 2
 updates:
 
+  # Keep GitHub Actions dependencies current.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -12,3 +13,18 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+
+  # Keep Maven dependencies current. Covers the root POM and all reactor modules.
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "build"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Core SDK goal is zero runtime dependencies; most PRs here will be plugin or test-scope bumps.
+    open-pull-requests-limit: 10

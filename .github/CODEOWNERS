@@ -1,3 +1,5 @@
 # .github/CODEOWNERS
-# Default: core maintainers review everything
+# Design-phase setup: a single maintainer reviews everything.
+# TODO: once downstream modules (framework adapters, starters, BOM consumers) exist, split ownership
+# per module subtree. Example once modules land:
 * @omahjoub
