@@ -189,7 +189,7 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat` | not implemented |
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
-| Retry policy (public) | `qa.fanar.core.RetryPolicy` | not implemented |
+| Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** (record + enum; retry loop still to come) |
 | HTTP transport | `qa.fanar.core.internal.transport` | not implemented |
 | SSE parser | `qa.fanar.core.internal.sse` | not implemented |
 | Retry interceptor impl | `qa.fanar.core.internal.retry` | not implemented |
