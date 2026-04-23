@@ -75,6 +75,7 @@ A **strong, universal foundation** over everything in §1. Nothing more.
 - **Pluggable observability SPI** — metrics + tracing through vendor-neutral interfaces. The core never imports a concrete vendor.
 - **Transport and (de)serialization as seams** — no hard dependency on one JSON library or one HTTP client; swap either without forking.
 - **Stable extension points** — if a downstream module ever has to fork the core to plug in, we designed the core wrong.
+- **Internals are not a contract** — code under `qa.fanar.core.internal.*` can be refactored, replaced, or removed in any release without breaking downstream modules. Only the top-level API package and `.spi` surface are stability contracts. The module boundary enforces this.
 
 ---
 

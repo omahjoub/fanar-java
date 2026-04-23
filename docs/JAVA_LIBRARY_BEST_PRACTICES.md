@@ -20,11 +20,10 @@ Before adding any dependency, ask: can we reimplement this in <100 lines? If yes
 
 ## JLBP-2: Minimize API surface
 
-- Public API is in `api/` and `spi/` packages only. Everything in `internal/` is non-public API; 
-- `module-info.java` ships with every module and never exports internal packages.
-- No third-party types on public API surfaces. Method signatures use JDK types (`Flow.Publisher`,
-  `CompletableFuture`, `URI`, `Duration`, `InputStream`) and our own DTOs (`ChatRequest`, `StreamEvent`) — never
-  third-party reactive, HTTP-client, or serialization types.
+- **Public API = top-level package + `spi` subpackage** (e.g. `qa.fanar.core` for domain types and facades; `qa.fanar.core.spi` for extension interfaces). Everything under `internal` is non-public. `module-info.java` exports only the public packages and never exports internal ones.
+- **Internals are free to refactor.** Code under `internal.*` may be rewritten, replaced, or deleted in any release without deprecation cycles. It is *not* a contract. This is the guarantee that lets the core evolve its HTTP transport, SSE parser, retry machinery, connection pooling, JSON-codec invocation, etc., without breaking downstream modules.
+- **No internal types on the public surface.** Public API signatures cannot reference `internal.*` types — the module boundary enforces this at compile time.
+- **No third-party types on the public surface.** Method signatures use JDK types (`Flow.Publisher`, `CompletableFuture`, `URI`, `Duration`, `InputStream`) and our own DTOs (`ChatRequest`, `StreamEvent`) — never third-party reactive, HTTP-client, or serialization types.
 - Classes are `sealed` or `final` unless explicitly designed for extension.
 - Methods are not `public` by default. Justify every public method.
 

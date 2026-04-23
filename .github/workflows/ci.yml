@@ -47,6 +47,7 @@ jobs:
         run: |
           missing=0
           for file in \
+              docs/API_SKETCH.md \
               docs/ARCHITECTURE.md \
               docs/COMPATIBILITY.md \
               docs/CONTRIBUTING.md \
