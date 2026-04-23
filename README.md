@@ -35,9 +35,12 @@ LangChain4j provider bindings, Quarkus build-time integration, and whatever else
 
 ## Docs
 
+- [Project state](docs/PROJECT_STATE.md) — current phase, what's decided, what's built, what's next
 - [Compatibility matrix](docs/COMPATIBILITY.md) — the lighthouse: what's in core, what's framework-layer, what makes Fanar unique
-- [Architecture](docs/ARCHITECTURE.md) — API surface, endpoints, models
+- [Architecture](docs/ARCHITECTURE.md) — Fanar API surface plus our module layout and request-flow diagrams
 - [ADRs](docs/adr/INDEX.md) — non-obvious design decisions
 - [API sketch](docs/API_SKETCH.md) — aspirational code shape; the target the implementation aims for (living document, revised as we learn)
+- [Library best practices](docs/JAVA_LIBRARY_BEST_PRACTICES.md) — hygiene rules every PR must respect
+- [Glossary](docs/GLOSSARY.md) — Fanar-specific and project-specific terminology
 - [Contributing](docs/CONTRIBUTING.md)
 - [Fanar OpenAPI spec](api-spec/openapi.json)

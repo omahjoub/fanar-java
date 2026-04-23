@@ -51,7 +51,9 @@ jobs:
               docs/ARCHITECTURE.md \
               docs/COMPATIBILITY.md \
               docs/CONTRIBUTING.md \
+              docs/GLOSSARY.md \
               docs/JAVA_LIBRARY_BEST_PRACTICES.md \
+              docs/PROJECT_STATE.md \
               docs/adr/INDEX.md \
               .github/pull_request_template.md \
               .github/SECURITY.md; do
