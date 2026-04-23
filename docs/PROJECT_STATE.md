@@ -27,7 +27,12 @@ The shape of the SDK is fully captured in:
   `ObservabilityPlugin`, `ObservationHandle`, and the `FanarObservationAttributes` constants class. Interface
   surfaces only; the only concrete code is the silent no-op observability plugin used as default. See ADR-008,
   ADR-012, ADR-013.
-- **63 tests, 100 % JaCoCo coverage** across 22 bytecode-bearing classes in `fanar-core`.
+- **Core contract — retry configuration** — `qa.fanar.core.RetryPolicy` record and
+  `qa.fanar.core.JitterStrategy` enum. Canonical retryable-exception matrix implemented via
+  `RetryPolicy.isDefaultRetryable(FanarException)`, an exhaustive pattern match on the sealed
+  exception hierarchy. Configuration only — the retry loop itself lands with the interceptor
+  implementation PR. See ADR-014.
+- **105 tests, 100 % JaCoCo coverage** across 24 bytecode-bearing classes in `fanar-core`.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -44,18 +49,16 @@ No `FanarClient`, no SPIs, no DTOs, no transport code yet — those are the next
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **`RetryPolicy` record + `JitterStrategy`** — pure-data public type and its factories (`defaults()`,
-   `disabled()`, `with*` methods). No retry logic yet — just the config surface.
-2. **Chat domain DTOs** — records + sealed unions for `StreamEvent`, message roles, content parts. Validates
+1. **Chat domain DTOs** — records + sealed unions for `StreamEvent`, message roles, content parts. Validates
    record + sealed + builder conventions across a real domain.
-3. **`FanarClient` + builder + domain-facade interfaces** — the entry point callers touch first.
+2. **`FanarClient` + builder + domain-facade interfaces** — the entry point callers touch first.
    Implementation-free first pass; every method throws `UnsupportedOperationException` until transport lands.
-4. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline, and the
+3. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline, and the
    `FanarClient` methods to real behaviour.
-5. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under `core.internal`.
-6. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
-7. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*` package family.
-8. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+4. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under `core.internal`.
+5. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
+6. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*` package family.
+7. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 
