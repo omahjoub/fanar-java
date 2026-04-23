@@ -9,8 +9,9 @@ module qa.fanar.core {
     requires java.net.http;
 
     exports qa.fanar.core;
+    exports qa.fanar.core.spi;
 
-    // Additional exports added as domain subpackages and the .spi subpackage are populated:
+    // Additional exports added as domain subpackages are populated:
     //   exports qa.fanar.core.chat;
     //   exports qa.fanar.core.audio;
     //   exports qa.fanar.core.images;
@@ -19,6 +20,7 @@ module qa.fanar.core {
     //   exports qa.fanar.core.moderation;
     //   exports qa.fanar.core.tokens;
     //   exports qa.fanar.core.models;
-    //   exports qa.fanar.core.spi;
+    //
+    // ServiceLoader contract (added when the FanarClient wiring lands):
     //   uses qa.fanar.core.spi.FanarJsonCodec;
 }
