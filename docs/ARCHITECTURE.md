@@ -181,8 +181,10 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 
 | Concern | Package | Status |
 |---|---|---|
-| Public entry point | `qa.fanar.core.FanarClient` | placeholder (`Fanar.java`) |
-| Exception hierarchy root | `qa.fanar.core.FanarException` | not implemented |
+| Public entry point | `qa.fanar.core.FanarClient` | not implemented |
+| Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** (sealed, 13 subtypes) |
+| Error-code enum | `qa.fanar.core.ErrorCode` | **implemented** |
+| Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |
 | Domain DTOs | `qa.fanar.core.<chat\|audio\|images\|translations\|poems\|moderation\|tokens\|models>` | not implemented |
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat` | not implemented |
 | Extension SPIs | `qa.fanar.core.spi` | not implemented |
