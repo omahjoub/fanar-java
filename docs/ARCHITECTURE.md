@@ -187,7 +187,8 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |
 | Domain DTOs | `qa.fanar.core.<chat\|audio\|images\|translations\|poems\|moderation\|tokens\|models>` | not implemented |
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat` | not implemented |
-| Extension SPIs | `qa.fanar.core.spi` | not implemented |
+| Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
+| Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
 | Retry policy (public) | `qa.fanar.core.RetryPolicy` | not implemented |
 | HTTP transport | `qa.fanar.core.internal.transport` | not implemented |
 | SSE parser | `qa.fanar.core.internal.sse` | not implemented |
