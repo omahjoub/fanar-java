@@ -21,8 +21,19 @@ body:
     attributes:
       label: Alternatives considered
       description: What other approaches did you consider?
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Where does this belong? See docs/COMPATIBILITY.md for the split.
+      options:
+        - "🧰 Core SDK — typed transport, interceptors, observability hooks"
+        - "🔌 Framework-layer — memory, templating, vector stores, structured output, evaluation, ecosystem wiring"
+        - "Not sure — help me classify"
+    validations:
+      required: true
   - type: input
     id: module
     attributes:
       label: Which module(s) would this affect?
-      placeholder: "e.g. fanar-**, new module"
+      placeholder: "e.g. core, or a new framework-integration module"
