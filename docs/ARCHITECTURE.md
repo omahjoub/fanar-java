@@ -187,7 +187,8 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |
 | Domain DTOs — chat messages | `qa.fanar.core.chat.Message` + variants + content parts + `ToolCall` | **implemented** |
 | Domain DTOs — chat enums | `qa.fanar.core.chat.{ChatModel, Source, ImageDetail}` | **implemented** |
-| `ChatRequest` / `ChatResponse` | `qa.fanar.core.chat` | not implemented |
+| `ChatRequest` (+ `Builder`) | `qa.fanar.core.chat.ChatRequest` | **implemented** (31-component record, fluent builder) |
+| `ChatResponse` | `qa.fanar.core.chat` | not implemented |
 | Other domain DTOs | `qa.fanar.core.<audio\|images\|translations\|poems\|moderation\|tokens\|models>` | not implemented |
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat` | not implemented |
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |

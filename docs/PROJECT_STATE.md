@@ -38,7 +38,12 @@ The shape of the SDK is fully captured in:
   with `TextPart` / `ImagePart` / `VideoPart`; `AssistantContentPart` with `TextPart` /
   `RefusalPart`, overlapping at `TextPart`), the `ToolCall` record, and the `ChatModel` /
   `Source` / `ImageDetail` enums. See ADR-005, ADR-015.
-- **174 tests, 100 % JaCoCo coverage** across 37 bytecode-bearing classes in `fanar-core`.
+- **Core contract — chat request** — `qa.fanar.core.chat.ChatRequest` record with all 31
+  components (messages, model, sampling knobs, thinking flag, Fanar-Sadiq / Islamic-RAG scope,
+  vLLM-flavored advanced sampling) plus its nested `ChatRequest.Builder` with fluent
+  `with*`-style setters. Compact-constructor validation covers required-field nulls, numeric
+  range checks, the 4-entry `stop` cap, and defensive copies of every collection / map.
+- **212 tests, 100 % JaCoCo coverage** across 39 bytecode-bearing classes in `fanar-core`.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -55,24 +60,22 @@ No `FanarClient`, no SPIs, no DTOs, no transport code yet — those are the next
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **`ChatRequest` + `ChatRequest.Builder`** — the big request record with ~30 fields (sampling
-   knobs, thinking controls, Islamic-RAG scope, logprobs, etc.) plus the fluent builder.
-2. **`ChatResponse` + supporting response types** — the response record, `ChatChoice`, output
+1. **`ChatResponse` + supporting response types** — the response record, `ChatChoice`, output
    `ChatMessage`, `FinishReason`, `Reference`, `CompletionUsage`, logprobs.
-3. **Streaming types** — `StreamEvent` sealed hierarchy (`TokenChunk`, `ToolCallChunk`,
+2. **Streaming types** — `StreamEvent` sealed hierarchy (`TokenChunk`, `ToolCallChunk`,
    `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`) plus delta / progress-message
    supporting types.
-4. **`FanarClient` + builder + domain-facade interfaces** — the entry point callers touch first.
+3. **`FanarClient` + builder + domain-facade interfaces** — the entry point callers touch first.
    Implementation-free first pass; every method throws `UnsupportedOperationException` until
    transport lands.
-5. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline,
+4. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline,
    and the `FanarClient` methods to real behaviour.
-6. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under
+5. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under
    `core.internal`.
-7. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
-8. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
+6. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
+7. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
    package family.
-9. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+8. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 
