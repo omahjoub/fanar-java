@@ -106,6 +106,15 @@ The shape of the SDK is fully captured in:
   adapter-specific reflection targets. 31 tests, 100 % JaCoCo on 11 bytecode-bearing classes.
   `tools.jackson:jackson-bom:3.0.0` pinned in the reactor parent; every Jackson dep is
   {@code provided} scope so the consuming application brings the runtime.
+- **`fanar-json-jackson2` — Jackson 2 adapter** — `Jackson2FanarJsonCodec` backed by a
+  `com.fasterxml.jackson.databind.ObjectMapper` with the same behavioural contract as the
+  Jackson 3 adapter: snake-case, `NON_NULL`, unknown-property tolerance, flattening module
+  for the five `Choice*` records + `ProgressChunk`, wire-value enum module for the four chat
+  enums. Catches `IOException` broadly since Jackson 2's `JacksonException` extends
+  `IOException`. Ships the same `ServiceLoader` descriptor + reachability metadata layout as
+  the Jackson 3 adapter. 36 tests, 100 % JaCoCo on 11 bytecode-bearing classes.
+  `com.fasterxml.jackson:jackson-bom:2.20.0` pinned in the reactor parent. For Spring Boot
+  3.x consumers.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -120,9 +129,10 @@ The shape of the SDK is fully captured in:
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
-   package family (for Spring Boot 3.x consumers).
-2. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+1. **GraalVM native-image smoke test** in CI (ADR-009) — a minimal consumer project that
+   builds a native image against `fanar-core` + one of the JSON adapters and exercises a
+   round-trip through `FanarClient` against a canned local server. Validates that the
+   reachability metadata we ship is actually sufficient.
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 
