@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -188,12 +189,117 @@ class ChatClientImplTest {
     }
 
     @Test
-    void streamThrowsUnsupportedOperationException() {
-        HttpTransport transport = req -> response(200, "{}", Map.of());
+    void streamReturnsPublisherAndInjectsStreamFlag() throws Exception {
+        AtomicReference<HttpRequest> captured = new AtomicReference<>();
+        HttpTransport transport = req -> {
+            captured.set(req);
+            return response(200, "", Map.of());
+        };
         ChatClientImpl client = build(transport, cannedCodec(chatResponse()), List.of());
-        UnsupportedOperationException ex = assertThrows(UnsupportedOperationException.class,
+
+        Flow.Publisher<StreamEvent> publisher = client.stream(sampleRequest());
+        assertNotNull(publisher);
+
+        HttpRequest sent = captured.get();
+        assertEquals(Optional.of("text/event-stream"), sent.headers().firstValue("Accept"));
+        assertEquals("/v1/chat/completions", sent.uri().getPath());
+
+        // Body was rewritten to contain "stream":true.
+        String sentBody = bodyOf(sent);
+        assertTrue(sentBody.contains("\"stream\":true"), "body: " + sentBody);
+    }
+
+    @Test
+    void streamMaps4xxToTypedException() {
+        HttpTransport transport = req -> response(401, "bad token", Map.of());
+        ChatClientImpl client = build(transport, cannedCodec(chatResponse()), List.of());
+        assertThrows(FanarAuthenticationException.class, () -> client.stream(sampleRequest()));
+    }
+
+    @Test
+    void streamWrapsCodecEncodeFailureAsTransportException() {
+        FanarJsonCodec failing = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) throws IOException { throw new IOException("decode"); }
+            public void encode(OutputStream s, Object v) throws IOException { throw new IOException("encode"); }
+        };
+        HttpTransport transport = req -> { throw new AssertionError("should not reach transport"); };
+
+        ChatClientImpl client = build(transport, failing, List.of());
+        assertThrows(FanarTransportException.class, () -> client.stream(sampleRequest()));
+    }
+
+    @Test
+    void streamInjectsStreamFlagBeforeExistingFields() throws Exception {
+        FanarJsonCodec fieldCodec = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) throws IOException {
+                s.readAllBytes(); return t.cast(chatResponse());
+            }
+            public void encode(OutputStream s, Object v) throws IOException {
+                s.write("{\"model\":\"Fanar\"}".getBytes(StandardCharsets.UTF_8));
+            }
+        };
+        AtomicReference<HttpRequest> captured = new AtomicReference<>();
+        HttpTransport transport = req -> {
+            captured.set(req);
+            return response(200, "", Map.of());
+        };
+        ChatClientImpl client = build(transport, fieldCodec, List.of());
+        client.stream(sampleRequest());
+
+        assertEquals("{\"stream\":true,\"model\":\"Fanar\"}", bodyOf(captured.get()));
+    }
+
+    @Test
+    void streamRejectsEmptyCodecOutput() {
+        // Codec writes nothing — injectStreamFlag guard catches `src.length < 2`.
+        FanarJsonCodec emptyCodec = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) throws IOException { throw new IOException("decode"); }
+            public void encode(OutputStream s, Object v) { /* write nothing */ }
+        };
+        HttpTransport transport = req -> { throw new AssertionError("should not reach transport"); };
+        ChatClientImpl client = build(transport, emptyCodec, List.of());
+        FanarTransportException ex = assertThrows(FanarTransportException.class,
                 () -> client.stream(sampleRequest()));
-        assertTrue(ex.getMessage().contains("SSE"));
+        assertTrue(ex.getMessage().contains("unexpected body shape"));
+    }
+
+    @Test
+    void streamRejectsNonObjectCodecOutput() {
+        // Codec produces a JSON array — injectStreamFlag guard must refuse.
+        FanarJsonCodec arrayCodec = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) throws IOException { throw new IOException("decode"); }
+            public void encode(OutputStream s, Object v) throws IOException {
+                s.write("[]".getBytes(StandardCharsets.UTF_8));
+            }
+        };
+        HttpTransport transport = req -> { throw new AssertionError("should not reach transport"); };
+
+        ChatClientImpl client = build(transport, arrayCodec, List.of());
+        FanarTransportException ex = assertThrows(FanarTransportException.class,
+                () -> client.stream(sampleRequest()));
+        assertTrue(ex.getMessage().contains("unexpected body shape"),
+                "message: " + ex.getMessage());
+    }
+
+    private static String bodyOf(HttpRequest request) throws Exception {
+        HttpRequest.BodyPublisher bp = request.bodyPublisher().orElseThrow();
+        java.util.concurrent.atomic.AtomicReference<byte[]> buf =
+                new java.util.concurrent.atomic.AtomicReference<>(new byte[0]);
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        bp.subscribe(new java.util.concurrent.Flow.Subscriber<>() {
+            public void onSubscribe(java.util.concurrent.Flow.Subscription s) { s.request(Long.MAX_VALUE); }
+            public void onNext(java.nio.ByteBuffer b) {
+                byte[] curr = buf.get();
+                byte[] next = new byte[curr.length + b.remaining()];
+                System.arraycopy(curr, 0, next, 0, curr.length);
+                b.get(next, curr.length, b.remaining());
+                buf.set(next);
+            }
+            public void onError(Throwable t) { done.countDown(); }
+            public void onComplete() { done.countDown(); }
+        });
+        done.await(1, TimeUnit.SECONDS);
+        return new String(buf.get(), StandardCharsets.UTF_8);
     }
 
     @Test

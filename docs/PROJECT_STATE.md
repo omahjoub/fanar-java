@@ -74,11 +74,20 @@ The shape of the SDK is fully captured in:
   responses into the typed exception hierarchy (ADR-006), honouring `Retry-After` on 429.
   `qa.fanar.core.internal.chat.ChatClientImpl` replaces the old `SkeletonChatClient`: `send`
   runs the chain end-to-end (encode → interceptors → transport → map-or-decode); `sendAsync`
-  spawns one virtual thread per call — no executor to manage; `stream` still throws `UOE`
-  until the SSE parser lands. Observation attributes (`fanar.model`, `http.method`,
-  `http.url`, `http.status_code`) surface on every call; exceptions are reported via
-  `ObservationHandle.error(...)` before being rethrown.
-- **397 tests, 100 % JaCoCo coverage** across 75 bytecode-bearing classes in `fanar-core`.
+  spawns one virtual thread per call — no executor to manage. Observation attributes
+  (`fanar.model`, `http.method`, `http.url`, `http.status_code`) surface on every call;
+  exceptions are reported via `ObservationHandle.error(...)` before being rethrown.
+- **Core internals — SSE parser + real `chat().stream(...)`** — `qa.fanar.core.internal.sse`:
+  `SseFrameAssembler` implements the WHATWG SSE field-by-field parsing (comments, unknown
+  fields, CR/LF normalisation, blank-line dispatch), `StreamEventDecoder` routes each
+  `data:` payload into one of the six `StreamEvent` subtypes by shape (ADR-017) using a
+  two-pass decode through `FanarJsonCodec` (map-inspect, then typed decode), and
+  `SseStreamPublisher` implements a `Flow.Publisher<StreamEvent>` with a single-subscriber
+  guard, virtual-thread producer, bounded-demand back-pressure, subscription cancellation,
+  and best-effort close of the HTTP body. `ChatClientImpl.stream` runs the same interceptor
+  pipeline as `send` but with `Accept: text/event-stream` and `"stream": true` injected into
+  the JSON body, then wraps the response body in an `SseStreamPublisher`.
+- **441 tests, 100 % JaCoCo coverage** across 81 bytecode-bearing classes in `fanar-core`.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -89,23 +98,17 @@ The shape of the SDK is fully captured in:
 - **`.github/`** — PR template with scope-split checklist, issue templates, SECURITY, CODEOWNERS, dependabot
   (Maven + GitHub Actions). All consistent with the design.
 
-Streaming, retries, and the JSON adapters are the remaining gaps on the path to a usable SDK.
-
 ## What's next
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **SSE parser** under `core.internal.sse`. Parses server-sent `data:` frames, dispatches by
-   shape into the right `StreamEvent` subtype, and turns the JDK `Flow.Publisher<String>` from
-   `BodyHandlers.ofLines()` into `Flow.Publisher<StreamEvent>`. Replaces the remaining
-   `UnsupportedOperationException` in `ChatClientImpl.stream(...)`.
-2. **Retry interceptor** — concrete `Interceptor` under `core.internal.retry` that consumes the
+1. **Retry interceptor** — concrete `Interceptor` under `core.internal.retry` that consumes the
    already-implemented `RetryPolicy` record (exponential + full-jitter back-off, retryable
    exception matrix, `Retry-After` honouring on 429). Bearer-token interceptor is already in.
-3. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
-4. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
+2. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
+3. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
    package family.
-5. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+4. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 

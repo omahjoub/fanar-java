@@ -12,9 +12,6 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 import qa.fanar.core.chat.ChatClient;
-import qa.fanar.core.chat.ChatModel;
-import qa.fanar.core.chat.ChatRequest;
-import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
@@ -346,17 +343,6 @@ class FanarClientTest {
     }
 
     @Test
-    void chatStreamThrowsUnsupportedOperationException() {
-        try (FanarClient client = FanarClient.builder()
-                .apiKey("sk_test")
-                .jsonCodec(dummyCodec())
-                .build()) {
-            ChatClient chat = client.chat();
-            assertThrows(UnsupportedOperationException.class, () -> chat.stream(sampleRequest()));
-        }
-    }
-
-    @Test
     void chatMethodsRejectNullRequest() {
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")
@@ -433,12 +419,5 @@ class FanarClientTest {
 
     private static Function<String, String> noEnv() {
         return name -> null;
-    }
-
-    private static ChatRequest sampleRequest() {
-        return ChatRequest.builder()
-                .model(ChatModel.FANAR)
-                .addMessage(UserMessage.of("hello"))
-                .build();
     }
 }
