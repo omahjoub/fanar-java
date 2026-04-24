@@ -8,6 +8,10 @@
 module qa.fanar.core {
     requires java.net.http;
 
+    // Compile-time only: DefaultHttpTransportTest spins up a local com.sun.net.httpserver.HttpServer.
+    // Not required at runtime.
+    requires static jdk.httpserver;
+
     exports qa.fanar.core;
     exports qa.fanar.core.spi;
     exports qa.fanar.core.chat;

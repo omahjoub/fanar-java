@@ -181,8 +181,8 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 
 | Concern | Package | Status |
 |---|---|---|
-| Public entry point | `qa.fanar.core.FanarClient` (+ nested `Builder`) | **implemented** (skeleton — `ChatClient` facade methods throw `UnsupportedOperationException` until transport lands) |
-| Chat domain facade | `qa.fanar.core.chat.ChatClient` | **implemented** (interface); `qa.fanar.core.internal.chat.SkeletonChatClient` throws `UOE` on every method |
+| Public entry point | `qa.fanar.core.FanarClient` (+ nested `Builder`) | **implemented** — wires the transport, bearer-token interceptor, and `ChatClientImpl` |
+| Chat domain facade | `qa.fanar.core.chat.ChatClient` | **implemented** (interface); `qa.fanar.core.internal.chat.ChatClientImpl` runs `send` / `sendAsync` end-to-end. `stream(...)` still throws `UOE` until the SSE parser lands |
 | Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** (sealed, 13 subtypes) |
 | Error-code enum | `qa.fanar.core.ErrorCode` | **implemented** |
 | Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |
@@ -195,10 +195,10 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
 | Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** (record + enum; retry loop still to come) |
-| HTTP transport | `qa.fanar.core.internal.transport` | not implemented |
+| HTTP transport | `qa.fanar.core.internal.transport` (`HttpTransport`, `DefaultHttpTransport`, `InterceptorChainImpl`, `ExceptionMapper`) | **implemented** — sync path only; SSE path follows |
+| Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | SSE parser | `qa.fanar.core.internal.sse` | not implemented |
 | Retry interceptor impl | `qa.fanar.core.internal.retry` | not implemented |
-| Bearer-token interceptor impl | `qa.fanar.core.internal.auth` | not implemented |
 | Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | placeholder (`Jackson2.java`) |
 | Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | placeholder (`Jackson3.java`) |
 | Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | not generated |

@@ -346,28 +346,6 @@ class FanarClientTest {
     }
 
     @Test
-    void chatSendThrowsUnsupportedOperationException() {
-        try (FanarClient client = FanarClient.builder()
-                .apiKey("sk_test")
-                .jsonCodec(dummyCodec())
-                .build()) {
-            ChatClient chat = client.chat();
-            assertThrows(UnsupportedOperationException.class, () -> chat.send(sampleRequest()));
-        }
-    }
-
-    @Test
-    void chatSendAsyncThrowsUnsupportedOperationException() {
-        try (FanarClient client = FanarClient.builder()
-                .apiKey("sk_test")
-                .jsonCodec(dummyCodec())
-                .build()) {
-            ChatClient chat = client.chat();
-            assertThrows(UnsupportedOperationException.class, () -> chat.sendAsync(sampleRequest()));
-        }
-    }
-
-    @Test
     void chatStreamThrowsUnsupportedOperationException() {
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")
