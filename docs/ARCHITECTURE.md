@@ -185,7 +185,10 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** (sealed, 13 subtypes) |
 | Error-code enum | `qa.fanar.core.ErrorCode` | **implemented** |
 | Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |
-| Domain DTOs | `qa.fanar.core.<chat\|audio\|images\|translations\|poems\|moderation\|tokens\|models>` | not implemented |
+| Domain DTOs — chat messages | `qa.fanar.core.chat.Message` + variants + content parts + `ToolCall` | **implemented** |
+| Domain DTOs — chat enums | `qa.fanar.core.chat.{ChatModel, Source, ImageDetail}` | **implemented** |
+| `ChatRequest` / `ChatResponse` | `qa.fanar.core.chat` | not implemented |
+| Other domain DTOs | `qa.fanar.core.<audio\|images\|translations\|poems\|moderation\|tokens\|models>` | not implemented |
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat` | not implemented |
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |

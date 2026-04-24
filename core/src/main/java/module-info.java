@@ -10,9 +10,9 @@ module qa.fanar.core {
 
     exports qa.fanar.core;
     exports qa.fanar.core.spi;
+    exports qa.fanar.core.chat;
 
-    // Additional exports added as domain subpackages are populated:
-    //   exports qa.fanar.core.chat;
+    // Additional exports added as remaining domain subpackages are populated:
     //   exports qa.fanar.core.audio;
     //   exports qa.fanar.core.images;
     //   exports qa.fanar.core.translations;
