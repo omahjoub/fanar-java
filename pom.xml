@@ -15,6 +15,7 @@
 
         <!-- Version catalog — pin every dependency we use explicitly. Library first, not application. -->
         <junit-bom.version>6.0.3</junit-bom.version>
+        <jackson3-bom.version>3.0.0</jackson3-bom.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
 
         <!-- Test -->
@@ -39,6 +40,13 @@
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
                 <version>${junit-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson3-bom.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

@@ -1,0 +1,32 @@
+{
+  "reflection": [
+    {
+      "type": "qa.fanar.json.jackson3.Jackson3FanarJsonCodec",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson3.ChoiceTokenDeserializer",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson3.ChoiceToolCallDeserializer",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson3.ChoiceToolResultDeserializer",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson3.ChoiceFinalDeserializer",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson3.ChoiceErrorDeserializer",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson3.ProgressChunkDeserializer",
+      "allDeclaredConstructors": true
+    }
+  ]
+}
