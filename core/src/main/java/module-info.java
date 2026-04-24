@@ -20,7 +20,9 @@ module qa.fanar.core {
     //   exports qa.fanar.core.moderation;
     //   exports qa.fanar.core.tokens;
     //   exports qa.fanar.core.models;
-    //
-    // ServiceLoader contract (added when the FanarClient wiring lands):
-    //   uses qa.fanar.core.spi.FanarJsonCodec;
+
+    // ServiceLoader contract: FanarClient discovers a FanarJsonCodec implementation at runtime
+    // unless the caller passes one via FanarClient.Builder.jsonCodec(...). The two shipped
+    // adapter modules (fanar-json-jackson2, fanar-json-jackson3) will provide the service.
+    uses qa.fanar.core.spi.FanarJsonCodec;
 }
