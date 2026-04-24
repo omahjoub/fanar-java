@@ -181,7 +181,8 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 
 | Concern | Package | Status |
 |---|---|---|
-| Public entry point | `qa.fanar.core.FanarClient` | not implemented |
+| Public entry point | `qa.fanar.core.FanarClient` (+ nested `Builder`) | **implemented** (skeleton — `ChatClient` facade methods throw `UnsupportedOperationException` until transport lands) |
+| Chat domain facade | `qa.fanar.core.chat.ChatClient` | **implemented** (interface); `qa.fanar.core.internal.chat.SkeletonChatClient` throws `UOE` on every method |
 | Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** (sealed, 13 subtypes) |
 | Error-code enum | `qa.fanar.core.ErrorCode` | **implemented** |
 | Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |

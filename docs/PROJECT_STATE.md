@@ -57,7 +57,17 @@ The shape of the SDK is fully captured in:
   bilingual `ProgressMessage`, streaming-side `ToolCallData` + `FunctionData` +
   `ToolResultData`. The sealed interface exposes common `id()` / `created()` / `model()`
   accessors so cross-chunk metadata is available without pattern matching.
-- **310 tests, 100 % JaCoCo coverage** across 68 bytecode-bearing classes in `fanar-core`.
+- **Core contract — `FanarClient` + `ChatClient` facade skeleton** —
+  `qa.fanar.core.FanarClient` (final, `AutoCloseable`) with its nested `Builder` covers every
+  configuration concern from ADR-016: `apiKey` (String or rotating `Supplier<String>`),
+  `baseUrl`, `httpClient`, `jsonCodec`, interceptor chain, `retryPolicy`, observability plugin,
+  timeouts, user-agent, default headers. Environment-variable fallbacks for `FANAR_API_KEY` /
+  `FANAR_BASE_URL`. `ServiceLoader` discovery for `FanarJsonCodec` (with the standard
+  "add fanar-json-jackson…" error). HttpClient ownership tracked (close only what we built).
+  `ChatClient` interface defines the three-method facade (`send` / `sendAsync` / `stream`);
+  implementation is a non-exported `SkeletonChatClient` that throws
+  `UnsupportedOperationException` — transport lands in the next PR.
+- **344 tests, 100 % JaCoCo coverage** across 71 bytecode-bearing classes in `fanar-core`.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -68,21 +78,19 @@ The shape of the SDK is fully captured in:
 - **`.github/`** — PR template with scope-split checklist, issue templates, SECURITY, CODEOWNERS, dependabot
   (Maven + GitHub Actions). All consistent with the design.
 
-No `FanarClient`, no SPIs, no DTOs, no transport code yet — those are the next PRs below.
+No transport code yet — the next PR wires the `HttpClient`, the SSE pipeline, and the actual
+retry / auth / observability machinery into `FanarClient`.
 
 ## What's next
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **`FanarClient` + builder + domain-facade interfaces** — the entry point callers touch first.
-   Implementation-free first pass; every method throws `UnsupportedOperationException` until
-   transport lands.
-2. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline,
-   and the `FanarClient` methods to real behaviour.
-3. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under
+1. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline,
+   and the `FanarClient` methods to real behaviour. Replaces `SkeletonChatClient`.
+2. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under
    `core.internal`.
-4. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
-5. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
+3. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
+4. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
    package family.
 6. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
