@@ -199,9 +199,9 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |
 | Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — exponential back-off with configurable jitter, `Retry-After` honouring on 429, `retry_attempt` observation events, injectable `Sleeper`+`RandomGenerator` |
-| Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | placeholder (`Jackson2.java`) |
+| Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, wire-value enum module, `ServiceLoader` descriptor, reachability metadata |
 | Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, wire-value enum module, `ServiceLoader` descriptor, reachability metadata |
-| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **partially** — `fanar-json-jackson3` ships metadata; other modules pending |
+| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **partially** — both JSON adapters ship metadata; `fanar-core` pending |
 
 ---
 
