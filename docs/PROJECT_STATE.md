@@ -96,6 +96,16 @@ The shape of the SDK is fully captured in:
   and records the final count in `fanar.retry_count`. `Sleeper` + `RandomGenerator` are
   injectable for deterministic tests.
 - **455 tests, 100 % JaCoCo coverage** across 83 bytecode-bearing classes in `fanar-core`.
+- **`fanar-json-jackson3` — Jackson 3 adapter** — `Jackson3FanarJsonCodec` backed by a
+  `tools.jackson.databind.json.JsonMapper` pre-configured for the Fanar wire format
+  (snake-case naming, `NON_NULL` inclusion, unknown-property tolerance, no default enum
+  serialization — enums use `wireValue()` via a dedicated module). Six `StdDeserializer`
+  flatten `delta.content`, `delta.tool_calls`, `delta.tool_result`, `delta.references`, and
+  `progress.message` one level so the core records stay annotation-free. `ServiceLoader`
+  descriptor + JPMS `provides ... with ...` directive. GraalVM reachability metadata for
+  adapter-specific reflection targets. 31 tests, 100 % JaCoCo on 11 bytecode-bearing classes.
+  `tools.jackson:jackson-bom:3.0.0` pinned in the reactor parent; every Jackson dep is
+  {@code provided} scope so the consuming application brings the runtime.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -110,10 +120,9 @@ The shape of the SDK is fully captured in:
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
-2. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
-   package family.
-3. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+1. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
+   package family (for Spring Boot 3.x consumers).
+2. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 

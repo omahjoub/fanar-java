@@ -17,10 +17,6 @@
     <name>Fanar Java :: JSON :: Jackson 3</name>
     <description>Jackson 3.x (tools.jackson.*) adapter for the Fanar JSON codec SPI. Use with Spring Boot 4.x.</description>
 
-    <properties>
-        <jacoco.skip>true</jacoco.skip>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>qa.fanar</groupId>
@@ -28,37 +24,38 @@
             <version>${project.version}</version>
         </dependency>
         <!--
-          Jackson 3 declared as `provided` scope when the adapter is implemented:
-          <dependency>
+          Jackson 3 is `provided` scope — the consuming application (e.g. Spring Boot 4.x) supplies
+          the concrete runtime. This module's jar ships against the Jackson 3 API surface but does
+          not pull Jackson onto the downstream classpath.
+        -->
+        <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson3.version}</version>
             <scope>provided</scope>
-          </dependency>
-          The user's Spring Boot 4.x brings the concrete runtime.
-        -->
-    </dependencies>
+        </dependency>
+        <!-- `jackson-core` and `jackson-annotations` are transitive from jackson-databind at
+             runtime, but `dependency:analyze` requires that direct usages be declared explicitly. -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <configuration>
-                    <skip>${jacoco.skip}</skip>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>analyze</id>
-                        <phase>none</phase>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
 </project>
