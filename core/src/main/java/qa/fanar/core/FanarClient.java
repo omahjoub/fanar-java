@@ -13,7 +13,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import qa.fanar.core.chat.ChatClient;
-import qa.fanar.core.internal.chat.SkeletonChatClient;
+import qa.fanar.core.internal.chat.ChatClientImpl;
+import qa.fanar.core.internal.transport.DefaultHttpTransport;
+import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
@@ -122,7 +124,16 @@ public final class FanarClient implements AutoCloseable {
         this.userAgent = b.userAgent;
         this.defaultHeaders = Map.copyOf(b.defaultHeaders);
 
-        this.chatClient = new SkeletonChatClient();
+        HttpTransport transport = new DefaultHttpTransport(this.httpClient, this.requestTimeout);
+        this.chatClient = new ChatClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {

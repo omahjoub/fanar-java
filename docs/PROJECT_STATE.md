@@ -1,6 +1,6 @@
 # Project state
 
-> **Snapshot — 2026-04-23.** Updated when the project crosses a milestone. If this file looks wrong or stale,
+> **Snapshot — 2026-04-24.** Updated when the project crosses a milestone. If this file looks wrong or stale,
 > that is the most important signal — update it in the same PR as whatever moved.
 
 ## Phase
@@ -57,17 +57,28 @@ The shape of the SDK is fully captured in:
   bilingual `ProgressMessage`, streaming-side `ToolCallData` + `FunctionData` +
   `ToolResultData`. The sealed interface exposes common `id()` / `created()` / `model()`
   accessors so cross-chunk metadata is available without pattern matching.
-- **Core contract — `FanarClient` + `ChatClient` facade skeleton** —
+- **Core contract — `FanarClient` facade** —
   `qa.fanar.core.FanarClient` (final, `AutoCloseable`) with its nested `Builder` covers every
   configuration concern from ADR-016: `apiKey` (String or rotating `Supplier<String>`),
   `baseUrl`, `httpClient`, `jsonCodec`, interceptor chain, `retryPolicy`, observability plugin,
   timeouts, user-agent, default headers. Environment-variable fallbacks for `FANAR_API_KEY` /
   `FANAR_BASE_URL`. `ServiceLoader` discovery for `FanarJsonCodec` (with the standard
   "add fanar-json-jackson…" error). HttpClient ownership tracked (close only what we built).
-  `ChatClient` interface defines the three-method facade (`send` / `sendAsync` / `stream`);
-  implementation is a non-exported `SkeletonChatClient` that throws
-  `UnsupportedOperationException` — transport lands in the next PR.
-- **344 tests, 100 % JaCoCo coverage** across 71 bytecode-bearing classes in `fanar-core`.
+- **Core internals — transport + real `ChatClient`** —
+  `qa.fanar.core.internal.transport.HttpTransport` (functional interface) with
+  `DefaultHttpTransport` wrapping the JDK `HttpClient` and translating
+  `IOException` / `InterruptedException` into `FanarTransportException` (interrupt flag
+  preserved). `InterceptorChainImpl` walks user interceptors and terminates at the transport;
+  `BearerTokenInterceptor` adds `Authorization: Bearer …` via a per-call `Supplier<String>`
+  so tokens can rotate without rebuilding the client. `ExceptionMapper` translates 4xx / 5xx
+  responses into the typed exception hierarchy (ADR-006), honouring `Retry-After` on 429.
+  `qa.fanar.core.internal.chat.ChatClientImpl` replaces the old `SkeletonChatClient`: `send`
+  runs the chain end-to-end (encode → interceptors → transport → map-or-decode); `sendAsync`
+  spawns one virtual thread per call — no executor to manage; `stream` still throws `UOE`
+  until the SSE parser lands. Observation attributes (`fanar.model`, `http.method`,
+  `http.url`, `http.status_code`) surface on every call; exceptions are reported via
+  `ObservationHandle.error(...)` before being rethrown.
+- **397 tests, 100 % JaCoCo coverage** across 75 bytecode-bearing classes in `fanar-core`.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -78,21 +89,23 @@ The shape of the SDK is fully captured in:
 - **`.github/`** — PR template with scope-split checklist, issue templates, SECURITY, CODEOWNERS, dependabot
   (Maven + GitHub Actions). All consistent with the design.
 
-No transport code yet — the next PR wires the `HttpClient`, the SSE pipeline, and the actual
-retry / auth / observability machinery into `FanarClient`.
+Streaming, retries, and the JSON adapters are the remaining gaps on the path to a usable SDK.
 
 ## What's next
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **Transport + SSE parser** under `core.internal`. Wires the `HttpClient`, the SSE pipeline,
-   and the `FanarClient` methods to real behaviour. Replaces `SkeletonChatClient`.
-2. **Retry + bearer-token interceptors** — concrete implementations of the SPI, living under
-   `core.internal`.
+1. **SSE parser** under `core.internal.sse`. Parses server-sent `data:` frames, dispatches by
+   shape into the right `StreamEvent` subtype, and turns the JDK `Flow.Publisher<String>` from
+   `BodyHandlers.ofLines()` into `Flow.Publisher<StreamEvent>`. Replaces the remaining
+   `UnsupportedOperationException` in `ChatClientImpl.stream(...)`.
+2. **Retry interceptor** — concrete `Interceptor` under `core.internal.retry` that consumes the
+   already-implemented `RetryPolicy` record (exponential + full-jitter back-off, retryable
+   exception matrix, `Retry-After` honouring on 429). Bearer-token interceptor is already in.
 3. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
 4. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
    package family.
-6. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+5. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 
