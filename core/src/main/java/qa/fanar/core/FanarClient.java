@@ -132,6 +132,7 @@ public final class FanarClient implements AutoCloseable {
                 this.interceptors,
                 transport,
                 this.observability,
+                this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
     }

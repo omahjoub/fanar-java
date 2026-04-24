@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTransportException;
+import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.chat.*;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -101,6 +102,7 @@ class ChatClientImplTest {
                 List.of(),
                 transport,
                 ObservabilityPlugin.noop(),
+                RetryPolicy.disabled(),
                 Map.of("X-Trace-Id", "abc"),
                 "my-app/1.0");
         client.send(sampleRequest());
@@ -316,20 +318,23 @@ class ChatClientImplTest {
         FanarJsonCodec codec = cannedCodec(chatResponse());
         HttpTransport transport = req -> response(200, "{}", Map.of());
         ObservabilityPlugin obs = ObservabilityPlugin.noop();
+        RetryPolicy rp = RetryPolicy.disabled();
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(null, codec, () -> "t", List.of(), transport, obs, Map.of(), null));
+                new ChatClientImpl(null, codec, () -> "t", List.of(), transport, obs, rp, Map.of(), null));
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(BASE, null, () -> "t", List.of(), transport, obs, Map.of(), null));
+                new ChatClientImpl(BASE, null, () -> "t", List.of(), transport, obs, rp, Map.of(), null));
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(BASE, codec, null, List.of(), transport, obs, Map.of(), null));
+                new ChatClientImpl(BASE, codec, null, List.of(), transport, obs, rp, Map.of(), null));
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(BASE, codec, () -> "t", null, transport, obs, Map.of(), null));
+                new ChatClientImpl(BASE, codec, () -> "t", null, transport, obs, rp, Map.of(), null));
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(BASE, codec, () -> "t", List.of(), null, obs, Map.of(), null));
+                new ChatClientImpl(BASE, codec, () -> "t", List.of(), null, obs, rp, Map.of(), null));
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(BASE, codec, () -> "t", List.of(), transport, null, Map.of(), null));
+                new ChatClientImpl(BASE, codec, () -> "t", List.of(), transport, null, rp, Map.of(), null));
         assertThrows(NullPointerException.class, () ->
-                new ChatClientImpl(BASE, codec, () -> "t", List.of(), transport, obs, null, null));
+                new ChatClientImpl(BASE, codec, () -> "t", List.of(), transport, obs, null, Map.of(), null));
+        assertThrows(NullPointerException.class, () ->
+                new ChatClientImpl(BASE, codec, () -> "t", List.of(), transport, obs, rp, null, null));
     }
 
     @Test
@@ -349,7 +354,7 @@ class ChatClientImplTest {
         };
         HttpTransport transport = req -> response(200, "{}", Map.of());
         ChatClientImpl client = new ChatClientImpl(BASE, cannedCodec(chatResponse()), () -> "t", List.of(),
-                transport, plugin, Map.of(), null);
+                transport, plugin, RetryPolicy.disabled(), Map.of(), null);
 
         client.send(sampleRequest());
 
@@ -370,7 +375,7 @@ class ChatClientImplTest {
         AtomicReference<HttpRequest> captured = new AtomicReference<>();
         HttpTransport transport = req -> { captured.set(req); return response(200, "{}", Map.of()); };
         ChatClientImpl client = new ChatClientImpl(BASE, cannedCodec(chatResponse()), () -> "t", List.of(),
-                transport, plugin, Map.of(), null);
+                transport, plugin, RetryPolicy.disabled(), Map.of(), null);
 
         client.send(sampleRequest());
 
@@ -387,7 +392,7 @@ class ChatClientImplTest {
                                         List<Interceptor> interceptors, String token) {
         return new ChatClientImpl(
                 BASE, codec, () -> token, interceptors,
-                transport, ObservabilityPlugin.noop(), Map.of(), null);
+                transport, ObservabilityPlugin.noop(), RetryPolicy.disabled(), Map.of(), null);
     }
 
     private static ChatRequest sampleRequest() {

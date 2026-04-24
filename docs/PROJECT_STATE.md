@@ -87,7 +87,15 @@ The shape of the SDK is fully captured in:
   and best-effort close of the HTTP body. `ChatClientImpl.stream` runs the same interceptor
   pipeline as `send` but with `Accept: text/event-stream` and `"stream": true` injected into
   the JSON body, then wraps the response body in an `SseStreamPublisher`.
-- **441 tests, 100 % JaCoCo coverage** across 81 bytecode-bearing classes in `fanar-core`.
+- **Core internals — retry interceptor** — `qa.fanar.core.internal.retry.RetryInterceptor`
+  sits at the head of the interceptor chain (outside the bearer-token interceptor, so every
+  retry re-signs the request). Honours the caller's `RetryPolicy`: exponential back-off
+  with the configured `JitterStrategy` (NONE / FULL / EQUAL), `maxAttempts` cap, and the
+  retryable-exception matrix. `Retry-After` on `FanarRateLimitException` overrides the
+  back-off curve for that attempt. Emits one `retry_attempt` observation event per retry
+  and records the final count in `fanar.retry_count`. `Sleeper` + `RandomGenerator` are
+  injectable for deterministic tests.
+- **455 tests, 100 % JaCoCo coverage** across 83 bytecode-bearing classes in `fanar-core`.
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
@@ -102,13 +110,10 @@ The shape of the SDK is fully captured in:
 
 In the order we plan to tackle them — each one its own focused PR:
 
-1. **Retry interceptor** — concrete `Interceptor` under `core.internal.retry` that consumes the
-   already-implemented `RetryPolicy` record (exponential + full-jitter back-off, retryable
-   exception matrix, `Retry-After` honouring on 429). Bearer-token interceptor is already in.
-2. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
-3. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
+1. **Jackson 3 adapter** — `Jackson3FanarJsonCodec`, `ServiceLoader` descriptor, reachability metadata.
+2. **Jackson 2 adapter** — mirror of the Jackson 3 adapter against the `com.fasterxml.jackson.*`
    package family.
-4. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
+3. **GraalVM reachability metadata + native-image smoke test** in CI (ADR-009).
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 

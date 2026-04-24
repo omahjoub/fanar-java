@@ -17,10 +17,12 @@ import java.util.function.Supplier;
 
 import qa.fanar.core.FanarException;
 import qa.fanar.core.FanarTransportException;
+import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.chat.ChatClient;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.StreamEvent;
+import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.sse.SseStreamPublisher;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
 import qa.fanar.core.internal.transport.ExceptionMapper;
@@ -78,13 +80,21 @@ public final class ChatClientImpl implements ChatClient {
             List<Interceptor> userInterceptors,
             HttpTransport transport,
             ObservabilityPlugin observability,
+            RetryPolicy retryPolicy,
             Map<String, String> defaultHeaders,
             String userAgent) {
         this.endpoint = Objects.requireNonNull(baseUrl, "baseUrl").resolve(ENDPOINT);
         this.jsonCodec = Objects.requireNonNull(jsonCodec, "jsonCodec");
         Objects.requireNonNull(apiKeySupplier, "apiKeySupplier");
         Objects.requireNonNull(userInterceptors, "userInterceptors");
-        List<Interceptor> chain = new ArrayList<>(userInterceptors.size() + 1);
+        Objects.requireNonNull(retryPolicy, "retryPolicy");
+        // Chain order (outermost to innermost):
+        //   RetryInterceptor  — wraps everything else, re-runs the chain on retryable failure
+        //   BearerTokenInterceptor  — re-signs each retry attempt
+        //   <user interceptors>     — in registration order
+        //   transport               — terminal
+        List<Interceptor> chain = new ArrayList<>(userInterceptors.size() + 2);
+        chain.add(new RetryInterceptor(retryPolicy));
         chain.add(new BearerTokenInterceptor(apiKeySupplier));
         chain.addAll(userInterceptors);
         this.interceptors = List.copyOf(chain);
