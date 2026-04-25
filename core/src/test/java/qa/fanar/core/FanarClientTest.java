@@ -403,6 +403,19 @@ class FanarClientTest {
     // --- Translations facade ---------------------------------------------------------------
 
     @Test
+    void poemsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.poems.PoemsClient p1 = client.poems();
+            qa.fanar.core.poems.PoemsClient p2 = client.poems();
+            assertNotNull(p1);
+            assertSame(p1, p2);
+        }
+    }
+
+    @Test
     void translationsReturnsNonNullSameInstance() {
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")

@@ -16,6 +16,7 @@ import qa.fanar.core.chat.FinishReason;
 import qa.fanar.core.chat.ImageDetail;
 import qa.fanar.core.chat.Source;
 import qa.fanar.core.moderations.ModerationModel;
+import qa.fanar.core.poems.PoemModel;
 import qa.fanar.core.translations.LanguagePair;
 import qa.fanar.core.translations.TranslationModel;
 import qa.fanar.core.translations.TranslationPreprocessing;
@@ -46,6 +47,7 @@ final class WireValueModule {
         register(module, LanguagePair.class, LanguagePair::wireValue, LanguagePair::of);
         register(module, TranslationPreprocessing.class,
                 TranslationPreprocessing::wireValue, TranslationPreprocessing::of);
+        register(module, PoemModel.class, PoemModel::wireValue, PoemModel::of);
         return module;
     }
 

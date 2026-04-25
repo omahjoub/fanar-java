@@ -23,6 +23,9 @@ import qa.fanar.core.moderations.ModerationModel;
 import qa.fanar.core.moderations.SafetyFilterRequest;
 import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.models.ModelsResponse;
+import qa.fanar.core.poems.PoemGenerationRequest;
+import qa.fanar.core.poems.PoemGenerationResponse;
+import qa.fanar.core.poems.PoemModel;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.tokens.TokenizationRequest;
 import qa.fanar.core.tokens.TokenizationResponse;
@@ -220,6 +223,29 @@ class AdapterParityTest {
                 "TranslationResponse decoded by both adapters must be record-equal");
         assertEquals("req_1", decoded3.id());
         assertEquals("مرحبا", decoded3.text());
+    }
+
+    @Test
+    void poemGenerationRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        PoemGenerationRequest req = PoemGenerationRequest.of(
+                PoemModel.FANAR_DIWAN, "Write a poem about the sea");
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "PoemGenerationRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Diwan", shape3.get("model"));
+        assertEquals("Write a poem about the sea", shape3.get("prompt"));
+    }
+
+    @Test
+    void poemGenerationResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_1\",\"poem\":\"البحر يهدر بأمواجه\"}";
+        PoemGenerationResponse decoded2 = jackson2.decode(bytes(wire), PoemGenerationResponse.class);
+        PoemGenerationResponse decoded3 = jackson3.decode(bytes(wire), PoemGenerationResponse.class);
+        assertEquals(decoded2, decoded3,
+                "PoemGenerationResponse decoded by both adapters must be record-equal");
+        assertEquals("req_1", decoded3.id());
+        assertEquals("البحر يهدر بأمواجه", decoded3.poem());
     }
 
     @Test

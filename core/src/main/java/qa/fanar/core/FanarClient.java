@@ -16,12 +16,14 @@ import qa.fanar.core.chat.ChatClient;
 import qa.fanar.core.internal.chat.ChatClientImpl;
 import qa.fanar.core.internal.moderations.ModerationsClientImpl;
 import qa.fanar.core.internal.models.ModelsClientImpl;
+import qa.fanar.core.internal.poems.PoemsClientImpl;
 import qa.fanar.core.internal.tokens.TokensClientImpl;
 import qa.fanar.core.internal.translations.TranslationsClientImpl;
 import qa.fanar.core.internal.transport.DefaultHttpTransport;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.moderations.ModerationsClient;
 import qa.fanar.core.models.ModelsClient;
+import qa.fanar.core.poems.PoemsClient;
 import qa.fanar.core.tokens.TokensClient;
 import qa.fanar.core.translations.TranslationsClient;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -92,6 +94,7 @@ public final class FanarClient implements AutoCloseable {
     private final TokensClient tokensClient;
     private final ModerationsClient moderationsClient;
     private final TranslationsClient translationsClient;
+    private final PoemsClient poemsClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -187,6 +190,16 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.poemsClient = new PoemsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -240,6 +253,11 @@ public final class FanarClient implements AutoCloseable {
     /** Translations facade — translate text between supported language pairs. */
     public TranslationsClient translations() {
         return translationsClient;
+    }
+
+    /** Poems facade — generate poems from a natural-language prompt. */
+    public PoemsClient poems() {
+        return poemsClient;
     }
 
     /**
