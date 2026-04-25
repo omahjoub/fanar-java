@@ -19,6 +19,10 @@ import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
+import qa.fanar.core.images.ImageGenerationItem;
+import qa.fanar.core.images.ImageGenerationRequest;
+import qa.fanar.core.images.ImageGenerationResponse;
+import qa.fanar.core.images.ImageModel;
 import qa.fanar.core.moderations.ModerationModel;
 import qa.fanar.core.moderations.SafetyFilterRequest;
 import qa.fanar.core.moderations.SafetyFilterResponse;
@@ -246,6 +250,34 @@ class AdapterParityTest {
                 "PoemGenerationResponse decoded by both adapters must be record-equal");
         assertEquals("req_1", decoded3.id());
         assertEquals("البحر يهدر بأمواجه", decoded3.poem());
+    }
+
+    @Test
+    void imageGenerationRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        ImageGenerationRequest req = ImageGenerationRequest.of(
+                ImageModel.FANAR_ORYX_IG_2, "A futuristic cityscape at sunset");
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "ImageGenerationRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Oryx-IG-2", shape3.get("model"));
+        assertEquals("A futuristic cityscape at sunset", shape3.get("prompt"));
+    }
+
+    @Test
+    void imageGenerationResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        // Wire shape mirrors the spec: id, created, data[].b64_json (snake-case maps to b64Json).
+        String wire = "{\"id\":\"req_1\",\"created\":1700000000,"
+                + "\"data\":[{\"b64_json\":\"aGVsbG8=\"}]}";
+        ImageGenerationResponse decoded2 = jackson2.decode(bytes(wire), ImageGenerationResponse.class);
+        ImageGenerationResponse decoded3 = jackson3.decode(bytes(wire), ImageGenerationResponse.class);
+        assertEquals(decoded2, decoded3,
+                "ImageGenerationResponse decoded by both adapters must be record-equal");
+        assertEquals("req_1", decoded3.id());
+        assertEquals(1_700_000_000L, decoded3.created());
+        assertEquals(1, decoded3.data().size());
+        ImageGenerationItem item = decoded3.data().getFirst();
+        assertEquals("aGVsbG8=", item.b64Json());
     }
 
     @Test

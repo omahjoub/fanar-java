@@ -428,6 +428,21 @@ class FanarClientTest {
         }
     }
 
+    // --- Images facade ---------------------------------------------------------------------
+
+    @Test
+    void imagesReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.images.ImagesClient i1 = client.images();
+            qa.fanar.core.images.ImagesClient i2 = client.images();
+            assertNotNull(i1);
+            assertSame(i1, i2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test
