@@ -1,4 +1,4 @@
-package qa.fanar.e2e.shared;
+package qa.fanar.e2e;
 
 import java.time.Duration;
 import java.util.Optional;

@@ -12,15 +12,15 @@
     </parent>
 
     <artifactId>fanar-java-e2e</artifactId>
-    <packaging>pom</packaging>
+    <packaging>jar</packaging>
 
-    <name>Fanar Java :: E2E (aggregator)</name>
-    <description>End-to-end integration tests. Not published; activated via -Pe2e profile only.</description>
+    <name>Fanar Java :: E2E</name>
+    <description>End-to-end integration tests against the real Fanar API. One module per classpath island — Jackson 2 and Jackson 3 cohabit fine here because their package roots differ (com.fasterxml.jackson.* vs tools.jackson.*). Future framework adapters (Spring Boot 3/4, Quarkus, GraalVM native) live in sibling modules because they cannot share a classpath.</description>
 
     <!--
-      E2E modules never publish, never enforce core's code-quality gates. Integration tests
-      against the real Fanar API cost rate limits and require a FANAR_API_KEY. Default PR CI
-      skips this entire tree; the nightly job runs `./mvnw -Pe2e verify` with the key injected.
+      E2e never publishes, never runs JaCoCo, never enforces dependency analysis. Live tests
+      are gated by `@EnabledIfEnvironmentVariable("FANAR_API_KEY")` so PR CI without a key
+      skips them silently.
     -->
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
@@ -28,15 +28,62 @@
         <jacoco.skip>true</jacoco.skip>
     </properties>
 
-    <modules>
-        <module>shared</module>
-        <module>jackson2</module>
-        <module>jackson3</module>
-    </modules>
+    <dependencies>
+        <!-- The SDK and both codec adapters under live test. Test scope: this module has no
+             src/main, so compile-vs-test scope is academic; declaring `test` documents intent. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson2</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson3</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Jackson 2 and 3 are `provided` in their respective adapter modules; e2e runs need
+             concrete runtimes for both on the test classpath. AdapterParityTest decodes the
+             same wire bytes via both. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <build>
         <plugins>
-            <!-- Disable code-quality gates inherited from the root pom — e2e modules don't enforce them. -->
+            <!-- Disable code-quality gates inherited from the root pom — e2e is a test fixture, not a library. -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
