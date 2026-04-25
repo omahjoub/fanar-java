@@ -167,23 +167,27 @@ Two upstream gaps are documented rather than worked around: Fanar silently ignor
 `stop` parameter on chat completions, and the request schema does not accept user-defined
 tools — both captured in project memory and in test docstrings.
 
-**Phase 2 — broaden once the core is proven.**
+**Phase 2a — done.** Every remaining Fanar domain has a typed client, DTOs, offline tests,
+and a parameterized live test running across both codec adapters: `models`, `tokens`,
+`moderations`, `translations`, `poems`, `images`, and `audio` (voices CRUD + TTS speech +
+STT transcriptions, the latter as a sealed `text` / `srt` / `json` response). `FanarClient`
+exposes one accessor per domain (`client.audio()`, `.images()`, etc.). All upstream quirks
+discovered on the way are captured in project memory (Diwan 504s, audio voices auth
+gating, audio rate-limiting under chained TTS+STT) rather than papered over in tests.
+
+**Phase 2b — broaden once the core is proven.**
 
 1. **Nightly CI for live e2e** — one scheduled GitHub Actions job runs the live suite with
    `FANAR_API_KEY` injected as a secret; PR builds stay offline-only.
-2. **Remaining domains** — `audio` (TTS/STT), `images`, `translations`, `poems`,
-   `moderation`, `tokens`, `models`. Each adds its own DTOs under `qa.fanar.core.<domain>`
-   and an accessor on `FanarClient` (`client.audio()`, etc.); the e2e module gains a
-   parameterized live test per domain in lockstep with both codecs.
-3. **Framework adapter modules** — Spring Boot 3 / Spring Boot 4 / Quarkus / LangChain4j
+2. **Framework adapter modules** — Spring Boot 3 / Spring Boot 4 / Quarkus / LangChain4j
    smoke tests live under `e2e-spring-boot-3/`, `e2e-spring-boot-4/`, etc. — sibling Maven
    modules added only when classpath isolation forces it (e.g. Spring 6 vs 7, jakarta
    namespace conflicts, GraalVM native-image build).
-4. **`ObservabilityPlugin` implementations** — Micrometer adapter, OpenTelemetry adapter,
+3. **`ObservabilityPlugin` implementations** — Micrometer adapter, OpenTelemetry adapter,
    shipped as separate `obs-micrometer` / `obs-otel` modules (structurally parallel to the
    JSON adapters: `provided` scope, `ServiceLoader`-discoverable, zero runtime deps in
    core).
-5. **v0.1.0 release** — Maven Central publication pipeline, a full README, the SDK
+4. **v0.1.0 release** — Maven Central publication pipeline, a full README, the SDK
    versioning policy from ADR-019 flipped on, and the pre-1.0 stability guarantees from
    JLBP applied.
 
