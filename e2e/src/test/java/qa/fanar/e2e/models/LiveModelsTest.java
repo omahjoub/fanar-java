@@ -1,6 +1,7 @@
 package qa.fanar.e2e.models;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -63,6 +64,17 @@ class LiveModelsTest {
                                 + "\" but it isn't in /v1/models response. Either Fanar dropped "
                                 + "the model or the SDK's catalogue is stale.");
             }
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.1 listAsync().get() completes against live infra with the same shape")
+    void list_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            ModelsResponse r = client.models().listAsync().get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            assertFalse(r.models().isEmpty(), "expected at least one model");
         }
     }
 }

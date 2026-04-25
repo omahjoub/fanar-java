@@ -2,6 +2,7 @@ package qa.fanar.e2e.images;
 
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -83,6 +84,24 @@ class LiveImagesTest {
                         + e.getClass().getSimpleName() + " (endpoint requires extra access) — "
                         + e.getMessage());
             }
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.6 generateAsync().get() completes against live infra with a non-blank base64 image")
+    void generate_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            ImageGenerationResponse r = client.images().generateAsync(
+                    ImageGenerationRequest.of(
+                            ImageModel.FANAR_ORYX_IG_2,
+                            "A futuristic cityscape at sunset"))
+                    .get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            assertFalse(r.data().isEmpty(), "expected at least one image");
+            ImageGenerationItem item = r.data().getFirst();
+            assertNotNull(item.b64Json(), "b64Json must be present");
+            assertFalse(item.b64Json().isBlank(), "b64Json must not be blank");
         }
     }
 }

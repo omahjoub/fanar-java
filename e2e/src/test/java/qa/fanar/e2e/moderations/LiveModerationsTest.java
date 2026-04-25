@@ -1,5 +1,6 @@
 package qa.fanar.e2e.moderations;
 
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +57,24 @@ class LiveModerationsTest {
                     "cultural awareness score must be finite, got " + r.culturalAwareness());
             System.out.println("Live /v1/moderations: safety=" + r.safety()
                     + " culturalAwareness=" + r.culturalAwareness());
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.3 scoreAsync().get() completes against live infra with finite scores")
+    void score_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            SafetyFilterResponse r = client.moderations().scoreAsync(
+                    SafetyFilterRequest.of(
+                            ModerationModel.FANAR_GUARD_2,
+                            "What is the weather?",
+                            "The weather is sunny today."))
+                    .get(60, TimeUnit.SECONDS);
+            assertTrue(Double.isFinite(r.safety()),
+                    "safety score must be finite, got " + r.safety());
+            assertTrue(Double.isFinite(r.culturalAwareness()),
+                    "cultural awareness score must be finite, got " + r.culturalAwareness());
         }
     }
 }

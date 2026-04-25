@@ -1,5 +1,6 @@
 package qa.fanar.e2e.translations;
 
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -57,6 +58,23 @@ class LiveTranslationsTest {
             assertNotNull(r.text(), "translated text must be present");
             assertFalse(r.text().isBlank(), "translated text must not be blank");
             System.out.println("Live /v1/translations: " + r.text());
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.4 translateAsync().get() completes against live infra with non-blank text")
+    void translate_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            TranslationResponse r = client.translations().translateAsync(
+                    TranslationRequest.of(
+                            TranslationModel.FANAR_SHAHEEN_MT_1,
+                            "Hello, how are you?",
+                            LanguagePair.EN_AR))
+                    .get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            assertNotNull(r.text(), "translated text must be present");
+            assertFalse(r.text().isBlank(), "translated text must not be blank");
         }
     }
 }
