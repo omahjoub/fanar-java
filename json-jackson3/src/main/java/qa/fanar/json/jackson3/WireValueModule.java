@@ -14,6 +14,7 @@ import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.FinishReason;
 import qa.fanar.core.chat.ImageDetail;
 import qa.fanar.core.chat.Source;
+import qa.fanar.core.moderations.ModerationModel;
 
 /**
  * Registers (de)serializers for the chat-package value-class records that expose their wire
@@ -36,6 +37,7 @@ final class WireValueModule {
         register(module, FinishReason.class, FinishReason::wireValue, FinishReason::of);
         register(module, ImageDetail.class, ImageDetail::wireValue, ImageDetail::of);
         register(module, Source.class, Source::wireValue, Source::of);
+        register(module, ModerationModel.class, ModerationModel::wireValue, ModerationModel::of);
         return module;
     }
 

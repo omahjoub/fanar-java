@@ -14,10 +14,12 @@ import java.util.function.Supplier;
 
 import qa.fanar.core.chat.ChatClient;
 import qa.fanar.core.internal.chat.ChatClientImpl;
+import qa.fanar.core.internal.moderations.ModerationsClientImpl;
 import qa.fanar.core.internal.models.ModelsClientImpl;
 import qa.fanar.core.internal.tokens.TokensClientImpl;
 import qa.fanar.core.internal.transport.DefaultHttpTransport;
 import qa.fanar.core.internal.transport.HttpTransport;
+import qa.fanar.core.moderations.ModerationsClient;
 import qa.fanar.core.models.ModelsClient;
 import qa.fanar.core.tokens.TokensClient;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -86,6 +88,7 @@ public final class FanarClient implements AutoCloseable {
     private final ChatClient chatClient;
     private final ModelsClient modelsClient;
     private final TokensClient tokensClient;
+    private final ModerationsClient moderationsClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -161,6 +164,16 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.moderationsClient = new ModerationsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -204,6 +217,11 @@ public final class FanarClient implements AutoCloseable {
     /** Tokens facade — count tokens for a piece of content under a specific model. */
     public TokensClient tokens() {
         return tokensClient;
+    }
+
+    /** Moderations facade — score a prompt/response pair for safety + cultural awareness. */
+    public ModerationsClient moderations() {
+        return moderationsClient;
     }
 
     /**

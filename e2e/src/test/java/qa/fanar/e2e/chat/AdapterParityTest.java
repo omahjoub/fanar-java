@@ -19,6 +19,9 @@ import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
+import qa.fanar.core.moderations.ModerationModel;
+import qa.fanar.core.moderations.SafetyFilterRequest;
+import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.models.ModelsResponse;
 import qa.fanar.core.tokens.TokenizationRequest;
 import qa.fanar.core.tokens.TokenizationResponse;
@@ -147,6 +150,33 @@ class AdapterParityTest {
                 "TokenizationResponse decoded by both adapters must be record-equal");
         assertEquals(7, decoded3.tokens());
         assertEquals(4096, decoded3.maxRequestTokens());
+    }
+
+    @Test
+    void safetyFilterRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        SafetyFilterRequest req = SafetyFilterRequest.of(
+                ModerationModel.FANAR_GUARD_2, "ping", "pong");
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "SafetyFilterRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Guard-2", shape3.get("model"));
+        assertEquals("ping", shape3.get("prompt"));
+        assertEquals("pong", shape3.get("response"));
+    }
+
+    @Test
+    void safetyFilterResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        // Live server emits `id` even though the OpenAPI spec doesn't declare it; we capture
+        // it on the record for correlation/debugging.
+        String wire = "{\"safety\":0.95,\"cultural_awareness\":0.88,\"id\":\"req_xyz\"}";
+        SafetyFilterResponse decoded2 = jackson2.decode(bytes(wire), SafetyFilterResponse.class);
+        SafetyFilterResponse decoded3 = jackson3.decode(bytes(wire), SafetyFilterResponse.class);
+        assertEquals(decoded2, decoded3,
+                "SafetyFilterResponse decoded by both adapters must be record-equal");
+        assertEquals(0.95, decoded3.safety());
+        assertEquals(0.88, decoded3.culturalAwareness());
+        assertEquals("req_xyz", decoded3.id());
     }
 
     @Test

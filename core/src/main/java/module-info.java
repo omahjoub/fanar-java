@@ -17,13 +17,13 @@ module qa.fanar.core {
     exports qa.fanar.core.chat;
     exports qa.fanar.core.models;
     exports qa.fanar.core.tokens;
+    exports qa.fanar.core.moderations;
 
     // Additional exports added as remaining domain subpackages are populated:
     //   exports qa.fanar.core.audio;
     //   exports qa.fanar.core.images;
     //   exports qa.fanar.core.translations;
     //   exports qa.fanar.core.poems;
-    //   exports qa.fanar.core.moderation;
 
     // ServiceLoader contract: FanarClient discovers a FanarJsonCodec implementation at runtime
     // unless the caller passes one via FanarClient.Builder.jsonCodec(...). The two shipped

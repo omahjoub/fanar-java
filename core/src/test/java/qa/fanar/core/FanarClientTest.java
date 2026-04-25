@@ -385,6 +385,21 @@ class FanarClientTest {
         }
     }
 
+    // --- Moderations facade ----------------------------------------------------------------
+
+    @Test
+    void moderationsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.moderations.ModerationsClient m1 = client.moderations();
+            qa.fanar.core.moderations.ModerationsClient m2 = client.moderations();
+            assertNotNull(m1);
+            assertSame(m1, m2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test
