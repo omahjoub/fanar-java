@@ -20,6 +20,8 @@ import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.models.ModelsResponse;
+import qa.fanar.core.tokens.TokenizationRequest;
+import qa.fanar.core.tokens.TokenizationResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.e2e.CapturingInterceptor;
 import qa.fanar.e2e.Probes;
@@ -123,6 +125,28 @@ class AdapterParityTest {
         assertEquals("Al-Fatihah", call.arguments().get("query"));
         assertEquals("Found 4 references", call.result());
         assertFalse(call.isError());
+    }
+
+    @Test
+    void tokenizationRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        TokenizationRequest req = TokenizationRequest.of("hello", ChatModel.FANAR_S_1_7B);
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "TokenizationRequest must encode to the same JSON shape via both adapters");
+        assertEquals("hello", shape3.get("content"));
+        assertEquals("Fanar-S-1-7B", shape3.get("model"));
+    }
+
+    @Test
+    void tokenizationResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_1\",\"tokens\":7,\"max_request_tokens\":4096}";
+        TokenizationResponse decoded2 = jackson2.decode(bytes(wire), TokenizationResponse.class);
+        TokenizationResponse decoded3 = jackson3.decode(bytes(wire), TokenizationResponse.class);
+        assertEquals(decoded2, decoded3,
+                "TokenizationResponse decoded by both adapters must be record-equal");
+        assertEquals(7, decoded3.tokens());
+        assertEquals(4096, decoded3.maxRequestTokens());
     }
 
     @Test

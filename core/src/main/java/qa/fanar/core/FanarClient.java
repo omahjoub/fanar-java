@@ -15,9 +15,11 @@ import java.util.function.Supplier;
 import qa.fanar.core.chat.ChatClient;
 import qa.fanar.core.internal.chat.ChatClientImpl;
 import qa.fanar.core.internal.models.ModelsClientImpl;
+import qa.fanar.core.internal.tokens.TokensClientImpl;
 import qa.fanar.core.internal.transport.DefaultHttpTransport;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.models.ModelsClient;
+import qa.fanar.core.tokens.TokensClient;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
@@ -83,6 +85,7 @@ public final class FanarClient implements AutoCloseable {
     private final Map<String, String> defaultHeaders;
     private final ChatClient chatClient;
     private final ModelsClient modelsClient;
+    private final TokensClient tokensClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -148,6 +151,16 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.tokensClient = new TokensClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -186,6 +199,11 @@ public final class FanarClient implements AutoCloseable {
     /** Models facade — list available models for the configured API key. */
     public ModelsClient models() {
         return modelsClient;
+    }
+
+    /** Tokens facade — count tokens for a piece of content under a specific model. */
+    public TokensClient tokens() {
+        return tokensClient;
     }
 
     /**

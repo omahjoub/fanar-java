@@ -370,6 +370,21 @@ class FanarClientTest {
         }
     }
 
+    // --- Tokens facade ---------------------------------------------------------------------
+
+    @Test
+    void tokensReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.tokens.TokensClient t1 = client.tokens();
+            qa.fanar.core.tokens.TokensClient t2 = client.tokens();
+            assertNotNull(t1);
+            assertSame(t1, t2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test
