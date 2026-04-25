@@ -1,5 +1,6 @@
 package qa.fanar.e2e.images;
 
+import java.nio.file.Path;
 import java.util.Base64;
 import java.util.stream.Stream;
 
@@ -20,6 +21,7 @@ import qa.fanar.core.images.ImageGenerationRequest;
 import qa.fanar.core.images.ImageGenerationResponse;
 import qa.fanar.core.images.ImageModel;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.e2e.LiveOutputs;
 import qa.fanar.e2e.TestClients;
 import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
@@ -70,8 +72,10 @@ class LiveImagesTest {
 
                 // Soft validation: the body should round-trip through the JDK Base64 decoder.
                 byte[] decoded = Base64.getDecoder().decode(item.b64Json());
+                String ext = LiveOutputs.detectImageExtension(decoded);
+                Path file = LiveOutputs.write("image-output", "image-cityscape", ext, decoded);
                 System.out.println("Live /v1/images/generations: decoded " + decoded.length
-                        + " bytes (base64 length " + item.b64Json().length() + ")");
+                        + " bytes (base64 length " + item.b64Json().length() + ") → " + file);
             } catch (FanarAuthorizationException | FanarNotFoundException | FanarTimeoutException e) {
                 // Same lenient pattern as §M.5: SDK shape + typed-exception mapping is the
                 // signal we care about; an upstream access gap shouldn't fail the build.

@@ -12,8 +12,10 @@ import java.util.ServiceLoader;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import qa.fanar.core.audio.AudioClient;
 import qa.fanar.core.chat.ChatClient;
 import qa.fanar.core.images.ImagesClient;
+import qa.fanar.core.internal.audio.AudioClientImpl;
 import qa.fanar.core.internal.chat.ChatClientImpl;
 import qa.fanar.core.internal.images.ImagesClientImpl;
 import qa.fanar.core.internal.moderations.ModerationsClientImpl;
@@ -98,6 +100,7 @@ public final class FanarClient implements AutoCloseable {
     private final TranslationsClient translationsClient;
     private final PoemsClient poemsClient;
     private final ImagesClient imagesClient;
+    private final AudioClient audioClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -213,6 +216,16 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.audioClient = new AudioClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -276,6 +289,11 @@ public final class FanarClient implements AutoCloseable {
     /** Images facade — generate images from a natural-language prompt. */
     public ImagesClient images() {
         return imagesClient;
+    }
+
+    /** Audio facade — voice CRUD, TTS speech, STT transcription. */
+    public AudioClient audio() {
+        return audioClient;
     }
 
     /**

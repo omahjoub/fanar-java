@@ -13,6 +13,7 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
+import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
@@ -101,6 +102,7 @@ public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
         module.addDeserializer(ChoiceFinal.class, new ChoiceFinalDeserializer());
         module.addDeserializer(ChoiceError.class, new ChoiceErrorDeserializer());
         module.addDeserializer(ProgressChunk.class, new ProgressChunkDeserializer());
+        module.addDeserializer(SpeechToTextResponse.class, new SpeechToTextResponseDeserializer());
         return module;
     }
 

@@ -1,4 +1,4 @@
-package qa.fanar.e2e.chat;
+package qa.fanar.e2e;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -7,11 +7,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
-import qa.fanar.core.FanarClient;
+import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
@@ -38,23 +36,18 @@ import qa.fanar.core.translations.TranslationModel;
 import qa.fanar.core.translations.TranslationPreprocessing;
 import qa.fanar.core.translations.TranslationRequest;
 import qa.fanar.core.translations.TranslationResponse;
-import qa.fanar.e2e.CapturingInterceptor;
-import qa.fanar.e2e.Probes;
-import qa.fanar.e2e.TestClients;
 import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Adapter parity: any wire payload one adapter can encode or decode, the other must too,
- * with byte-equivalent JSON shape and {@code .equals()} record output.
+ * Adapter parity across every domain: any wire payload one adapter encodes or decodes, the
+ * other must too — same JSON shape on encode, record-equal output on decode.
  *
- * <p>The two offline tests prove the structural property: same input → same output. The third
- * (live) test is the critical insurance against server drift — it captures the actual bytes
- * Fanar returns for a real call and decodes the same bytes through both adapters. Catches
- * regressions the canned-wire offline test silently misses if the server ever adds a field,
- * renames one, or changes a type.</p>
+ * <p>Each test pins a canned wire payload synthesized from the OpenAPI spec; the suite is fully
+ * offline and exercises the structural property only. Server drift (renamed / added / retyped
+ * fields) is not caught here and must be picked up by the per-domain {@code Live*Test} classes.</p>
  */
 class AdapterParityTest {
 
@@ -281,6 +274,53 @@ class AdapterParityTest {
     }
 
     @Test
+    void speechToTextResponseTextVariantDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_1\",\"text\":\"hello world\"}";
+        SpeechToTextResponse decoded2 = jackson2.decode(bytes(wire), SpeechToTextResponse.class);
+        SpeechToTextResponse decoded3 = jackson3.decode(bytes(wire), SpeechToTextResponse.class);
+        assertEquals(decoded2, decoded3,
+                "SpeechToTextResponse.Text must decode identically via both adapters");
+        assertInstanceOf(SpeechToTextResponse.Text.class, decoded3);
+        SpeechToTextResponse.Text text = (SpeechToTextResponse.Text) decoded3;
+        assertEquals("req_1", text.id());
+        assertEquals("hello world", text.text());
+    }
+
+    @Test
+    void speechToTextResponseSrtVariantDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_2\",\"srt\":\"1\\n00:00:00,000 --> 00:00:01,000\\nhi\\n\"}";
+        SpeechToTextResponse decoded2 = jackson2.decode(bytes(wire), SpeechToTextResponse.class);
+        SpeechToTextResponse decoded3 = jackson3.decode(bytes(wire), SpeechToTextResponse.class);
+        assertEquals(decoded2, decoded3,
+                "SpeechToTextResponse.Srt must decode identically via both adapters");
+        assertInstanceOf(SpeechToTextResponse.Srt.class, decoded3);
+        SpeechToTextResponse.Srt srt = (SpeechToTextResponse.Srt) decoded3;
+        assertEquals("req_2", srt.id());
+        assertTrue(srt.srt().contains("hi"));
+    }
+
+    @Test
+    void speechToTextResponseJsonVariantDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_3\",\"json\":{\"segments\":["
+                + "{\"speaker\":\"speaker_0\",\"start_time\":0.0,\"end_time\":1.5,"
+                + "\"duration\":1.5,\"text\":\"hello\"}"
+                + "]}}";
+        SpeechToTextResponse decoded2 = jackson2.decode(bytes(wire), SpeechToTextResponse.class);
+        SpeechToTextResponse decoded3 = jackson3.decode(bytes(wire), SpeechToTextResponse.class);
+        assertEquals(decoded2, decoded3,
+                "SpeechToTextResponse.Json must decode identically via both adapters");
+        assertInstanceOf(SpeechToTextResponse.Json.class, decoded3);
+        SpeechToTextResponse.Json json = (SpeechToTextResponse.Json) decoded3;
+        assertEquals("req_3", json.id());
+        assertEquals(1, json.segments().size());
+        assertEquals("speaker_0", json.segments().getFirst().speaker());
+        assertEquals(0.0, json.segments().getFirst().startTime());
+        assertEquals(1.5, json.segments().getFirst().endTime());
+        assertEquals(1.5, json.segments().getFirst().duration());
+        assertEquals("hello", json.segments().getFirst().text());
+    }
+
+    @Test
     void modelsResponseDecodesIdenticallyAcrossAdapters() throws IOException {
         // A canned shape mirroring what the live /v1/models endpoint emits, including the
         // discriminator field "object" (always "model") that we keep for wire fidelity.
@@ -295,34 +335,6 @@ class AdapterParityTest {
                 "ModelsResponse decoded by both adapters must be record-equal");
         assertEquals(2, decoded3.models().size());
         assertEquals("fanar", decoded3.models().getFirst().ownedBy());
-    }
-
-    /**
-     * Live counterpart to the canned-wire test above: hit the real API once via Jackson 3,
-     * capture the raw response bytes through a {@link CapturingInterceptor}, and decode the
-     * same bytes via both adapters. If the server ever drifts (new field, renamed field, type
-     * change), this test fails before the divergence reaches downstream users.
-     */
-    @Test
-    @Tag("live")
-    @EnabledIfEnvironmentVariable(named = "FANAR_API_KEY", matches = ".+")
-    void liveResponseDecodesIdenticallyAcrossAdapters() throws IOException {
-        CapturingInterceptor capture = new CapturingInterceptor();
-        try (FanarClient client = FanarClient.builder()
-                .apiKey(TestClients.apiKey().orElseThrow())
-                .jsonCodec(jackson3)
-                .addInterceptor(capture)
-                .build()) {
-            client.chat().send(Probes.ping());
-        }
-
-        byte[] wire = capture.lastResponseBody();
-        assertNotNull(wire, "interceptor must have captured a response body");
-
-        ChatResponse decoded2 = jackson2.decode(new ByteArrayInputStream(wire), ChatResponse.class);
-        ChatResponse decoded3 = jackson3.decode(new ByteArrayInputStream(wire), ChatResponse.class);
-        assertEquals(decoded2, decoded3,
-                "Live wire response must decode identically via both adapters");
     }
 
     // --- helpers

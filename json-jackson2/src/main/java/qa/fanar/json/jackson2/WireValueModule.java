@@ -11,6 +11,12 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
+import qa.fanar.core.audio.QuranReciter;
+import qa.fanar.core.audio.SttFormat;
+import qa.fanar.core.audio.SttModel;
+import qa.fanar.core.audio.TtsModel;
+import qa.fanar.core.audio.TtsResponseFormat;
+import qa.fanar.core.audio.Voice;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.FinishReason;
 import qa.fanar.core.chat.ImageDetail;
@@ -50,6 +56,12 @@ final class WireValueModule {
                 TranslationPreprocessing::wireValue, TranslationPreprocessing::of);
         register(module, PoemModel.class, PoemModel::wireValue, PoemModel::of);
         register(module, ImageModel.class, ImageModel::wireValue, ImageModel::of);
+        register(module, TtsModel.class, TtsModel::wireValue, TtsModel::of);
+        register(module, TtsResponseFormat.class, TtsResponseFormat::wireValue, TtsResponseFormat::of);
+        register(module, QuranReciter.class, QuranReciter::wireValue, QuranReciter::of);
+        register(module, Voice.class, Voice::wireValue, Voice::of);
+        register(module, SttModel.class, SttModel::wireValue, SttModel::of);
+        register(module, SttFormat.class, SttFormat::wireValue, SttFormat::of);
         return module;
     }
 

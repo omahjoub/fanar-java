@@ -431,6 +431,19 @@ class FanarClientTest {
     // --- Images facade ---------------------------------------------------------------------
 
     @Test
+    void audioReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.audio.AudioClient a1 = client.audio();
+            qa.fanar.core.audio.AudioClient a2 = client.audio();
+            assertNotNull(a1);
+            assertSame(a1, a2);
+        }
+    }
+
+    @Test
     void imagesReturnsNonNullSameInstance() {
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")

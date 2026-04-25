@@ -11,11 +11,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
+import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatMessage;
-import qa.fanar.core.translations.TranslationRequest;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
 import qa.fanar.core.chat.ChoiceToken;
@@ -26,6 +26,7 @@ import qa.fanar.core.chat.ProgressChunk;
 import qa.fanar.core.chat.UserContentPart;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.core.translations.TranslationRequest;
 
 /**
  * Jackson 2 binding for {@link FanarJsonCodec}.
@@ -100,6 +101,7 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         module.addDeserializer(ChoiceFinal.class, new ChoiceFinalDeserializer());
         module.addDeserializer(ChoiceError.class, new ChoiceErrorDeserializer());
         module.addDeserializer(ProgressChunk.class, new ProgressChunkDeserializer());
+        module.addDeserializer(SpeechToTextResponse.class, new SpeechToTextResponseDeserializer());
         return module;
     }
 
