@@ -1,6 +1,7 @@
 package qa.fanar.e2e.audio;
 
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -87,6 +88,22 @@ class LiveAudioSpeechTest {
             Path file = LiveOutputs.write("audio-output", "speech-harry-wav", "wav", audio);
             System.out.println("Live /v1/audio/speech (wav): " + audio.length
                     + " bytes → " + file);
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.7b speechAsync().get() completes against live infra with MP3 audio bytes")
+    void speech_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            byte[] audio = client.audio().speechAsync(TextToSpeechRequest.of(
+                    TtsModel.FANAR_AURA_TTS_2, "يدعُونَ عنترَ والرّماحُ كأنّها", Voice.HAMAD))
+                    .get(60, TimeUnit.SECONDS);
+            assertNotNull(audio, "audio bytes must be present");
+            assertTrue(audio.length > 0, "audio must be non-empty");
+            assertTrue((audio[0] & 0xFF) == 0xFF && (audio[1] & 0xF0) == 0xF0,
+                    "expected MP3 frame sync 0xFF Fx, got "
+                            + String.format("0x%02x 0x%02x", audio[0] & 0xFF, audio[1] & 0xFF));
         }
     }
 }

@@ -1,5 +1,6 @@
 package qa.fanar.e2e.tokens;
 
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +53,19 @@ class LiveTokensTest {
                     "max_request_tokens must be positive, got " + r.maxRequestTokens());
             System.out.println("Live /v1/tokens: tokens=" + r.tokens()
                     + " maxRequestTokens=" + r.maxRequestTokens());
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.2 countAsync().get() completes against live infra with the same shape")
+    void count_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            TokenizationResponse r = client.tokens().countAsync(
+                    TokenizationRequest.of("Hello, how are you?", ChatModel.FANAR_S_1_7B))
+                    .get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            assertTrue(r.tokens() > 0, "expected at least one token, got " + r.tokens());
         }
     }
 }

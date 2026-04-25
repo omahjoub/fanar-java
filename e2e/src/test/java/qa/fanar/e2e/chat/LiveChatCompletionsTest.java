@@ -375,12 +375,29 @@ class LiveChatCompletionsTest {
     }
 
     // =====================================================================================
-    // §5 — Error mapping.
+    // §5 — Async path.
     // =====================================================================================
 
     @ParameterizedTest(name = "[{0}]")
     @MethodSource("codecs")
-    @DisplayName("§5.1 bogus API key → FanarAuthenticationException")
+    @DisplayName("§5.1 sendAsync().get() completes against live infra with the same response shape")
+    void async_sendCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = liveClient(codec)) {
+            ChatResponse r = client.chat().sendAsync(Probes.ping()).get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            ChatChoice choice = r.choices().getFirst();
+            assertEquals(FinishReason.STOP, choice.finishReason());
+            assertNotNull(textOf(r), "expected text content");
+        }
+    }
+
+    // =====================================================================================
+    // §6 — Error mapping.
+    // =====================================================================================
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§6.1 bogus API key → FanarAuthenticationException")
     void error_invalidApiKey(FanarJsonCodec codec) {
         try (FanarClient client = FanarClient.builder()
                 .apiKey("definitely-not-a-real-key")

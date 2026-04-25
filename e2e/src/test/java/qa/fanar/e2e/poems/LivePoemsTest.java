@@ -16,6 +16,7 @@ import qa.fanar.e2e.TestClients;
 import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
 
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -53,6 +54,21 @@ class LivePoemsTest {
             assertNotNull(r.poem(), "poem text must be present");
             assertFalse(r.poem().isBlank(), "poem text must not be blank");
             System.out.println("Live /v1/poems/generations: " + r.poem());
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.5 generateAsync().get() completes against live infra with non-blank poem")
+    void generate_asyncCompletesAgainstLiveInfra(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            PoemGenerationResponse r = client.poems().generateAsync(
+                    PoemGenerationRequest.of(PoemModel.FANAR_DIWAN,
+                            "Write a poem about the sea"))
+                    .get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            assertNotNull(r.poem(), "poem text must be present");
+            assertFalse(r.poem().isBlank(), "poem text must not be blank");
         }
     }
 }
