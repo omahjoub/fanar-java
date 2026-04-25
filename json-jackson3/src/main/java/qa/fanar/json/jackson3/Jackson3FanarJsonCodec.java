@@ -13,10 +13,12 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
+import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatMessage;
+import qa.fanar.core.translations.TranslationRequest;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
 import qa.fanar.core.chat.ChoiceToken;
@@ -81,6 +83,7 @@ public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
                 .addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class)
                 .addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class)
                 .addMixIn(BookName.class, BookNameMixIn.class)
+                .addMixIn(TranslationRequest.class, TranslationRequestMixIn.class)
                 .addModule(WireValueModule.create())
                 .addModule(fanarFlatteningModule());
     }
@@ -99,6 +102,7 @@ public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
         module.addDeserializer(ChoiceFinal.class, new ChoiceFinalDeserializer());
         module.addDeserializer(ChoiceError.class, new ChoiceErrorDeserializer());
         module.addDeserializer(ProgressChunk.class, new ProgressChunkDeserializer());
+        module.addDeserializer(SpeechToTextResponse.class, new SpeechToTextResponseDeserializer());
         return module;
     }
 

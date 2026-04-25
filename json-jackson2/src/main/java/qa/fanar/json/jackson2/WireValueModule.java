@@ -11,10 +11,22 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
+import qa.fanar.core.audio.QuranReciter;
+import qa.fanar.core.audio.SttFormat;
+import qa.fanar.core.audio.SttModel;
+import qa.fanar.core.audio.TtsModel;
+import qa.fanar.core.audio.TtsResponseFormat;
+import qa.fanar.core.audio.Voice;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.FinishReason;
 import qa.fanar.core.chat.ImageDetail;
 import qa.fanar.core.chat.Source;
+import qa.fanar.core.images.ImageModel;
+import qa.fanar.core.moderations.ModerationModel;
+import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.translations.LanguagePair;
+import qa.fanar.core.translations.TranslationModel;
+import qa.fanar.core.translations.TranslationPreprocessing;
 
 /**
  * Registers (de)serializers for the chat-package value-class records that expose their wire
@@ -37,6 +49,19 @@ final class WireValueModule {
         register(module, FinishReason.class, FinishReason::wireValue, FinishReason::of);
         register(module, ImageDetail.class, ImageDetail::wireValue, ImageDetail::of);
         register(module, Source.class, Source::wireValue, Source::of);
+        register(module, ModerationModel.class, ModerationModel::wireValue, ModerationModel::of);
+        register(module, TranslationModel.class, TranslationModel::wireValue, TranslationModel::of);
+        register(module, LanguagePair.class, LanguagePair::wireValue, LanguagePair::of);
+        register(module, TranslationPreprocessing.class,
+                TranslationPreprocessing::wireValue, TranslationPreprocessing::of);
+        register(module, PoemModel.class, PoemModel::wireValue, PoemModel::of);
+        register(module, ImageModel.class, ImageModel::wireValue, ImageModel::of);
+        register(module, TtsModel.class, TtsModel::wireValue, TtsModel::of);
+        register(module, TtsResponseFormat.class, TtsResponseFormat::wireValue, TtsResponseFormat::of);
+        register(module, QuranReciter.class, QuranReciter::wireValue, QuranReciter::of);
+        register(module, Voice.class, Voice::wireValue, Voice::of);
+        register(module, SttModel.class, SttModel::wireValue, SttModel::of);
+        register(module, SttFormat.class, SttFormat::wireValue, SttFormat::of);
         return module;
     }
 

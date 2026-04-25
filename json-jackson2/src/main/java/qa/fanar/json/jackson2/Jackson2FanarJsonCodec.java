@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
+import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
@@ -25,6 +26,7 @@ import qa.fanar.core.chat.ProgressChunk;
 import qa.fanar.core.chat.UserContentPart;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.core.translations.TranslationRequest;
 
 /**
  * Jackson 2 binding for {@link FanarJsonCodec}.
@@ -79,6 +81,7 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         mapper.addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class);
         mapper.addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class);
         mapper.addMixIn(BookName.class, BookNameMixIn.class);
+        mapper.addMixIn(TranslationRequest.class, TranslationRequestMixIn.class);
         mapper.registerModule(WireValueModule.create());
         mapper.registerModule(fanarFlatteningModule());
         return mapper;
@@ -98,6 +101,7 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         module.addDeserializer(ChoiceFinal.class, new ChoiceFinalDeserializer());
         module.addDeserializer(ChoiceError.class, new ChoiceErrorDeserializer());
         module.addDeserializer(ProgressChunk.class, new ProgressChunkDeserializer());
+        module.addDeserializer(SpeechToTextResponse.class, new SpeechToTextResponseDeserializer());
         return module;
     }
 

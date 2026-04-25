@@ -12,10 +12,24 @@ import java.util.ServiceLoader;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import qa.fanar.core.audio.AudioClient;
 import qa.fanar.core.chat.ChatClient;
+import qa.fanar.core.images.ImagesClient;
+import qa.fanar.core.internal.audio.AudioClientImpl;
 import qa.fanar.core.internal.chat.ChatClientImpl;
+import qa.fanar.core.internal.images.ImagesClientImpl;
+import qa.fanar.core.internal.moderations.ModerationsClientImpl;
+import qa.fanar.core.internal.models.ModelsClientImpl;
+import qa.fanar.core.internal.poems.PoemsClientImpl;
+import qa.fanar.core.internal.tokens.TokensClientImpl;
+import qa.fanar.core.internal.translations.TranslationsClientImpl;
 import qa.fanar.core.internal.transport.DefaultHttpTransport;
 import qa.fanar.core.internal.transport.HttpTransport;
+import qa.fanar.core.moderations.ModerationsClient;
+import qa.fanar.core.models.ModelsClient;
+import qa.fanar.core.poems.PoemsClient;
+import qa.fanar.core.tokens.TokensClient;
+import qa.fanar.core.translations.TranslationsClient;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
@@ -80,6 +94,13 @@ public final class FanarClient implements AutoCloseable {
     private final String userAgent;
     private final Map<String, String> defaultHeaders;
     private final ChatClient chatClient;
+    private final ModelsClient modelsClient;
+    private final TokensClient tokensClient;
+    private final ModerationsClient moderationsClient;
+    private final TranslationsClient translationsClient;
+    private final PoemsClient poemsClient;
+    private final ImagesClient imagesClient;
+    private final AudioClient audioClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -135,6 +156,76 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.modelsClient = new ModelsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
+        this.tokensClient = new TokensClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
+        this.moderationsClient = new ModerationsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
+        this.translationsClient = new TranslationsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
+        this.poemsClient = new PoemsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
+        this.imagesClient = new ImagesClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
+        this.audioClient = new AudioClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -168,6 +259,41 @@ public final class FanarClient implements AutoCloseable {
     /** Chat-completion facade. */
     public ChatClient chat() {
         return chatClient;
+    }
+
+    /** Models facade — list available models for the configured API key. */
+    public ModelsClient models() {
+        return modelsClient;
+    }
+
+    /** Tokens facade — count tokens for a piece of content under a specific model. */
+    public TokensClient tokens() {
+        return tokensClient;
+    }
+
+    /** Moderations facade — score a prompt/response pair for safety + cultural awareness. */
+    public ModerationsClient moderations() {
+        return moderationsClient;
+    }
+
+    /** Translations facade — translate text between supported language pairs. */
+    public TranslationsClient translations() {
+        return translationsClient;
+    }
+
+    /** Poems facade — generate poems from a natural-language prompt. */
+    public PoemsClient poems() {
+        return poemsClient;
+    }
+
+    /** Images facade — generate images from a natural-language prompt. */
+    public ImagesClient images() {
+        return imagesClient;
+    }
+
+    /** Audio facade — voice CRUD, TTS speech, STT transcription. */
+    public AudioClient audio() {
+        return audioClient;
     }
 
     /**

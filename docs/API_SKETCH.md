@@ -246,7 +246,7 @@ client.poems().generate(PoemRequest.of(PoemModel.FANAR_DIWAN, "Write a poem abou
 client.moderation().send(ModerationRequest.of(ModerationModel.FANAR_GUARD_2, "prompt", "response"));
 
 // Tokenization
-client.tokens().count(TokenizationRequest.of(ChatModel.FANAR_S_1_7B, "some text"));
+client.tokens().count(TokenizationRequest.of("some text", ChatModel.FANAR_S_1_7B));
 
 // Model listing
 List<AvailableModel> models = client.models().list();

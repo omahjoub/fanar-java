@@ -355,6 +355,107 @@ class FanarClientTest {
         }
     }
 
+    // --- Models facade ---------------------------------------------------------------------
+
+    @Test
+    void modelsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.models.ModelsClient m1 = client.models();
+            qa.fanar.core.models.ModelsClient m2 = client.models();
+            assertNotNull(m1);
+            assertSame(m1, m2);
+        }
+    }
+
+    // --- Tokens facade ---------------------------------------------------------------------
+
+    @Test
+    void tokensReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.tokens.TokensClient t1 = client.tokens();
+            qa.fanar.core.tokens.TokensClient t2 = client.tokens();
+            assertNotNull(t1);
+            assertSame(t1, t2);
+        }
+    }
+
+    // --- Moderations facade ----------------------------------------------------------------
+
+    @Test
+    void moderationsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.moderations.ModerationsClient m1 = client.moderations();
+            qa.fanar.core.moderations.ModerationsClient m2 = client.moderations();
+            assertNotNull(m1);
+            assertSame(m1, m2);
+        }
+    }
+
+    // --- Translations facade ---------------------------------------------------------------
+
+    @Test
+    void poemsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.poems.PoemsClient p1 = client.poems();
+            qa.fanar.core.poems.PoemsClient p2 = client.poems();
+            assertNotNull(p1);
+            assertSame(p1, p2);
+        }
+    }
+
+    @Test
+    void translationsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.translations.TranslationsClient t1 = client.translations();
+            qa.fanar.core.translations.TranslationsClient t2 = client.translations();
+            assertNotNull(t1);
+            assertSame(t1, t2);
+        }
+    }
+
+    // --- Images facade ---------------------------------------------------------------------
+
+    @Test
+    void audioReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.audio.AudioClient a1 = client.audio();
+            qa.fanar.core.audio.AudioClient a2 = client.audio();
+            assertNotNull(a1);
+            assertSame(a1, a2);
+        }
+    }
+
+    @Test
+    void imagesReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.images.ImagesClient i1 = client.images();
+            qa.fanar.core.images.ImagesClient i2 = client.images();
+            assertNotNull(i1);
+            assertSame(i1, i2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test
