@@ -114,6 +114,12 @@ System.out.println(response.choices().getFirst().message().content());
 
 Sync is the primary API (ADR-004). The call blocks, but on a virtual thread the block does not occupy a carrier thread.
 
+`ChatModel` (and the other Fanar-controlled identifiers — `Source`, `FinishReason`, `ImageDetail`, `ContentFilterType`, `BookName`) is an open value-class record. Use the named constants where possible; for any wire value the SDK doesn't yet ship a constant for, fall back to the permissive factory:
+
+```java
+.model(ChatModel.of("Fanar-D-3-50B"))   // works the day Fanar adds the model
+```
+
 ---
 
 ## 3. Async chat

@@ -1,32 +1,35 @@
 package qa.fanar.core.chat;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SourceTest {
 
-    @ParameterizedTest
-    @EnumSource(Source.class)
-    void wireValueRoundtrips(Source source) {
-        assertEquals(source, Source.fromWireValue(source.wireValue()));
+    @Test
+    void knownConstantsRoundtripThroughOf() {
+        for (Source s : Source.KNOWN) {
+            assertEquals(s, Source.of(s.wireValue()));
+        }
     }
 
     @Test
-    void fromWireValueThrowsOnUnknown() {
-        assertThrows(IllegalArgumentException.class, () -> Source.fromWireValue("unknown_source"));
+    void ofIsLenientOnUnknownValues() {
+        Source custom = Source.of("custom_corpus");
+        assertEquals("custom_corpus", custom.wireValue());
+        assertFalse(Source.KNOWN.contains(custom));
     }
 
     @Test
-    void fromWireValueThrowsOnNull() {
-        assertThrows(NullPointerException.class, () -> Source.fromWireValue(null));
+    void rejectsNullWireValue() {
+        assertThrows(NullPointerException.class, () -> new Source(null));
+        assertThrows(NullPointerException.class, () -> Source.of(null));
     }
 
     @Test
-    void twelveSourcesDefined() {
-        assertEquals(12, Source.values().length);
+    void knownContainsAllConstants() {
+        assertEquals(12, Source.KNOWN.size());
     }
 }

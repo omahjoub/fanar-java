@@ -403,7 +403,7 @@ class ChatClientImplTest {
     }
 
     private static ChatResponse chatResponse() {
-        ChatChoice choice = new ChatChoice(FinishReason.STOP, 0, new ChatMessage(null, null, null), null);
+        ChatChoice choice = new ChatChoice(FinishReason.STOP, 0, new ChatMessage(null, null, null), null, null);
         return new ChatResponse("c_1", List.of(choice), 0L, "Fanar", null, null);
     }
 

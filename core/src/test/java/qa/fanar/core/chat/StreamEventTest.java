@@ -117,7 +117,7 @@ class StreamEventTest {
 
     @Test
     void doneChunkWithUsageAndReferences() {
-        CompletionUsage usage = new CompletionUsage(10, 5, 15, null, null);
+        CompletionUsage usage = new CompletionUsage(10, 5, 15, null, null, null, null);
         Reference ref = new Reference(0, 1, "quran", "...");
         DoneChunk d = new DoneChunk("c_1", 1L, "Fanar-Sadiq",
                 List.of(new ChoiceFinal(0, "stop", List.of(ref))),

@@ -72,7 +72,13 @@ Response DTOs do not need builders — they are returned fully constructed from 
 
 - Required-field non-null enforced in the compact constructor and `Builder.build()`.
 - Obvious range violations caught at construction: `temperature ∈ [0.0, 2.0]`, `n ≥ 1`, `maxTokens ≥ 1`.
-- Enum values constrain what the user can pass (e.g., `ChatModel`, `QuranReciter`, `TTSVoice`).
+- Fanar-controlled identifiers (`ChatModel`, `Source`, `FinishReason`, `ImageDetail`,
+  `ContentFilterType`, `BookName`) are **open value-class records**, not closed enums:
+  each exposes named constants for known wire values plus a permissive `of(String)` factory
+  so callers are never blocked by SDK release cadence when the server adds a value. The
+  IDE-discoverable catalogue lives in the public `KNOWN` set on each type. Strictly-SDK
+  identifiers (`ErrorCode`, `JitterStrategy`) stay enums because their values map 1:1 to
+  exception subtypes / library behaviour and adding a new one is an SDK release event.
 - Semantic validation (model-specific constraints, Islamic-RAG rules, feature-gated flags) is Fanar's server's
   responsibility. We surface the server's rejection via the typed exception hierarchy (ADR-006).
 

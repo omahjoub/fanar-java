@@ -13,12 +13,19 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
+import qa.fanar.core.chat.AssistantContentPart;
+import qa.fanar.core.chat.AssistantMessage;
+import qa.fanar.core.chat.BookName;
+import qa.fanar.core.chat.ChatMessage;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
 import qa.fanar.core.chat.ChoiceToken;
 import qa.fanar.core.chat.ChoiceToolCall;
 import qa.fanar.core.chat.ChoiceToolResult;
+import qa.fanar.core.chat.Message;
 import qa.fanar.core.chat.ProgressChunk;
+import qa.fanar.core.chat.UserContentPart;
+import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
 
 /**
@@ -67,7 +74,14 @@ public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
                 .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
                 .changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_NULL))
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                .addModule(WireValueEnumModule.create())
+                .addMixIn(Message.class, MessageMixIn.class)
+                .addMixIn(UserMessage.class, MessageContentMixIns.UserMessageMixIn.class)
+                .addMixIn(AssistantMessage.class, MessageContentMixIns.AssistantMessageMixIn.class)
+                .addMixIn(ChatMessage.class, MessageContentMixIns.ChatMessageMixIn.class)
+                .addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class)
+                .addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class)
+                .addMixIn(BookName.class, BookNameMixIn.class)
+                .addModule(WireValueModule.create())
                 .addModule(fanarFlatteningModule());
     }
 

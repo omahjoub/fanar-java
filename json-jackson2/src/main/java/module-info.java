@@ -14,6 +14,11 @@ module qa.fanar.json.jackson2 {
 
     exports qa.fanar.json.jackson2;
 
+    // Databind uses reflection to instantiate our package-private serializers / deserializers
+    // via their no-arg constructors. The opens directive grants just databind the deep
+    // reflection access it needs, without exposing the types publicly.
+    opens qa.fanar.json.jackson2 to com.fasterxml.jackson.databind;
+
     provides qa.fanar.core.spi.FanarJsonCodec
             with qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 }

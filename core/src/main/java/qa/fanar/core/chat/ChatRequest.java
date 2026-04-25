@@ -59,7 +59,7 @@ public record ChatRequest(
         Integer promptLogprobs,
 
         // --- Fanar-Sadiq / Islamic RAG
-        List<String> bookNames,
+        List<BookName> bookNames,
         List<Source> preferredSources,
         List<Source> excludeSources,
         List<Source> filterSources,
@@ -182,7 +182,7 @@ public record ChatRequest(
         private Boolean spacesBetweenSpecialTokens;
         private Integer truncatePromptTokens;
         private Integer promptLogprobs;
-        private List<String> bookNames;
+        private List<BookName> bookNames;
         private List<Source> preferredSources;
         private List<Source> excludeSources;
         private List<Source> filterSources;
@@ -239,7 +239,7 @@ public record ChatRequest(
         public Builder truncatePromptTokens(Integer truncatePromptTokens) { this.truncatePromptTokens = truncatePromptTokens; return this; }
         public Builder promptLogprobs(Integer promptLogprobs) { this.promptLogprobs = promptLogprobs; return this; }
 
-        public Builder bookNames(List<String> bookNames) { this.bookNames = bookNames; return this; }
+        public Builder bookNames(List<BookName> bookNames) { this.bookNames = bookNames; return this; }
         public Builder preferredSources(List<Source> preferredSources) { this.preferredSources = preferredSources; return this; }
         public Builder excludeSources(List<Source> excludeSources) { this.excludeSources = excludeSources; return this; }
         public Builder filterSources(List<Source> filterSources) { this.filterSources = filterSources; return this; }

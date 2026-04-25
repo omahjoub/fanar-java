@@ -1,6 +1,6 @@
 # Project state
 
-> **Snapshot — 2026-04-24.** Updated when the project crosses a milestone. If this file looks wrong or stale,
+> **Snapshot — 2026-04-25.** Updated when the project crosses a milestone. If this file looks wrong or stale,
 > that is the most important signal — update it in the same PR as whatever moved.
 
 ## Phase
@@ -118,6 +118,38 @@ The shape of the SDK is fully captured in:
 - **Quality gates on `fanar-core`** — JaCoCo `check` enforces 100 % on instruction / line / branch / method /
   complexity; `dependency:analyze` fails on undeclared or unused direct deps; Javadoc doclint runs at javac time.
   Adapter modules stay in skeleton mode (`jacoco.skip=true`) until they carry real code.
+- **`fanar-java-e2e` — live battle-test module** — single Maven module (one classpath island
+  per Jackson 2 + Jackson 3) auto-detected by IDEs, never published, JaCoCo and
+  `dependency:analyze` disabled. Test infrastructure (`Probes`, `TestClients`,
+  `LoggingInterceptor`, `CapturingInterceptor`) and the live suite live entirely under
+  `src/test`. `LiveChatCompletionsTest` is parameterized over both codecs (19 cases × 2 codecs
+  = 38 live calls covering the five non-vision models, multi-turn / thinking / Sadiq RAG
+  conversation shapes including a typed-`BookName` constraint, sampling determinism / `n` /
+  stop / logprobs, streaming token sequence / sync-vs-stream parity / Sadiq progress chunks /
+  Sadiq tool-call telemetry / cancel, and 401 error mapping). `AdapterParityTest` adds three
+  offline parity checks plus one live parity check that captures real wire bytes via a
+  `CapturingInterceptor` and decodes them through both adapters. Future framework adapters
+  (Spring Boot 3 / 4, Quarkus, GraalVM, LangChain4j) will live in sibling modules — splitting
+  only when classpath isolation forces it, never per-adapter for cosmetic reasons.
+- **Core hardening — wire-format findings folded into the records** — three additions
+  surfaced from the live battle-test, none documented in the OpenAPI spec but consistently
+  emitted by the real server:
+  - `ChatChoice.stopReason` (nullable `String`) — captures Fanar's `<end_of_turn>`-style raw
+    stop token alongside the normalized `FinishReason`.
+  - `CompletionUsage.successfulRequests` + `totalCost` — Sadiq-only retrieval-pipeline
+    accounting, both nullable on non-Sadiq responses.
+- **Open value-class records for Fanar-controlled identifiers** — `ChatModel`, `Source`,
+  `FinishReason`, `ImageDetail`, `ContentFilterType`, and `BookName` are all
+  `record(String wireValue)` value classes with public constants for known wire values plus a
+  permissive `of(String)` factory. Consumers are never blocked by SDK release cadence: when
+  Fanar adds a model, source, finish reason, or book, callers reach it via `of(...)` the same
+  day, and unknown response values decode without failing. Each type exposes a `KNOWN`
+  `Set<...>` of bundled constants for IDE autocomplete and catalogue iteration. `BookName`
+  carries 572 inline `KNOWN` entries from `BookNamesEnum` — no resource file. `ErrorCode`
+  and `JitterStrategy` stay enums because their values map 1:1 to exception subtypes /
+  library behaviour and adding a new one is genuinely an SDK release event. Both adapters
+  share a generic `WireValueModule` (renamed from `WireValueEnumModule`) that registers
+  (de)serializers via `wireValue()` / `of(String)`.
 - **Library-first dependency hygiene** — the reactor parent no longer imports Spring Boot's BOM; versions come
   from `junit-bom` (tests) and explicit pins. No implicit transitives from framework BOMs.
 - **CI** — build matrix (Java 21 and 25), link-check for every doc, dependency hygiene gates via `mvn verify`,
@@ -127,12 +159,33 @@ The shape of the SDK is fully captured in:
 
 ## What's next
 
-In the order we plan to tackle them — each one its own focused PR:
+**Phase 1 — done.** The `fanar-java-e2e` module is in place, the chat surface has been
+exercised end-to-end against the real Fanar API across both codec adapters, and every
+wire-format quirk the live tests surfaced has been folded back into the records (see
+`ChatChoice.stopReason`, `CompletionUsage.successfulRequests` / `totalCost`, `BookName`).
+Two upstream gaps are documented rather than worked around: Fanar silently ignores the
+`stop` parameter on chat completions, and the request schema does not accept user-defined
+tools — both captured in project memory and in test docstrings.
 
-1. **GraalVM native-image smoke test** in CI (ADR-009) — a minimal consumer project that
-   builds a native image against `fanar-core` + one of the JSON adapters and exercises a
-   round-trip through `FanarClient` against a canned local server. Validates that the
-   reachability metadata we ship is actually sufficient.
+**Phase 2 — broaden once the core is proven.**
+
+1. **Nightly CI for live e2e** — one scheduled GitHub Actions job runs the live suite with
+   `FANAR_API_KEY` injected as a secret; PR builds stay offline-only.
+2. **Remaining domains** — `audio` (TTS/STT), `images`, `translations`, `poems`,
+   `moderation`, `tokens`, `models`. Each adds its own DTOs under `qa.fanar.core.<domain>`
+   and an accessor on `FanarClient` (`client.audio()`, etc.); the e2e module gains a
+   parameterized live test per domain in lockstep with both codecs.
+3. **Framework adapter modules** — Spring Boot 3 / Spring Boot 4 / Quarkus / LangChain4j
+   smoke tests live under `e2e-spring-boot-3/`, `e2e-spring-boot-4/`, etc. — sibling Maven
+   modules added only when classpath isolation forces it (e.g. Spring 6 vs 7, jakarta
+   namespace conflicts, GraalVM native-image build).
+4. **`ObservabilityPlugin` implementations** — Micrometer adapter, OpenTelemetry adapter,
+   shipped as separate `obs-micrometer` / `obs-otel` modules (structurally parallel to the
+   JSON adapters: `provided` scope, `ServiceLoader`-discoverable, zero runtime deps in
+   core).
+5. **v0.1.0 release** — Maven Central publication pipeline, a full README, the SDK
+   versioning policy from ADR-019 flipped on, and the pre-1.0 stability guarantees from
+   JLBP applied.
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 

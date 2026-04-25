@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ChatResponseTest {
 
     private static ChatChoice choice() {
-        return new ChatChoice(FinishReason.STOP, 0, new ChatMessage(null, null, null), null);
+        return new ChatChoice(FinishReason.STOP, 0, new ChatMessage(null, null, null), null, null);
     }
 
     @Test
@@ -26,7 +26,7 @@ class ChatResponseTest {
                 List.of(choice()),
                 1_700_000_000L,
                 "Fanar-S-1-7B",
-                new CompletionUsage(10, 5, 15, null, null),
+                new CompletionUsage(10, 5, 15, null, null, null, null),
                 Map.of("trace", "xyz"));
         assertEquals("chat_abc", r.id());
         assertEquals(1, r.choices().size());

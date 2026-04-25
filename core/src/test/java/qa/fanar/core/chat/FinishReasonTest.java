@@ -1,32 +1,35 @@
 package qa.fanar.core.chat;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FinishReasonTest {
 
-    @ParameterizedTest
-    @EnumSource(FinishReason.class)
-    void wireValueRoundtrips(FinishReason fr) {
-        assertEquals(fr, FinishReason.fromWireValue(fr.wireValue()));
+    @Test
+    void knownConstantsRoundtripThroughOf() {
+        for (FinishReason fr : FinishReason.KNOWN) {
+            assertEquals(fr, FinishReason.of(fr.wireValue()));
+        }
     }
 
     @Test
-    void fromWireValueThrowsOnUnknown() {
-        assertThrows(IllegalArgumentException.class, () -> FinishReason.fromWireValue("unknown"));
+    void ofIsLenientOnUnknownValues() {
+        FinishReason custom = FinishReason.of("partial");
+        assertEquals("partial", custom.wireValue());
+        assertFalse(FinishReason.KNOWN.contains(custom));
     }
 
     @Test
-    void fromWireValueThrowsOnNull() {
-        assertThrows(NullPointerException.class, () -> FinishReason.fromWireValue(null));
+    void rejectsNullWireValue() {
+        assertThrows(NullPointerException.class, () -> new FinishReason(null));
+        assertThrows(NullPointerException.class, () -> FinishReason.of(null));
     }
 
     @Test
-    void fiveReasonsDefined() {
-        assertEquals(5, FinishReason.values().length);
+    void knownContainsAllConstants() {
+        assertEquals(5, FinishReason.KNOWN.size());
     }
 }

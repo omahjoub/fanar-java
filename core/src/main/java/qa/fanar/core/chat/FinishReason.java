@@ -1,58 +1,48 @@
 package qa.fanar.core.chat;
 
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Reason the model stopped generating for a given {@link ChatChoice}.
  *
- * <p>Mirrors the {@code finish_reason} enum in the Fanar OpenAPI spec. Wire values are the
- * lowercase strings Fanar sends on the wire; roundtrip via {@link #wireValue()} and
- * {@link #fromWireValue(String)}.</p>
+ * <p>Mirrors the {@code finish_reason} schema in the Fanar OpenAPI spec — but open: if Fanar
+ * ever adds a new reason ({@code "safety"}, {@code "partial"}, …) the SDK will decode it
+ * gracefully into a {@code FinishReason} carrying the new wire string instead of failing.
+ * {@link #KNOWN} is the snapshot bundled with this build.</p>
+ *
+ * @param wireValue the exact string Fanar emits on the wire
  */
-public enum FinishReason {
+public record FinishReason(String wireValue) {
 
     /** Natural end — the model finished its turn. */
-    STOP("stop"),
+    public static final FinishReason STOP            = new FinishReason("stop");
 
     /** Generation was cut short by {@code maxTokens}. */
-    LENGTH("length"),
+    public static final FinishReason LENGTH          = new FinishReason("length");
 
     /** Model invoked one or more tools; see {@link ChatMessage#toolCalls()}. */
-    TOOL_CALLS("tool_calls"),
+    public static final FinishReason TOOL_CALLS      = new FinishReason("tool_calls");
 
     /** Fanar's content-filter layer blocked the response. */
-    CONTENT_FILTER("content_filter"),
+    public static final FinishReason CONTENT_FILTER  = new FinishReason("content_filter");
 
     /**
      * Legacy finish reason from the OpenAI function-calling era. Retained for wire compatibility
      * but Fanar does not currently emit this value.
      */
-    FUNCTION_CALL("function_call");
+    public static final FinishReason FUNCTION_CALL   = new FinishReason("function_call");
 
-    private final String wireValue;
+    /** Snapshot of the SDK's bundled constants. */
+    public static final Set<FinishReason> KNOWN = Set.of(
+            STOP, LENGTH, TOOL_CALLS, CONTENT_FILTER, FUNCTION_CALL);
 
-    FinishReason(String wireValue) {
-        this.wireValue = wireValue;
+    public FinishReason {
+        Objects.requireNonNull(wireValue, "wireValue");
     }
 
-    /** The exact string Fanar uses on the wire. */
-    public String wireValue() {
-        return wireValue;
-    }
-
-    /**
-     * Look up an enum value by its wire format.
-     *
-     * @throws IllegalArgumentException if no enum value matches
-     * @throws NullPointerException     if {@code value} is {@code null}
-     */
-    public static FinishReason fromWireValue(String value) {
-        Objects.requireNonNull(value, "value");
-        for (FinishReason fr : values()) {
-            if (fr.wireValue.equals(value)) {
-                return fr;
-            }
-        }
-        throw new IllegalArgumentException("Unknown FinishReason wire value: " + value);
+    /** Equivalent to {@code new FinishReason(wireValue)}; provided for API symmetry with other types. */
+    public static FinishReason of(String wireValue) {
+        return new FinishReason(wireValue);
     }
 }

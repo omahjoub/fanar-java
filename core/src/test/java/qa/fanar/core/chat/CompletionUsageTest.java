@@ -9,21 +9,30 @@ class CompletionUsageTest {
 
     @Test
     void minimalUsage() {
-        CompletionUsage u = new CompletionUsage(10, 5, 15, null, null);
+        CompletionUsage u = new CompletionUsage(10, 5, 15, null, null, null, null);
         assertEquals(10, u.completionTokens());
         assertEquals(5, u.promptTokens());
         assertEquals(15, u.totalTokens());
         assertNull(u.completionTokensDetails());
         assertNull(u.promptTokensDetails());
+        assertNull(u.successfulRequests());
+        assertNull(u.totalCost());
     }
 
     @Test
     void usageWithDetails() {
         CompletionTokensDetails cd = new CompletionTokensDetails(null, null, 42, null);
         PromptTokensDetails pd = new PromptTokensDetails(null, 100);
-        CompletionUsage u = new CompletionUsage(10, 5, 15, cd, pd);
+        CompletionUsage u = new CompletionUsage(10, 5, 15, cd, pd, null, null);
         assertEquals(42, u.completionTokensDetails().reasoningTokens());
         assertEquals(100, u.promptTokensDetails().cachedTokens());
+    }
+
+    @Test
+    void usageWithSadiqAccounting() {
+        CompletionUsage u = new CompletionUsage(168, 7671, 7839, null, null, 1, 0.0);
+        assertEquals(1, u.successfulRequests());
+        assertEquals(0.0, u.totalCost());
     }
 
     @Test

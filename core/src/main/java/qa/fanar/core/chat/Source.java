@@ -1,79 +1,68 @@
 package qa.fanar.core.chat;
 
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Source corpora used by the Islamic RAG model ({@code Fanar-Sadiq}).
  *
- * <p>Mirrors the {@code SourcesEnum} in the Fanar OpenAPI spec. Used on {@code ChatRequest} fields
- * such as {@code preferred_sources}, {@code exclude_sources}, and {@code filter_sources} (modelled
- * in a later PR), and appears on {@code ChatResponse} references to identify where an answer was
- * drawn from.</p>
+ * <p>Mirrors the {@code SourcesEnum} in the Fanar OpenAPI spec — but open: if Fanar adds a new
+ * corpus, callers can target it via {@link #of(String)} without waiting for an SDK release.
+ * Used on {@code ChatRequest} fields like {@code preferred_sources}, {@code exclude_sources},
+ * and {@code filter_sources}, and appears on response references to identify where an answer
+ * was drawn from.</p>
+ *
+ * @param wireValue the exact string Fanar uses on the wire for this source
  */
-public enum Source {
+public record Source(String wireValue) {
 
     /** islamqa.info — fatwa and Q&amp;A archive. */
-    ISLAM_QA("islam_qa"),
+    public static final Source ISLAM_QA          = new Source("islam_qa");
 
     /** islamweb.net — general Islamic content. */
-    ISLAMWEB("islamweb"),
+    public static final Source ISLAMWEB          = new Source("islamweb");
 
     /** islamweb.net fatwa section. */
-    ISLAMWEB_FATWA("islamweb_fatwa"),
+    public static final Source ISLAMWEB_FATWA    = new Source("islamweb_fatwa");
 
     /** islamweb.net consultation section. */
-    ISLAMWEB_CONSULT("islamweb_consult"),
+    public static final Source ISLAMWEB_CONSULT  = new Source("islamweb_consult");
 
     /** islamweb.net article section. */
-    ISLAMWEB_ARTICLE("islamweb_article"),
+    public static final Source ISLAMWEB_ARTICLE  = new Source("islamweb_article");
 
     /** islamweb.net library section. */
-    ISLAMWEB_LIBRARY("islamweb_library"),
+    public static final Source ISLAMWEB_LIBRARY  = new Source("islamweb_library");
 
     /** sunnah.com — Hadith collections. */
-    SUNNAH("sunnah"),
+    public static final Source SUNNAH            = new Source("sunnah");
 
     /** The Qur'an. */
-    QURAN("quran"),
+    public static final Source QURAN             = new Source("quran");
 
     /** Tafsir — Qur'anic exegesis works. */
-    TAFSIR("tafsir"),
+    public static final Source TAFSIR            = new Source("tafsir");
 
     /** dorar.net — Hadith authentication and Islamic knowledge. */
-    DORAR("dorar"),
+    public static final Source DORAR             = new Source("dorar");
 
     /** islamonline.net. */
-    ISLAMONLINE("islamonline"),
+    public static final Source ISLAMONLINE       = new Source("islamonline");
 
     /** al-Maktaba al-Shamela digital library. */
-    SHAMELA("shamela");
+    public static final Source SHAMELA           = new Source("shamela");
 
-    private final String wireValue;
+    /** Snapshot of the SDK's bundled constants. */
+    public static final Set<Source> KNOWN = Set.of(
+            ISLAM_QA, ISLAMWEB, ISLAMWEB_FATWA, ISLAMWEB_CONSULT, ISLAMWEB_ARTICLE,
+            ISLAMWEB_LIBRARY, SUNNAH, QURAN, TAFSIR, DORAR, ISLAMONLINE, SHAMELA);
 
-    Source(String wireValue) {
-        this.wireValue = wireValue;
+    public Source {
+        Objects.requireNonNull(wireValue, "wireValue");
     }
 
-    /** The exact string Fanar uses on the wire for this source. */
-    public String wireValue() {
-        return wireValue;
-    }
-
-    /**
-     * Look up an enum value by its wire format.
-     *
-     * @param value the wire-format string; must not be {@code null}
-     * @return the matching enum value
-     * @throws IllegalArgumentException if no enum value matches
-     * @throws NullPointerException     if {@code value} is {@code null}
-     */
-    public static Source fromWireValue(String value) {
-        Objects.requireNonNull(value, "value");
-        for (Source source : values()) {
-            if (source.wireValue.equals(value)) {
-                return source;
-            }
-        }
-        throw new IllegalArgumentException("Unknown Source wire value: " + value);
+    /** Equivalent to {@code new Source(wireValue)}; provided for API symmetry with other types. */
+    public static Source of(String wireValue) {
+        return new Source(wireValue);
     }
 }
