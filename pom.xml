@@ -33,6 +33,14 @@
         <module>json-jackson2</module>
         <module>json-jackson3</module>
         <module>bom</module>
+        <!--
+          `e2e` is part of the reactor so IDEs auto-detect it. It adds ~1 second to
+          `./mvnw verify`. Its pom.xml disables publication (`maven.deploy.skip=true`) and
+          every quality gate core enforces, and the live integration tests inside it are
+          annotated `@EnabledIfEnvironmentVariable("FANAR_API_KEY")` so they skip silently
+          on any machine without a key — including PR CI.
+        -->
+        <module>e2e</module>
     </modules>
 
     <dependencyManagement>

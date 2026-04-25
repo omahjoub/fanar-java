@@ -123,6 +123,94 @@ class Jackson3FanarJsonCodecTest {
     }
 
     @Test
+    void singleTextUserMessageCollapsesToStringContent() throws IOException {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        String json = encode(codec, qa.fanar.core.chat.UserMessage.of("ping"));
+        assertTrue(json.contains("\"content\":\"ping\""),
+                "single TextPart must collapse to a plain string: " + json);
+        assertFalse(json.contains("\"type\":\"text\""),
+                "collapsed content must NOT emit a content-part type: " + json);
+    }
+
+    @Test
+    void singleNonTextUserMessageDoesNotCollapse() throws IOException {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        java.util.List<qa.fanar.core.chat.UserContentPart> parts = java.util.List.of(
+                new qa.fanar.core.chat.ImagePart("https://example.com/x.png", null));
+        String json = encode(codec, new qa.fanar.core.chat.UserMessage(parts, null));
+        assertTrue(json.contains("\"content\":["),
+                "single non-text content must still be an array: " + json);
+        assertTrue(json.contains("\"type\":\"image_url\""),
+                "content part type must be present: " + json);
+    }
+
+    @Test
+    void multiPartUserMessageEmitsTypedArray() throws IOException {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        java.util.List<qa.fanar.core.chat.UserContentPart> parts = java.util.List.of(
+                new qa.fanar.core.chat.TextPart("a"),
+                new qa.fanar.core.chat.TextPart("b"));
+        String json = encode(codec, new qa.fanar.core.chat.UserMessage(parts, null));
+        assertTrue(json.contains("\"content\":["), "multi-part content must be an array: " + json);
+        assertTrue(json.contains("\"type\":\"text\""), "elements must carry type: " + json);
+    }
+
+    @Test
+    void encodesEachMessageSubtypeWithRoleDiscriminator() throws IOException {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        assertTrue(encode(codec, qa.fanar.core.chat.SystemMessage.of("sys")).contains("\"role\":\"system\""));
+        assertTrue(encode(codec, qa.fanar.core.chat.UserMessage.of("hi")).contains("\"role\":\"user\""));
+        assertTrue(encode(codec, qa.fanar.core.chat.AssistantMessage.of("ok")).contains("\"role\":\"assistant\""));
+        assertTrue(encode(codec, qa.fanar.core.chat.ThinkingMessage.of("t"))
+                .contains("\"role\":\"thinking\""));
+        assertTrue(encode(codec, new qa.fanar.core.chat.ThinkingUserMessage("t"))
+                .contains("\"role\":\"thinking_user\""));
+    }
+
+    @Test
+    void decodesStringContentAsSingleTextContent() throws IOException {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        String wire = "{\"id\":\"c\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"
+                + "\"message\":{\"content\":\"pong\",\"role\":\"assistant\"}}],"
+                + "\"created\":0,\"model\":\"Fanar\"}";
+        ChatResponse resp = codec.decode(bytes(wire), ChatResponse.class);
+        java.util.List<qa.fanar.core.chat.ResponseContent> content =
+                resp.choices().getFirst().message().content();
+        assertEquals(1, content.size());
+        assertEquals("pong", ((qa.fanar.core.chat.TextContent) content.getFirst()).text());
+    }
+
+    @Test
+    void decodesEmptyArrayContentAsEmptyList() throws IOException {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        String wire = "{\"id\":\"c\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"
+                + "\"message\":{\"content\":[],\"role\":\"assistant\"}}],"
+                + "\"created\":0,\"model\":\"Fanar\"}";
+        ChatResponse resp = codec.decode(bytes(wire), ChatResponse.class);
+        assertTrue(resp.choices().getFirst().message().content().isEmpty());
+    }
+
+    @Test
+    void decodeRejectsNonEmptyArrayContentForNow() {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        String wire = "{\"id\":\"c\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"
+                + "\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"x\"}],\"role\":\"assistant\"}}],"
+                + "\"created\":0,\"model\":\"Fanar\"}";
+        // Multi-part response content needs a ResponseContent type-info mix-in that we
+        // haven't shipped yet — surface the gap loudly until then.
+        assertThrows(IOException.class, () -> codec.decode(bytes(wire), ChatResponse.class));
+    }
+
+    @Test
+    void decodeRejectsNonStringNonArrayContent() {
+        Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
+        String wire = "{\"id\":\"c\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"
+                + "\"message\":{\"content\":42,\"role\":\"assistant\"}}],"
+                + "\"created\":0,\"model\":\"Fanar\"}";
+        assertThrows(IOException.class, () -> codec.decode(bytes(wire), ChatResponse.class));
+    }
+
+    @Test
     void classpathServiceDescriptorPointsAtThisCodec() throws IOException {
         // Classpath users (non-modular) rely on META-INF/services. Verify the file is shipped
         // and names this codec. Module-path users get discovery via `provides ... with ...`.

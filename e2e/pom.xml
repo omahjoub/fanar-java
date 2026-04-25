@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-java-e2e</artifactId>
+    <packaging>pom</packaging>
+
+    <name>Fanar Java :: E2E (aggregator)</name>
+    <description>End-to-end integration tests. Not published; activated via -Pe2e profile only.</description>
+
+    <!--
+      E2E modules never publish, never enforce core's code-quality gates. Integration tests
+      against the real Fanar API cost rate limits and require a FANAR_API_KEY. Default PR CI
+      skips this entire tree; the nightly job runs `./mvnw -Pe2e verify` with the key injected.
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+        <jacoco.skip>true</jacoco.skip>
+    </properties>
+
+    <modules>
+        <module>shared</module>
+        <module>jackson2</module>
+        <module>jackson3</module>
+    </modules>
+
+    <build>
+        <plugins>
+            <!-- Disable code-quality gates inherited from the root pom — e2e modules don't enforce them. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

@@ -127,12 +127,46 @@ The shape of the SDK is fully captured in:
 
 ## What's next
 
-In the order we plan to tackle them — each one its own focused PR:
+The unit-test and quality-gate story is in place — further work shifts to real-world
+validation before we broaden the SDK's surface area. The roadmap below treats the existing
+chat+streaming+retries+observability stack as the "known good" core and battle-tests it
+against the live Fanar API before adding new domains.
 
-1. **GraalVM native-image smoke test** in CI (ADR-009) — a minimal consumer project that
-   builds a native image against `fanar-core` + one of the JSON adapters and exercises a
-   round-trip through `FanarClient` against a canned local server. Validates that the
-   reachability metadata we ship is actually sufficient.
+**Phase 1 — build an e2e harness and harden what we have.**
+
+1. **Scaffold `e2e/`** — a separate Maven aggregator gated behind a `-Pe2e` profile so it
+   never runs on default `./mvnw verify`, never appears on the published artifact list, and
+   never blocks PR CI. Sub-modules:
+   - `e2e/shared` — canned `ChatRequest` builders, a local `HttpServer` harness for offline
+     fixtures, assertion helpers, wire-format snapshot utilities.
+   - `e2e/jackson2` and `e2e/jackson3` — `fanar-core` exercised through each JSON adapter.
+     Live tests gated with `@EnabledIfEnvironmentVariable("FANAR_API_KEY")` and
+     `@Tag("live")`; offline tests (shape assertions, error-code mapping, adapter
+     equivalence) run without a key.
+   - `e2e/graalvm` — native-image build + runtime smoke against the canned `HttpServer`.
+     Replaces what was previously "GraalVM smoke test" in CI.
+2. **Battle-test chat** — iterate against the real API: auth / retry / streaming / error
+   mapping / wire snapshots. Fix whatever breaks. This is where wire-format quirks that
+   unit tests can't see will surface.
+3. **Nightly CI** — one scheduled GitHub Actions job runs `-Pe2e` with `FANAR_API_KEY`
+   stored as a secret; PR builds stay offline-only.
+
+**Phase 2 — broaden once the core is proven.**
+
+4. **Remaining domains** — `audio` (TTS/STT), `images`, `translations`, `poems`,
+   `moderation`, `tokens`, `models`. Each adds its own DTOs under `qa.fanar.core.<domain>`
+   and an accessor on `FanarClient` (`client.audio()`, etc.). `e2e/` grows an integration
+   test per domain in lockstep.
+5. **Framework adapter modules** — Spring Boot 3 / Spring Boot 4 / Quarkus / LangChain4j
+   smoke tests live under `e2e/spring-boot-3/`, `e2e/spring-boot-4/`, etc., each verifying
+   auto-configuration, bean wiring, and framework-native observability.
+6. **`ObservabilityPlugin` implementations** — Micrometer adapter, OpenTelemetry adapter,
+   shipped as separate `obs-micrometer` / `obs-otel` modules (structurally parallel to the
+   JSON adapters: `provided` scope, `ServiceLoader`-discoverable, zero runtime deps in
+   core).
+7. **v0.1.0 release** — Maven Central publication pipeline, a full README, the SDK
+   versioning policy from ADR-019 flipped on, and the pre-1.0 stability guarantees from
+   JLBP applied.
 
 The [API sketch](API_SKETCH.md) shows the target; the [ADRs](adr/INDEX.md) justify the choices.
 

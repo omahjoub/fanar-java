@@ -11,12 +11,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
+import qa.fanar.core.chat.AssistantContentPart;
+import qa.fanar.core.chat.AssistantMessage;
+import qa.fanar.core.chat.ChatMessage;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
 import qa.fanar.core.chat.ChoiceToken;
 import qa.fanar.core.chat.ChoiceToolCall;
 import qa.fanar.core.chat.ChoiceToolResult;
+import qa.fanar.core.chat.Message;
 import qa.fanar.core.chat.ProgressChunk;
+import qa.fanar.core.chat.UserContentPart;
+import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
 
 /**
@@ -65,6 +71,12 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         mapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        mapper.addMixIn(Message.class, MessageMixIn.class);
+        mapper.addMixIn(UserMessage.class, MessageContentMixIns.UserMessageMixIn.class);
+        mapper.addMixIn(AssistantMessage.class, MessageContentMixIns.AssistantMessageMixIn.class);
+        mapper.addMixIn(ChatMessage.class, MessageContentMixIns.ChatMessageMixIn.class);
+        mapper.addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class);
+        mapper.addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class);
         mapper.registerModule(WireValueEnumModule.create());
         mapper.registerModule(fanarFlatteningModule());
         return mapper;
