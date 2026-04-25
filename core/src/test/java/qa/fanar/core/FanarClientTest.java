@@ -400,6 +400,21 @@ class FanarClientTest {
         }
     }
 
+    // --- Translations facade ---------------------------------------------------------------
+
+    @Test
+    void translationsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.translations.TranslationsClient t1 = client.translations();
+            qa.fanar.core.translations.TranslationsClient t2 = client.translations();
+            assertNotNull(t1);
+            assertSame(t1, t2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test

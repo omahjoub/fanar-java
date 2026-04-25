@@ -18,11 +18,11 @@ module qa.fanar.core {
     exports qa.fanar.core.models;
     exports qa.fanar.core.tokens;
     exports qa.fanar.core.moderations;
+    exports qa.fanar.core.translations;
 
     // Additional exports added as remaining domain subpackages are populated:
     //   exports qa.fanar.core.audio;
     //   exports qa.fanar.core.images;
-    //   exports qa.fanar.core.translations;
     //   exports qa.fanar.core.poems;
 
     // ServiceLoader contract: FanarClient discovers a FanarJsonCodec implementation at runtime

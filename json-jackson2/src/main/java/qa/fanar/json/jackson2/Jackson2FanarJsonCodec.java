@@ -15,6 +15,7 @@ import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatMessage;
+import qa.fanar.core.translations.TranslationRequest;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
 import qa.fanar.core.chat.ChoiceToken;
@@ -79,6 +80,7 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         mapper.addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class);
         mapper.addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class);
         mapper.addMixIn(BookName.class, BookNameMixIn.class);
+        mapper.addMixIn(TranslationRequest.class, TranslationRequestMixIn.class);
         mapper.registerModule(WireValueModule.create());
         mapper.registerModule(fanarFlatteningModule());
         return mapper;

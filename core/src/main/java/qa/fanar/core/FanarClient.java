@@ -17,11 +17,13 @@ import qa.fanar.core.internal.chat.ChatClientImpl;
 import qa.fanar.core.internal.moderations.ModerationsClientImpl;
 import qa.fanar.core.internal.models.ModelsClientImpl;
 import qa.fanar.core.internal.tokens.TokensClientImpl;
+import qa.fanar.core.internal.translations.TranslationsClientImpl;
 import qa.fanar.core.internal.transport.DefaultHttpTransport;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.moderations.ModerationsClient;
 import qa.fanar.core.models.ModelsClient;
 import qa.fanar.core.tokens.TokensClient;
+import qa.fanar.core.translations.TranslationsClient;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
@@ -89,6 +91,7 @@ public final class FanarClient implements AutoCloseable {
     private final ModelsClient modelsClient;
     private final TokensClient tokensClient;
     private final ModerationsClient moderationsClient;
+    private final TranslationsClient translationsClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -174,6 +177,16 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.translationsClient = new TranslationsClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -222,6 +235,11 @@ public final class FanarClient implements AutoCloseable {
     /** Moderations facade — score a prompt/response pair for safety + cultural awareness. */
     public ModerationsClient moderations() {
         return moderationsClient;
+    }
+
+    /** Translations facade — translate text between supported language pairs. */
+    public TranslationsClient translations() {
+        return translationsClient;
     }
 
     /**

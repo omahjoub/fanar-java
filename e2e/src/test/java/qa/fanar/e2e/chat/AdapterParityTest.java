@@ -23,9 +23,14 @@ import qa.fanar.core.moderations.ModerationModel;
 import qa.fanar.core.moderations.SafetyFilterRequest;
 import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.models.ModelsResponse;
+import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.tokens.TokenizationRequest;
 import qa.fanar.core.tokens.TokenizationResponse;
-import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.core.translations.LanguagePair;
+import qa.fanar.core.translations.TranslationModel;
+import qa.fanar.core.translations.TranslationPreprocessing;
+import qa.fanar.core.translations.TranslationRequest;
+import qa.fanar.core.translations.TranslationResponse;
 import qa.fanar.e2e.CapturingInterceptor;
 import qa.fanar.e2e.Probes;
 import qa.fanar.e2e.TestClients;
@@ -177,6 +182,44 @@ class AdapterParityTest {
         assertEquals(0.95, decoded3.safety());
         assertEquals(0.88, decoded3.culturalAwareness());
         assertEquals("req_xyz", decoded3.id());
+    }
+
+    @Test
+    void translationRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        // Verifies the langPair → "langpair" wire-naming override applies through both adapters
+        // and that the optional preprocessing field round-trips when set.
+        TranslationRequest req = new TranslationRequest(
+                TranslationModel.FANAR_SHAHEEN_MT_1, "hello", LanguagePair.EN_AR,
+                TranslationPreprocessing.PRESERVE_HTML);
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "TranslationRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Shaheen-MT-1", shape3.get("model"));
+        assertEquals("hello", shape3.get("text"));
+        assertEquals("en-ar", shape3.get("langpair"));
+        assertEquals("preserve_html", shape3.get("preprocessing"));
+    }
+
+    @Test
+    void translationRequestOmitsNullPreprocessingOnWire() throws IOException {
+        TranslationRequest req = TranslationRequest.of(
+                TranslationModel.FANAR_SHAHEEN_MT_1, "hello", LanguagePair.AR_EN);
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        // NON_NULL inclusion strips the field when null; spec says server applies its default.
+        assertFalse(shape3.containsKey("preprocessing"),
+                "null preprocessing must not appear on the wire");
+    }
+
+    @Test
+    void translationResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_1\",\"text\":\"مرحبا\"}";
+        TranslationResponse decoded2 = jackson2.decode(bytes(wire), TranslationResponse.class);
+        TranslationResponse decoded3 = jackson3.decode(bytes(wire), TranslationResponse.class);
+        assertEquals(decoded2, decoded3,
+                "TranslationResponse decoded by both adapters must be record-equal");
+        assertEquals("req_1", decoded3.id());
+        assertEquals("مرحبا", decoded3.text());
     }
 
     @Test
