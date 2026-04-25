@@ -8,9 +8,9 @@ import java.util.Objects;
  * The response returned by Fanar's {@code POST /v1/chat/completions} endpoint (non-streaming).
  *
  * <p>The {@code model} field is returned as a {@link String} rather than a {@link ChatModel}
- * enum, because Fanar may serve new or variant model IDs the SDK has not yet typed. Callers who
- * want a typed value can pass {@code response.model()} through {@link ChatModel#fromWireValue}
- * at their own risk.</p>
+ * record, because callers don't always need the typed wrapper. When they do, they can pass
+ * {@code response.model()} through {@link ChatModel#of(String)} — it accepts any wire value,
+ * so callers are not blocked by SDK release cadence when Fanar adds a new model.</p>
  *
  * <p>Collections are defensively copied on construction and returned as unmodifiable views. Null
  * input for optional collections and for the {@code metadata} map is normalized to empty so

@@ -3,6 +3,7 @@ package qa.fanar.e2e;
 import java.util.List;
 
 import qa.fanar.core.chat.AssistantMessage;
+import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.SystemMessage;
@@ -97,15 +98,33 @@ public final class Probes {
      * {@code references} populated and the streaming variant should emit {@code ProgressChunk}s.
      *
      * <p>{@code book_names} is intentionally left unset so Sadiq searches its full default
-     * corpus — the {@code BookNamesEnum} catalogue (572 specific Arabic titles) is now reachable
-     * through the typed {@code qa.fanar.core.chat.BookName} API for callers who want to scope
-     * retrieval; this probe just doesn't exercise that knob.</p>
+     * corpus. See {@link #sadiqWithBookName()} for the variant that constrains retrieval to a
+     * specific book.</p>
      */
     public static ChatRequest sadiq() {
         return ChatRequest.builder()
                 .model(ChatModel.FANAR_SADIQ)
                 .addMessage(UserMessage.of("Briefly summarise the meaning of Surah Al-Fatihah."))
                 .restrictToIslamic(true)
+                .maxTokens(96)
+                .temperature(0.0)
+                .build();
+    }
+
+    /**
+     * Same as {@link #sadiq()} but constrains retrieval to a single typed {@link BookName} —
+     * pulled from {@link BookName#KNOWN} so we exercise an actual catalogue value end-to-end.
+     * The test that drives this probe asserts only that the wire format is accepted (HTTP 200);
+     * whether the chosen book actually covers Al-Fatihah is up to Sadiq's retriever, which may
+     * surface zero references for a poorly-matched corpus.
+     */
+    public static ChatRequest sadiqWithBookName() {
+        BookName firstKnown = BookName.KNOWN.iterator().next();
+        return ChatRequest.builder()
+                .model(ChatModel.FANAR_SADIQ)
+                .addMessage(UserMessage.of("Briefly summarise the meaning of Surah Al-Fatihah."))
+                .restrictToIslamic(true)
+                .bookNames(List.of(firstKnown))
                 .maxTokens(96)
                 .temperature(0.0)
                 .build();

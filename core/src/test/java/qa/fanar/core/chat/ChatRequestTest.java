@@ -217,9 +217,9 @@ class ChatRequestTest {
         assertThrows(UnsupportedOperationException.class, () -> r.bookNames().add(known.get(1)));
     }
 
-    /** First two books from the {@code BookNamesEnum} resource — stable test fixtures. */
+    /** First two books from the {@link BookName#KNOWN} catalogue — stable test fixtures. */
     private static List<BookName> sampleBooks() {
-        return BookName.known().stream().limit(2).map(BookName::of).toList();
+        return BookName.KNOWN.stream().limit(2).toList();
     }
 
     @Test

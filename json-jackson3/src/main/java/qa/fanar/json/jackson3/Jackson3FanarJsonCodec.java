@@ -81,7 +81,7 @@ public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
                 .addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class)
                 .addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class)
                 .addMixIn(BookName.class, BookNameMixIn.class)
-                .addModule(WireValueEnumModule.create())
+                .addModule(WireValueModule.create())
                 .addModule(fanarFlatteningModule());
     }
 

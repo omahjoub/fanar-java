@@ -16,5 +16,5 @@ import com.fasterxml.jackson.annotation.JsonValue;
 interface BookNameMixIn {
 
     @JsonValue
-    String value();
+    String wireValue();
 }

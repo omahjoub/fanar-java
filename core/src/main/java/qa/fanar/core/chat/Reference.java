@@ -10,10 +10,10 @@ import java.util.Objects;
  * {@code Fanar-Sadiq} contains a list of references describing where each claim in the answer
  * was drawn from (Qur'an, hadith, tafsir, etc.).</p>
  *
- * <p>The {@code source} field is kept as a {@link String} rather than a {@link Source} enum
- * because Fanar may return custom values (e.g. {@code digital_seerah_*}) outside the predefined
- * set. Callers can pass the value to {@link Source#fromWireValue(String)} when a typed value is
- * needed.</p>
+ * <p>The {@code source} field is kept as a {@link String} rather than a {@link Source} record
+ * because the typed wrapper isn't always needed at the call site. Callers can pass the value
+ * to {@link Source#of(String)} when they want one — it accepts any wire value, so consumers
+ * are not blocked by SDK release cadence when Fanar adds a corpus.</p>
  *
  * @param index   character offset in the response where this reference is cited
  * @param number  the reference number as rendered in the response text

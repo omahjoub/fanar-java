@@ -156,6 +156,21 @@ class LiveChatCompletionsTest {
         }
     }
 
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§2.4 Sadiq with a typed BookName lands on the wire (verifies BookName serialization)")
+    void conversation_sadiqWithBookName(FanarJsonCodec codec) {
+        try (FanarClient client = liveClient(codec)) {
+            ChatResponse r = client.chat().send(Probes.sadiqWithBookName());
+            // Only assertion: the server accepted the typed BookName wire format. Whether the
+            // constrained book covers the prompt is Sadiq's retriever's call; we just log it.
+            assertNotNull(r.id(), "response id must be present");
+            ChatChoice choice = r.choices().getFirst();
+            System.out.println("Sadiq with BookName: "
+                    + choice.message().references().size() + " references");
+        }
+    }
+
     // =====================================================================================
     // §3 — Sampling determinism.
     // =====================================================================================

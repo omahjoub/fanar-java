@@ -79,7 +79,7 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         mapper.addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class);
         mapper.addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class);
         mapper.addMixIn(BookName.class, BookNameMixIn.class);
-        mapper.registerModule(WireValueEnumModule.create());
+        mapper.registerModule(WireValueModule.create());
         mapper.registerModule(fanarFlatteningModule());
         return mapper;
     }

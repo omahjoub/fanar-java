@@ -185,9 +185,9 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Chat domain facade | `qa.fanar.core.chat.ChatClient` | **implemented** (interface); `qa.fanar.core.internal.chat.ChatClientImpl` runs `send` / `sendAsync` / `stream` end-to-end |
 | Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** (sealed, 13 subtypes) |
 | Error-code enum | `qa.fanar.core.ErrorCode` | **implemented** |
-| Content-filter-type enum | `qa.fanar.core.ContentFilterType` | **implemented** |
+| Content-filter-type record | `qa.fanar.core.ContentFilterType` | **implemented** — open value class (record) with constants + `of(String)` factory |
 | Domain DTOs — chat messages | `qa.fanar.core.chat.Message` + variants + content parts + `ToolCall` | **implemented** |
-| Domain DTOs — chat enums | `qa.fanar.core.chat.{ChatModel, Source, ImageDetail}` | **implemented** |
+| Domain DTOs — chat value classes | `qa.fanar.core.chat.{ChatModel, Source, ImageDetail, FinishReason, BookName}` | **implemented** — open value-class records with constants + permissive `of(String)`; `BookName` carries 572 inline `KNOWN` entries from `BookNamesEnum` |
 | `ChatRequest` (+ `Builder`) | `qa.fanar.core.chat.ChatRequest` | **implemented** (31-component record, fluent builder) |
 | `ChatResponse` + response types | `qa.fanar.core.chat.{ChatResponse, ChatChoice, ChatMessage, Reference, FinishReason, ResponseContent, TextContent, ImageContent, AudioContent, CompletionUsage, CompletionTokensDetails, PromptTokensDetails, ChoiceLogprobs, TokenLogprob, TopLogprob}` | **implemented** |
 | Other domain DTOs | `qa.fanar.core.<audio\|images\|translations\|poems\|moderation\|tokens\|models>` | not implemented |
@@ -199,8 +199,8 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |
 | Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — exponential back-off with configurable jitter, `Retry-After` honouring on 429, `retry_attempt` observation events, injectable `Sleeper`+`RandomGenerator` |
-| Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, wire-value enum module, `ServiceLoader` descriptor, reachability metadata |
-| Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, wire-value enum module, `ServiceLoader` descriptor, reachability metadata |
+| Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
+| Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **partially** — both JSON adapters ship metadata; `fanar-core` pending |
 
 ---

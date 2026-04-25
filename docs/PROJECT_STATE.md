@@ -122,27 +122,34 @@ The shape of the SDK is fully captured in:
   per Jackson 2 + Jackson 3) auto-detected by IDEs, never published, JaCoCo and
   `dependency:analyze` disabled. Test infrastructure (`Probes`, `TestClients`,
   `LoggingInterceptor`, `CapturingInterceptor`) and the live suite live entirely under
-  `src/test`. `LiveChatCompletionsTest` is parameterized over both codecs (18 cases × 2 codecs
-  = 36 live calls covering the five non-vision models, multi-turn / thinking / Sadiq RAG
-  conversation shapes, sampling determinism / `n` / stop / logprobs, streaming token sequence
-  / sync-vs-stream parity / Sadiq progress chunks / Sadiq tool-call telemetry / cancel,
-  and 401 error mapping). `AdapterParityTest` adds three offline parity checks plus one live
-  parity check that captures real wire bytes via a `CapturingInterceptor` and decodes them
-  through both adapters. Future framework adapters (Spring Boot 3 / 4, Quarkus, GraalVM,
-  LangChain4j) will live in sibling modules — splitting only when classpath isolation forces
-  it, never per-adapter for cosmetic reasons.
+  `src/test`. `LiveChatCompletionsTest` is parameterized over both codecs (19 cases × 2 codecs
+  = 38 live calls covering the five non-vision models, multi-turn / thinking / Sadiq RAG
+  conversation shapes including a typed-`BookName` constraint, sampling determinism / `n` /
+  stop / logprobs, streaming token sequence / sync-vs-stream parity / Sadiq progress chunks /
+  Sadiq tool-call telemetry / cancel, and 401 error mapping). `AdapterParityTest` adds three
+  offline parity checks plus one live parity check that captures real wire bytes via a
+  `CapturingInterceptor` and decodes them through both adapters. Future framework adapters
+  (Spring Boot 3 / 4, Quarkus, GraalVM, LangChain4j) will live in sibling modules — splitting
+  only when classpath isolation forces it, never per-adapter for cosmetic reasons.
 - **Core hardening — wire-format findings folded into the records** — three additions
   surfaced from the live battle-test, none documented in the OpenAPI spec but consistently
   emitted by the real server:
   - `ChatChoice.stopReason` (nullable `String`) — captures Fanar's `<end_of_turn>`-style raw
-    stop token alongside the normalized `FinishReason` enum.
+    stop token alongside the normalized `FinishReason`.
   - `CompletionUsage.successfulRequests` + `totalCost` — Sadiq-only retrieval-pipeline
     accounting, both nullable on non-Sadiq responses.
-  - `qa.fanar.core.chat.BookName` — typed value class for the `BookNamesEnum` corpus
-    (572 specific Arabic titles loaded from a bundled resource). `ChatRequest.bookNames`
-    now takes `List<BookName>`; `BookName.of(...)` rejects unknown values at construction
-    so callers fail before the server does. Both adapters serialize via a `@JsonValue`
-    interface mixin so the wire shape stays a plain string array.
+- **Open value-class records for Fanar-controlled identifiers** — `ChatModel`, `Source`,
+  `FinishReason`, `ImageDetail`, `ContentFilterType`, and `BookName` are all
+  `record(String wireValue)` value classes with public constants for known wire values plus a
+  permissive `of(String)` factory. Consumers are never blocked by SDK release cadence: when
+  Fanar adds a model, source, finish reason, or book, callers reach it via `of(...)` the same
+  day, and unknown response values decode without failing. Each type exposes a `KNOWN`
+  `Set<...>` of bundled constants for IDE autocomplete and catalogue iteration. `BookName`
+  carries 572 inline `KNOWN` entries from `BookNamesEnum` — no resource file. `ErrorCode`
+  and `JitterStrategy` stay enums because their values map 1:1 to exception subtypes /
+  library behaviour and adding a new one is genuinely an SDK release event. Both adapters
+  share a generic `WireValueModule` (renamed from `WireValueEnumModule`) that registers
+  (de)serializers via `wireValue()` / `of(String)`.
 - **Library-first dependency hygiene** — the reactor parent no longer imports Spring Boot's BOM; versions come
   from `junit-bom` (tests) and explicit pins. No implicit transitives from framework BOMs.
 - **CI** — build matrix (Java 21 and 25), link-check for every doc, dependency hygiene gates via `mvn verify`,

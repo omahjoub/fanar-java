@@ -1,50 +1,37 @@
 package qa.fanar.core.chat;
 
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Detail level hint for images attached to user messages.
  *
- * <p>The server uses this to decide how many image tokens to spend on the visual input.
- * Mirrors the {@code ImageURL.detail} enum in the Fanar OpenAPI spec.</p>
+ * <p>Mirrors the {@code ImageURL.detail} schema in the Fanar OpenAPI spec. Open: callers can
+ * pass any value Fanar may add later via {@link #of(String)} without waiting for an SDK release.
+ * The server uses this hint to decide how many image tokens to spend on the visual input.</p>
+ *
+ * @param wireValue the exact string Fanar accepts on the wire
  */
-public enum ImageDetail {
+public record ImageDetail(String wireValue) {
 
     /** Server chooses — the default when none is specified. */
-    AUTO("auto"),
+    public static final ImageDetail AUTO = new ImageDetail("auto");
 
     /** Low-detail preview; cheaper on image tokens. */
-    LOW("low"),
+    public static final ImageDetail LOW  = new ImageDetail("low");
 
     /** High-detail analysis; spends more image tokens for sharper recognition. */
-    HIGH("high");
+    public static final ImageDetail HIGH = new ImageDetail("high");
 
-    private final String wireValue;
+    /** Snapshot of the SDK's bundled constants. */
+    public static final Set<ImageDetail> KNOWN = Set.of(AUTO, LOW, HIGH);
 
-    ImageDetail(String wireValue) {
-        this.wireValue = wireValue;
+    public ImageDetail {
+        Objects.requireNonNull(wireValue, "wireValue");
     }
 
-    /** The exact string Fanar uses on the wire. */
-    public String wireValue() {
-        return wireValue;
-    }
-
-    /**
-     * Look up an enum value by its wire format.
-     *
-     * @param value the wire-format string; must not be {@code null}
-     * @return the matching enum value
-     * @throws IllegalArgumentException if no enum value matches
-     * @throws NullPointerException     if {@code value} is {@code null}
-     */
-    public static ImageDetail fromWireValue(String value) {
-        Objects.requireNonNull(value, "value");
-        for (ImageDetail detail : values()) {
-            if (detail.wireValue.equals(value)) {
-                return detail;
-            }
-        }
-        throw new IllegalArgumentException("Unknown ImageDetail wire value: " + value);
+    /** Equivalent to {@code new ImageDetail(wireValue)}; provided for API symmetry with other types. */
+    public static ImageDetail of(String wireValue) {
+        return new ImageDetail(wireValue);
     }
 }

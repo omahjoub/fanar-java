@@ -1,27 +1,35 @@
 package qa.fanar.core;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ContentFilterTypeTest {
 
-    @ParameterizedTest
-    @EnumSource(ContentFilterType.class)
-    void wireValueRoundtrips(ContentFilterType type) {
-        assertEquals(type, ContentFilterType.fromWireValue(type.wireValue()));
+    @Test
+    void knownConstantsRoundtripThroughOf() {
+        for (ContentFilterType t : ContentFilterType.KNOWN) {
+            assertEquals(t, ContentFilterType.of(t.wireValue()));
+        }
     }
 
     @Test
-    void fromWireValueThrowsOnUnknown() {
-        assertThrows(IllegalArgumentException.class, () -> ContentFilterType.fromWireValue("unknown"));
+    void ofIsLenientOnUnknownValues() {
+        ContentFilterType custom = ContentFilterType.of("policy_violation");
+        assertEquals("policy_violation", custom.wireValue());
+        assertFalse(ContentFilterType.KNOWN.contains(custom));
     }
 
     @Test
-    void fromWireValueThrowsOnNull() {
-        assertThrows(NullPointerException.class, () -> ContentFilterType.fromWireValue(null));
+    void rejectsNullWireValue() {
+        assertThrows(NullPointerException.class, () -> new ContentFilterType(null));
+        assertThrows(NullPointerException.class, () -> ContentFilterType.of(null));
+    }
+
+    @Test
+    void knownContainsAllConstants() {
+        assertEquals(3, ContentFilterType.KNOWN.size());
     }
 }

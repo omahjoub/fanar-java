@@ -105,7 +105,7 @@ class ChatRequestKnobsTest {
 
     @Test
     void sadiqIslamicRagKnobsSerializeWithSourceWireValues() throws IOException {
-        List<BookName> books = BookName.known().stream().limit(2).map(BookName::of).toList();
+        List<BookName> books = BookName.KNOWN.stream().limit(2).toList();
         ChatRequest req = base()
                 .model(ChatModel.FANAR_SADIQ)
                 .restrictToIslamic(true)
@@ -116,7 +116,7 @@ class ChatRequestKnobsTest {
                 .build();
         String json = encode(req);
         String expectedBookNames = "\"book_names\":[\""
-                + books.get(0).value() + "\",\"" + books.get(1).value() + "\"]";
+                + books.get(0).wireValue() + "\",\"" + books.get(1).wireValue() + "\"]";
         assertAll(
                 () -> assertTrue(json.contains("\"restrict_to_islamic\":true"), json),
                 () -> assertTrue(json.contains(expectedBookNames), json),
