@@ -209,11 +209,17 @@ class ChatRequestTest {
 
     @Test
     void bookNamesIsDefensivelyCopiedAndUnmodifiable() {
-        List<String> src = new ArrayList<>(List.of("book1"));
+        List<BookName> known = sampleBooks();
+        List<BookName> src = new ArrayList<>(List.of(known.get(0)));
         ChatRequest r = base().bookNames(src).build();
-        src.add("book2");
+        src.add(known.get(1));
         assertEquals(1, r.bookNames().size());
-        assertThrows(UnsupportedOperationException.class, () -> r.bookNames().add("book3"));
+        assertThrows(UnsupportedOperationException.class, () -> r.bookNames().add(known.get(1)));
+    }
+
+    /** First two books from the {@code BookNamesEnum} resource — stable test fixtures. */
+    private static List<BookName> sampleBooks() {
+        return BookName.known().stream().limit(2).map(BookName::of).toList();
     }
 
     @Test
@@ -353,7 +359,7 @@ class ChatRequestTest {
                 .spacesBetweenSpecialTokens(false)
                 .truncatePromptTokens(2048)
                 .promptLogprobs(1)
-                .bookNames(List.of("Book 1"))
+                .bookNames(sampleBooks())
                 .preferredSources(List.of(Source.QURAN, Source.TAFSIR))
                 .excludeSources(List.of(Source.DORAR))
                 .filterSources(List.of(Source.ISLAMWEB))
@@ -386,7 +392,7 @@ class ChatRequestTest {
         assertEquals(false, r.spacesBetweenSpecialTokens());
         assertEquals(2048, r.truncatePromptTokens());
         assertEquals(1, r.promptLogprobs());
-        assertEquals(List.of("Book 1"), r.bookNames());
+        assertEquals(sampleBooks(), r.bookNames());
         assertEquals(List.of(Source.QURAN, Source.TAFSIR), r.preferredSources());
         assertEquals(List.of(Source.DORAR), r.excludeSources());
         assertEquals(List.of(Source.ISLAMWEB), r.filterSources());

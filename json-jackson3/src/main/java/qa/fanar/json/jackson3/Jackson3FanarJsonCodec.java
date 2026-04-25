@@ -15,6 +15,7 @@ import tools.jackson.databind.module.SimpleModule;
 
 import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
+import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatMessage;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
@@ -79,6 +80,7 @@ public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
                 .addMixIn(ChatMessage.class, MessageContentMixIns.ChatMessageMixIn.class)
                 .addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class)
                 .addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class)
+                .addMixIn(BookName.class, BookNameMixIn.class)
                 .addModule(WireValueEnumModule.create())
                 .addModule(fanarFlatteningModule());
     }

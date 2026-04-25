@@ -70,7 +70,7 @@ class StreamEventDecoderTest {
     void routesUsageShapeToDoneChunk() {
         DoneChunk expected = new DoneChunk("c_1", 0L, "Fanar", List.of(
                 new ChoiceFinal(0, "stop", List.of())),
-                new CompletionUsage(0, 0, 0, null, null), Map.of());
+                new CompletionUsage(0, 0, 0, null, null, null, null), Map.of());
         FakeCodec codec = new FakeCodec(
                 Map.of("usage", Map.of("total_tokens", 10), "choices", List.of()),
                 expected);

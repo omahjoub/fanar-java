@@ -96,11 +96,10 @@ public final class Probes {
      * Fanar-Sadiq Islamic-RAG prompt with {@code restrict_to_islamic=true}. Should return
      * {@code references} populated and the streaming variant should emit {@code ProgressChunk}s.
      *
-     * <p>{@code book_names} is intentionally omitted: the spec types it as {@code BookNamesEnum},
-     * a list of ~600 specific Arabic book titles. Passing arbitrary English values (e.g.
-     * {@code "Quran"}) trips a 422. Building a typed enum / constants class from the OpenAPI
-     * spec is a future step; until then callers should leave the field unset and let Sadiq
-     * search its default corpus.</p>
+     * <p>{@code book_names} is intentionally left unset so Sadiq searches its full default
+     * corpus — the {@code BookNamesEnum} catalogue (572 specific Arabic titles) is now reachable
+     * through the typed {@code qa.fanar.core.chat.BookName} API for callers who want to scope
+     * retrieval; this probe just doesn't exercise that knob.</p>
      */
     public static ChatRequest sadiq() {
         return ChatRequest.builder()

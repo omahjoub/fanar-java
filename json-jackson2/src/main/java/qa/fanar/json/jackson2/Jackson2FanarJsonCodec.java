@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import qa.fanar.core.chat.AssistantContentPart;
 import qa.fanar.core.chat.AssistantMessage;
+import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatMessage;
 import qa.fanar.core.chat.ChoiceError;
 import qa.fanar.core.chat.ChoiceFinal;
@@ -77,6 +78,7 @@ public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
         mapper.addMixIn(ChatMessage.class, MessageContentMixIns.ChatMessageMixIn.class);
         mapper.addMixIn(UserContentPart.class, ContentPartMixIns.UserContentPartMixIn.class);
         mapper.addMixIn(AssistantContentPart.class, ContentPartMixIns.AssistantContentPartMixIn.class);
+        mapper.addMixIn(BookName.class, BookNameMixIn.class);
         mapper.registerModule(WireValueEnumModule.create());
         mapper.registerModule(fanarFlatteningModule());
         return mapper;

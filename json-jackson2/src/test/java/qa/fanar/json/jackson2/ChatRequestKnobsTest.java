@@ -9,6 +9,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import qa.fanar.core.chat.AssistantMessage;
+import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.Source;
@@ -104,18 +105,21 @@ class ChatRequestKnobsTest {
 
     @Test
     void sadiqIslamicRagKnobsSerializeWithSourceWireValues() throws IOException {
+        List<BookName> books = BookName.known().stream().limit(2).map(BookName::of).toList();
         ChatRequest req = base()
                 .model(ChatModel.FANAR_SADIQ)
                 .restrictToIslamic(true)
-                .bookNames(List.of("Quran", "Sahih_Bukhari"))
+                .bookNames(books)
                 .preferredSources(List.of(Source.QURAN))
                 .excludeSources(List.of(Source.SUNNAH))
                 .filterSources(List.of(Source.TAFSIR))
                 .build();
         String json = encode(req);
+        String expectedBookNames = "\"book_names\":[\""
+                + books.get(0).value() + "\",\"" + books.get(1).value() + "\"]";
         assertAll(
                 () -> assertTrue(json.contains("\"restrict_to_islamic\":true"), json),
-                () -> assertTrue(json.contains("\"book_names\":[\"Quran\",\"Sahih_Bukhari\"]"), json),
+                () -> assertTrue(json.contains(expectedBookNames), json),
                 () -> assertTrue(json.contains("\"preferred_sources\":[\"" + Source.QURAN.wireValue() + "\"]"), json),
                 () -> assertTrue(json.contains("\"exclude_sources\":[\"" + Source.SUNNAH.wireValue() + "\"]"), json),
                 () -> assertTrue(json.contains("\"filter_sources\":[\"" + Source.TAFSIR.wireValue() + "\"]"), json));

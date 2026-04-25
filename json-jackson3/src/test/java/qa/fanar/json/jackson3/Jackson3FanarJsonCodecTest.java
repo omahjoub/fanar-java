@@ -51,7 +51,7 @@ class Jackson3FanarJsonCodecTest {
     void encodeDecodeChatResponseRoundTrip() throws IOException {
         Jackson3FanarJsonCodec codec = new Jackson3FanarJsonCodec();
         ChatMessage msg = new ChatMessage(List.of(), List.of(), List.of());
-        ChatChoice choice = new ChatChoice(FinishReason.STOP, 0, msg, null);
+        ChatChoice choice = new ChatChoice(FinishReason.STOP, 0, msg, null, null);
         ChatResponse original = new ChatResponse("c_1", List.of(choice), 1_700_000_000L, "Fanar", null, null);
 
         String wire = encode(codec, original);

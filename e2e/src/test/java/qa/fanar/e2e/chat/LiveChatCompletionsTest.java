@@ -297,19 +297,27 @@ class LiveChatCompletionsTest {
         }
     }
 
+    /**
+     * Observes server-internal tool-call telemetry on the Sadiq stream.
+     *
+     * <p>Important: Fanar's {@code ChatCompletionRequest} schema does <strong>not</strong>
+     * accept user-defined {@code tools}/{@code tool_choice} — function calling is not
+     * supported on the request side. Any {@code ToolCallChunk}/{@code ToolResultChunk}s
+     * we see here are emitted by Sadiq's own RAG retriever (server-side tool execution),
+     * not by a tool we registered. This test therefore logs counts and stops there;
+     * the offline {@code AdapterParityTest} locks down decoding for the canned shape.</p>
+     */
     @ParameterizedTest(name = "[{0}]")
     @MethodSource("codecs")
-    @DisplayName("§4.4 Sadiq stream may emit ToolCallChunk/ToolResultChunk pairs")
+    @DisplayName("§4.4 Sadiq stream may surface server-internal tool-call telemetry")
     void streaming_sadiqToolCalls(FanarJsonCodec codec) throws Exception {
         try (FanarClient client = liveClient(codec)) {
             List<StreamEvent> events = collectStream(client, Probes.sadiq());
 
             long toolCalls = events.stream().filter(e -> e instanceof ToolCallChunk).count();
             long toolResults = events.stream().filter(e -> e instanceof ToolResultChunk).count();
-            // Tool-call chunks are not guaranteed for every Sadiq prompt; log for diagnostic
-            // value rather than failing if absent.
             System.out.println("Sadiq stream: " + toolCalls + " tool_call, "
-                    + toolResults + " tool_result chunks");
+                    + toolResults + " tool_result chunks (server-internal)");
         }
     }
 

@@ -17,6 +17,7 @@ import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.SystemMessage;
+import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.e2e.CapturingInterceptor;
@@ -66,17 +67,62 @@ class AdapterParityTest {
 
     @Test
     void chatResponseDecodesIdenticallyAcrossAdapters() throws IOException {
-        // A canned wire response — the same shape Fanar returned in our smoke test.
+        // A canned wire response — same shape Fanar emits in production, including the
+        // undocumented `stop_reason` on each choice and Sadiq's retrieval accounting fields
+        // (`successful_requests`, `total_cost`) inside `usage`.
         String wire = "{\"id\":\"c_1\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"
                 + "\"message\":{\"content\":\"pong\",\"role\":\"assistant\","
-                + "\"references\":null,\"tool_calls\":[]}}],"
+                + "\"references\":null,\"tool_calls\":[]},"
+                + "\"stop_reason\":\"<end_of_turn>\"}],"
                 + "\"created\":1700000000,\"model\":\"Fanar-C-2-27B\","
-                + "\"usage\":{\"completion_tokens\":2,\"prompt_tokens\":10,\"total_tokens\":12}}";
+                + "\"usage\":{\"completion_tokens\":2,\"prompt_tokens\":10,\"total_tokens\":12,"
+                + "\"successful_requests\":1,\"total_cost\":0.0}}";
 
         ChatResponse decoded2 = jackson2.decode(bytes(wire), ChatResponse.class);
         ChatResponse decoded3 = jackson3.decode(bytes(wire), ChatResponse.class);
         assertEquals(decoded2, decoded3,
                 "ChatResponse decoded by both adapters must be record-equal");
+        assertEquals("<end_of_turn>", decoded3.choices().getFirst().stopReason(),
+                "stop_reason field on the wire must map to ChatChoice.stopReason");
+        assertEquals(1, decoded3.usage().successfulRequests(),
+                "successful_requests on the wire must map to CompletionUsage.successfulRequests");
+        assertEquals(0.0, decoded3.usage().totalCost(),
+                "total_cost on the wire must map to CompletionUsage.totalCost");
+    }
+
+    /**
+     * Tool-call wire decoding parity. Fanar's chat-completion endpoint does not accept user-defined
+     * {@code tools}/{@code tool_choice} on the request, so we cannot drive a real round-trip
+     * against the live API — but the response shape is well-defined and Sadiq's internal RAG
+     * retriever surfaces tool calls on the way back. This test pins the response-side decoding
+     * (id / name / arguments / result / structured_content / is_error) for both adapters via a
+     * canned wire payload synthesized from the OpenAPI {@code ChatCompletionToolCall} schema.
+     */
+    @Test
+    void chatResponseWithToolCallsDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"c_2\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"
+                + "\"message\":{\"content\":\"Searching the corpus.\",\"role\":\"assistant\","
+                + "\"references\":null,\"tool_calls\":["
+                + "{\"id\":\"call_abc\",\"name\":\"retrieve\","
+                + "\"arguments\":{\"query\":\"Al-Fatihah\"},"
+                + "\"result\":\"Found 4 references\","
+                + "\"structured_content\":null,\"is_error\":false}]}}],"
+                + "\"created\":1700000000,\"model\":\"Fanar-Sadiq\","
+                + "\"usage\":{\"completion_tokens\":0,\"prompt_tokens\":0,\"total_tokens\":0}}";
+
+        ChatResponse decoded2 = jackson2.decode(bytes(wire), ChatResponse.class);
+        ChatResponse decoded3 = jackson3.decode(bytes(wire), ChatResponse.class);
+        assertEquals(decoded2, decoded3,
+                "ChatResponse with tool_calls must decode equivalently across adapters");
+
+        List<ToolCall> calls = decoded3.choices().getFirst().message().toolCalls();
+        assertEquals(1, calls.size(), "expected one tool call on the message");
+        ToolCall call = calls.getFirst();
+        assertEquals("call_abc", call.id());
+        assertEquals("retrieve", call.name());
+        assertEquals("Al-Fatihah", call.arguments().get("query"));
+        assertEquals("Found 4 references", call.result());
+        assertEquals(false, call.isError());
     }
 
     /**
