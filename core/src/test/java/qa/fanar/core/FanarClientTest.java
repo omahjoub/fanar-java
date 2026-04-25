@@ -355,6 +355,21 @@ class FanarClientTest {
         }
     }
 
+    // --- Models facade ---------------------------------------------------------------------
+
+    @Test
+    void modelsReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.models.ModelsClient m1 = client.models();
+            qa.fanar.core.models.ModelsClient m2 = client.models();
+            assertNotNull(m1);
+            assertSame(m1, m2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test

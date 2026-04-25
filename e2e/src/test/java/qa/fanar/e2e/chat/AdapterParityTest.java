@@ -19,6 +19,7 @@ import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
+import qa.fanar.core.models.ModelsResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.e2e.CapturingInterceptor;
 import qa.fanar.e2e.Probes;
@@ -26,8 +27,7 @@ import qa.fanar.e2e.TestClients;
 import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Adapter parity: any wire payload one adapter can encode or decode, the other must too,
@@ -122,7 +122,24 @@ class AdapterParityTest {
         assertEquals("retrieve", call.name());
         assertEquals("Al-Fatihah", call.arguments().get("query"));
         assertEquals("Found 4 references", call.result());
-        assertEquals(false, call.isError());
+        assertFalse(call.isError());
+    }
+
+    @Test
+    void modelsResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        // A canned shape mirroring what the live /v1/models endpoint emits, including the
+        // discriminator field "object" (always "model") that we keep for wire fidelity.
+        String wire = "{\"id\":\"req_1\",\"models\":["
+                + "{\"id\":\"Fanar\",\"object\":\"model\",\"created\":1700000000,\"owned_by\":\"fanar\"},"
+                + "{\"id\":\"Fanar-Sadiq\",\"object\":\"model\",\"created\":1700000001,\"owned_by\":\"fanar\"}"
+                + "]}";
+
+        ModelsResponse decoded2 = jackson2.decode(bytes(wire), ModelsResponse.class);
+        ModelsResponse decoded3 = jackson3.decode(bytes(wire), ModelsResponse.class);
+        assertEquals(decoded2, decoded3,
+                "ModelsResponse decoded by both adapters must be record-equal");
+        assertEquals(2, decoded3.models().size());
+        assertEquals("fanar", decoded3.models().getFirst().ownedBy());
     }
 
     /**
