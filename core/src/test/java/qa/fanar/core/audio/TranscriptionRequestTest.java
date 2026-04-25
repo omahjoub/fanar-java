@@ -3,6 +3,7 @@ package qa.fanar.core.audio;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -79,8 +80,11 @@ class TranscriptionRequestTest {
     void equalsRejectsOtherTypes() {
         TranscriptionRequest r = new TranscriptionRequest(
                 new byte[]{1}, "f", "audio/wav", SttModel.FANAR_AURA_STT_1, null);
-        assertNotEquals("not a request", r);
-        assertNotEquals(null, r);
+        // Direct .equals() to exercise the instanceof-false branch in the record's
+        // overridden equals — assertNotEquals(unexpected, actual) dispatches on the
+        // first arg, so swapping the order would never reach our equals at all.
+        assertFalse(r.equals(new Object()));
+        assertFalse(r.equals(null));
     }
 
     @Test

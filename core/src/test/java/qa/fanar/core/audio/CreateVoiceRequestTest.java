@@ -3,6 +3,7 @@ package qa.fanar.core.audio;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,8 +50,11 @@ class CreateVoiceRequestTest {
     @Test
     void equalsRejectsOtherTypes() {
         CreateVoiceRequest a = new CreateVoiceRequest("alice", new byte[]{1}, "t");
-        assertNotEquals("not a request", a);
-        assertNotEquals(null, a);
+        // Direct .equals() to exercise the instanceof-false branch in the record's
+        // overridden equals — assertNotEquals(unexpected, actual) dispatches on the
+        // first arg, so swapping the order would never reach our equals at all.
+        assertFalse(a.equals(new Object()));
+        assertFalse(a.equals(null));
     }
 
     @Test
