@@ -216,6 +216,20 @@
                             <imageName>fanar-graalvm-smoke</imageName>
                             <mainClass>qa.fanar.e2e.graalvm.Main</mainClass>
                             <fallback>false</fallback>
+                            <!--
+                              Disable the GraalVM Reachability Metadata Repository (GRMR):
+                              every dependency we use ships its own native-image metadata
+                              (Jackson, OTel, Micrometer, SLF4J) and the SDK itself ships
+                              metadata under `core/.../META-INF/native-image/`. GRMR is a
+                              community fallback for libraries without metadata — irrelevant
+                              for us. Disabling avoids schema-version mismatches between newer
+                              GRMR releases and older GraalVM CE points (e.g., the CI runner's
+                              21.0.2 is too old for current GRMR schema), keeping the build
+                              entirely self-contained.
+                            -->
+                            <metadataRepository>
+                                <enabled>false</enabled>
+                            </metadataRepository>
                             <buildArgs>
                                 <!-- Required for the JDK HttpClient's HTTPS calls inside the binary. -->
                                 <buildArg>--enable-url-protocols=https</buildArg>
