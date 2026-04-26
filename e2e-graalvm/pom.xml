@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-java-e2e-graalvm</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: E2E :: GraalVM</name>
+    <description>Native-image smoke for the Fanar Java SDK. Verifies the SDK compiles to a GraalVM native binary and that the chat decode path runs without reachability gaps. Validates the README's "GraalVM native-image workloads — reflection-free by design" claim.</description>
+
+    <!--
+      Same posture as the `e2e` module: never published, JaCoCo / dependency-analyze gates off.
+      The module's value is "does this build to a native binary and run?", not coverage.
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+        <jacoco.skip>true</jacoco.skip>
+        <native-maven-plugin.version>1.1.0</native-maven-plugin.version>
+        <maven-shade-plugin.version>3.6.2</maven-shade-plugin.version>
+    </properties>
+
+    <dependencies>
+        <!--
+          Compile-scoped deps: this module is an executable, not a library. The runtime needs
+          the SDK + Jackson 3 codec + Jackson 3 runtime on the classpath.
+        -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson3</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!--
+          Pull every observability adapter and the wire-logging interceptor into the smoke so
+          the native-image analyzer sees the full SDK surface. Each plugin is instantiated and
+          dispatched at least once in `Main.selfTest()` so the analyzer keeps the reachable
+          methods alive in the binary; any reflective access in their internals surfaces during
+          the bootstrap pass.
+        -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-slf4j</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-otel</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-micrometer</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-interceptor-logging</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- SLF4J API + a runtime binding. `slf4j-simple` routes the SDK's `fanar.*` loggers
+             (wire interceptor + obs plugin) to stderr at the level set in
+             `src/main/resources/simplelogger.properties`. Switch to `slf4j-nop` if you want a
+             quiet binary that still exercises every plugin path. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+        </dependency>
+      <!-- OTel API + context + SDK. The smoke wires a real SdkTracerProvider with the W3C
+           propagator so traceparent is actually injected — validates the propagation contract
+           under AOT, not just the adapter's own code paths. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+        </dependency>
+        <dependency>
+          <groupId>io.opentelemetry</groupId>
+          <artifactId>opentelemetry-sdk</artifactId>
+        </dependency>
+        <!-- Micrometer Observation API — bare-bones registry, no metric handlers wired. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>qa.fanar.e2e.graalvm.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <!--
+              Bundle every runtime dependency into a single jar so `java -jar app.jar` works
+              without a separate classpath. Required for the bootstrap workflow that attaches
+              GraalVM's tracing agent to the JIT-mode run; the native build path doesn't need
+              this (`native-maven-plugin` resolves the classpath itself).
+              `ServicesResourceTransformer` merges `META-INF/services/*` files so the SDK's
+              `FanarJsonCodec` ServiceLoader entry survives.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                          <createDependencyReducedPom>false</createDependencyReducedPom>
+                          <filters>
+                            <filter>
+                              <artifact>*:*</artifact>
+                              <excludes>
+                                <exclude>module-info.class</exclude>
+                                <exclude>META-INF/versions/9/module-info.class</exclude>
+                                <exclude>META-INF/LICENSE</exclude>
+                                <exclude>META-INF/LICENSE.txt</exclude>
+                                <exclude>META-INF/NOTICE</exclude>
+                                <exclude>META-INF/NOTICE.txt</exclude>
+                              </excludes>
+                            </filter>
+                          </filters>
+                          <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>qa.fanar.e2e.graalvm.Main</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Disable JaCoCo: this module is a smoke executable, no unit tests. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <!-- Disable dependency-analyze gate: same rationale. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          The `native` profile activates the GraalVM native-image plugin. Default Maven builds
+          stay fast (just compile the jar); native compilation is opt-in via `-Pnative`.
+
+          Locally:    JAVA_HOME=/path/to/graalvm ./mvnw -Pnative -pl e2e-graalvm -am package
+          On CI:      handled by .github/workflows/graalvm.yml via graalvm/setup-graalvm@v1
+        -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>${native-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <imageName>fanar-graalvm-smoke</imageName>
+                            <mainClass>qa.fanar.e2e.graalvm.Main</mainClass>
+                            <fallback>false</fallback>
+                            <!--
+                              Disable the GraalVM Reachability Metadata Repository (GRMR):
+                              every dependency we use ships its own native-image metadata
+                              (Jackson, OTel, Micrometer, SLF4J) and the SDK itself ships
+                              metadata under `core/.../META-INF/native-image/`. GRMR is a
+                              community fallback for libraries without metadata — irrelevant
+                              for us. Disabling avoids schema-version mismatches between newer
+                              GRMR releases and older GraalVM CE points (e.g., the CI runner's
+                              21.0.2 is too old for current GRMR schema), keeping the build
+                              entirely self-contained.
+                            -->
+                            <metadataRepository>
+                                <enabled>false</enabled>
+                            </metadataRepository>
+                            <buildArgs>
+                                <!-- Required for the JDK HttpClient's HTTPS calls inside the binary. -->
+                                <buildArg>--enable-url-protocols=https</buildArg>
+                                <!--
+                                  Forward-compat: catches build-time vs runtime initialization
+                                  issues that become defaults in a future GraalVM release.
+                                  Adopting now means the SDK's reachability story keeps working
+                                  on those releases without surprises.
+                                -->
+                                <buildArg>--strict-image-heap</buildArg>
+                                <!--
+                                  Embed a CycloneDX Software Bill of Materials (SBOM) inside the
+                                  binary. Useful for supply-chain auditors when the SDK ships as
+                                  part of a published artifact; free to enable on the smoke too.
+                                -->
+                                <buildArg>--enable-sbom</buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>
