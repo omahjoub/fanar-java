@@ -16,6 +16,10 @@ on:
     paths:
       - 'core/**'
       - 'json-jackson3/**'
+      - 'obs-slf4j/**'
+      - 'obs-otel/**'
+      - 'obs-micrometer/**'
+      - 'interceptor-logging/**'
       - 'e2e-graalvm/**'
       - 'pom.xml'
       - '.github/workflows/graalvm.yml'
@@ -66,11 +70,17 @@ jobs:
       - name: Build executable jar (no native compile)
         run: ./mvnw -pl e2e-graalvm -am package -B
 
-      - name: Run live with tracing agent
+      - name: Run under tracing agent (offline self-test then live)
         env:
           FANAR_API_KEY: ${{ secrets.FANAR_API_KEY }}
         run: |
           mkdir -p metadata-out
+          # The agent merges entries when invoked twice with the same `config-output-dir`,
+          # so this single run captures both the offline self-test surface (decode + encode
+          # for every domain, every obs plugin, every interceptor) and the live HTTP surface
+          # (real request/response paths, exception mapping for 4xx/5xx, async wrapper).
+          java -agentlib:native-image-agent=config-output-dir=metadata-out \
+               -jar e2e-graalvm/target/fanar-java-e2e-graalvm-*.jar --self-test
           java -agentlib:native-image-agent=config-output-dir=metadata-out \
                -jar e2e-graalvm/target/fanar-java-e2e-graalvm-*.jar
 
