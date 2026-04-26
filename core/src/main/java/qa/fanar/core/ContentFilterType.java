@@ -12,6 +12,8 @@ import java.util.Set;
  * carrying the new wire string instead of failing.</p>
  *
  * @param wireValue the exact string Fanar uses on the wire for this filter type
+ *
+ * @author Oussama Mahjoub
  */
 public record ContentFilterType(String wireValue) {
 

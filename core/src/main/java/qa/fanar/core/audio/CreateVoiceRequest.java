@@ -18,6 +18,8 @@ import java.util.Objects;
  * @param name       the personalized voice name; must not be {@code null}
  * @param audio      WAV bytes for the speaker sample; must not be {@code null}
  * @param transcript the exact transcription of the audio; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record CreateVoiceRequest(String name, byte[] audio, String transcript) {
 

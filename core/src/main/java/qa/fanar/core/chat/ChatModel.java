@@ -12,6 +12,8 @@ import java.util.Set;
  * useful for IDE autocomplete and as an advisory catalogue, not a gate.</p>
  *
  * @param wireValue the exact string Fanar accepts in the {@code model} field
+ *
+ * @author Oussama Mahjoub
  */
 public record ChatModel(String wireValue) {
 

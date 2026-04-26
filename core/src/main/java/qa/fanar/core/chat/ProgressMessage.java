@@ -10,6 +10,8 @@ import java.util.Objects;
  *
  * @param en English progress text; must not be {@code null}
  * @param ar Arabic progress text; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ProgressMessage(String en, String ar) {
 

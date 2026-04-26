@@ -22,6 +22,8 @@ import java.util.Objects;
  * @param model    wire-format model id the server picked; must not be {@code null}
  * @param usage    token-usage breakdown; {@code null} when the server did not provide one
  * @param metadata opaque Fanar-specific metadata; never {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record ChatResponse(
         String id,

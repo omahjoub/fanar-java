@@ -11,6 +11,8 @@ import java.util.Set;
  * waiting for an SDK release.</p>
  *
  * @param wireValue the exact string Fanar accepts in the {@code model} field
+ *
+ * @author Oussama Mahjoub
  */
 public record ModerationModel(String wireValue) {
 

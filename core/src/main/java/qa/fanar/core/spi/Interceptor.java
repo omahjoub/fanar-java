@@ -26,6 +26,8 @@ import java.net.http.HttpResponse;
  * <p>Interceptors apply to the <em>initial HTTP exchange</em>. For streaming calls, they see the
  * connection handshake; they do not intercept individual SSE chunks once the stream is flowing.
  * Per-event logic composes at the {@code Flow.Publisher} layer.</p>
+ *
+ * @author Oussama Mahjoub
  */
 @FunctionalInterface
 public interface Interceptor {

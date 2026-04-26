@@ -12,6 +12,8 @@ import java.util.Objects;
  * @param index        0-based position of this choice within the chunk's choices
  * @param finishReason finish reason; {@code null} while generation continues
  * @param toolCalls    tool-call deltas; must not be {@code null}, defensively copied
+ *
+ * @author Oussama Mahjoub
  */
 public record ChoiceToolCall(int index, String finishReason, List<ToolCallData> toolCalls) {
 

@@ -72,6 +72,8 @@ import qa.fanar.obs.slf4j.Slf4jObservabilityPlugin;
  *
  * <p>Exit codes: {@code 0} on success, {@code 2} if the live mode is requested but
  * {@code FANAR_API_KEY} is missing, non-zero on assertion / decode failures.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class Main {
 

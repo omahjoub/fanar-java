@@ -14,6 +14,8 @@ import java.util.Objects;
  * @param endTime   end time of this segment, in seconds
  * @param duration  duration of the segment, in seconds
  * @param text      transcribed text for this segment
+ *
+ * @author Oussama Mahjoub
  */
 public record Segment(
         String speaker,

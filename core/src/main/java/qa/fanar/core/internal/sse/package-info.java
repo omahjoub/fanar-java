@@ -7,5 +7,7 @@
  * {@link java.util.concurrent.Flow.Publisher}. See {@code SseStreamPublisher}.</p>
  *
  * <p>Internal per ADR-018 — nothing in this package is exported.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.core.internal.sse;

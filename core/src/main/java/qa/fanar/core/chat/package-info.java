@@ -23,5 +23,7 @@
  * <p>The {@link qa.fanar.core.chat.UserContentPart} and
  * {@link qa.fanar.core.chat.AssistantContentPart} sealed hierarchies overlap at
  * {@link qa.fanar.core.chat.TextPart}, which implements both — text is accepted by both roles.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.core.chat;

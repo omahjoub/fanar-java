@@ -9,6 +9,8 @@
  * <p>Streaming-aware: at {@code BODY} level the response body is captured only when it is not
  * a streaming media type, so SSE and other chunked responses keep flowing without being drained
  * into memory.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.interceptor.logging {
     requires qa.fanar.core;

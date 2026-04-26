@@ -13,6 +13,8 @@ import java.util.List;
  * @param finishReason finish reason (defaults to {@code "stop"} if input was {@code null})
  * @param references   authenticated references accumulated across the stream; never
  *                     {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record ChoiceFinal(int index, String finishReason, List<Reference> references) {
 

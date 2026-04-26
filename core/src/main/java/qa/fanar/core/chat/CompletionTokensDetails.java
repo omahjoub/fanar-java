@@ -17,6 +17,8 @@ package qa.fanar.core.chat;
  *                                 {@code null} when thinking was not used
  * @param rejectedPredictionTokens speculative-decoding tokens that were rejected;
  *                                 {@code null} when not applicable
+ *
+ * @author Oussama Mahjoub
  */
 public record CompletionTokensDetails(
         Integer acceptedPredictionTokens,

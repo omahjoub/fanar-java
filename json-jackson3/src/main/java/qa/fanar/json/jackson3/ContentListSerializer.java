@@ -19,6 +19,8 @@ import qa.fanar.core.chat.TextPart;
  *
  * <p>Attached to {@code UserMessage.content()} and {@code AssistantMessage.content()} via
  * mix-ins.</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class ContentListSerializer extends StdSerializer<List<?>> {
 

@@ -9,6 +9,8 @@ import java.util.Set;
  * for new reciters via {@link #of(String)}.
  *
  * @param wireValue the exact string Fanar accepts in the {@code quran_reciter} field
+ *
+ * @author Oussama Mahjoub
  */
 public record QuranReciter(String wireValue) {
 

@@ -11,6 +11,8 @@ import java.util.Objects;
  * because they represent the model's private reasoning, not user-visible output.</p>
  *
  * @param content the reasoning trace text; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ThinkingMessage(String content) implements Message {
 

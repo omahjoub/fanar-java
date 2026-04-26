@@ -13,6 +13,8 @@ import java.util.Set;
  * via {@link #of(String)}.</p>
  *
  * @param wireValue the exact string Fanar accepts in the {@code voice} field
+ *
+ * @author Oussama Mahjoub
  */
 public record Voice(String wireValue) {
 

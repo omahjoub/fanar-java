@@ -12,6 +12,8 @@ import java.util.Objects;
  * @param id      unique identifier for this generation
  * @param created Unix epoch seconds at which the image was generated
  * @param data    generated images (typically size 1)
+ *
+ * @author Oussama Mahjoub
  */
 public record ImageGenerationResponse(String id, long created, List<ImageGenerationItem> data) {
 

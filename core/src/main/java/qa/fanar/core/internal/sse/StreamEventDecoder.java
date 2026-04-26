@@ -34,6 +34,8 @@ import qa.fanar.core.spi.FanarJsonCodec;
  * into the target record. The input is small (one SSE frame) so the cost is negligible.</p>
  *
  * <p>Internal (ADR-018).</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class StreamEventDecoder {
 

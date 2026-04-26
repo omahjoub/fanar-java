@@ -4,6 +4,8 @@
  * <p>This module has zero runtime dependencies. It uses only {@code java.base} and {@code java.net.http}.
  * The top-level package {@code qa.fanar.core} and the {@code qa.fanar.core.spi} subpackage form the public API;
  * everything under {@code qa.fanar.core.internal} is implementation detail and is never exported.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.core {
     requires java.net.http;

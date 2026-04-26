@@ -12,6 +12,8 @@ import java.util.Objects;
  * @param finishReason finish reason if this chunk is the last for the choice; {@code null}
  *                     while generation continues
  * @param content      the token delta; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ChoiceToken(int index, String finishReason, String content) {
 

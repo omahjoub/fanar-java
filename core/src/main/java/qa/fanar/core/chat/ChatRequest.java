@@ -22,6 +22,8 @@ import java.util.Objects;
  * <p>The wire field {@code stream} is <em>not</em> modelled here. Streaming vs. non-streaming is
  * a call-site choice on the domain facade (for example {@code client.chat().stream(request)}),
  * and the transport sets the wire field accordingly.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public record ChatRequest(
         // --- required

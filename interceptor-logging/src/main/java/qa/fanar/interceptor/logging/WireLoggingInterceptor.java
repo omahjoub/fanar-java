@@ -72,6 +72,8 @@ import qa.fanar.core.spi.Interceptor;
  * accidentally logging multi-megabyte audio downloads or image-generation responses.</p>
  *
  * <p>Thread-safe: a single instance is shared across all requests on a {@code FanarClient}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class WireLoggingInterceptor implements Interceptor {
 

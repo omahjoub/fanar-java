@@ -11,6 +11,8 @@ import java.util.Set;
  * lowercase ISO 639-1 codes joined by a dash: {@code "en-ar"}, {@code "ar-en"}, …</p>
  *
  * @param wireValue the exact string Fanar accepts (e.g. {@code "en-ar"})
+ *
+ * @author Oussama Mahjoub
  */
 public record LanguagePair(String wireValue) {
 

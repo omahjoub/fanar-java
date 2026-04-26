@@ -49,6 +49,8 @@ import qa.fanar.core.spi.ObservationHandle;
  * <p>Distributed-trace context propagation is <em>not</em> performed by this plugin —
  * {@link ObservationHandle#propagationHeaders()} returns an empty map. Use the OpenTelemetry
  * binding for trace context.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class Slf4jObservabilityPlugin implements ObservabilityPlugin {
 

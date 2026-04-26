@@ -7,6 +7,8 @@ import java.util.Objects;
  *
  * @param id   unique identifier for this generation
  * @param poem the generated poem text
+ *
+ * @author Oussama Mahjoub
  */
 public record PoemGenerationResponse(String id, String poem) {
 

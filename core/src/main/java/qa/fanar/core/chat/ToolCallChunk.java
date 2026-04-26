@@ -15,6 +15,8 @@ import java.util.Objects;
  * @param created server-side timestamp
  * @param model   wire-format model id; must not be {@code null}
  * @param choices per-choice tool-call deltas; must not be {@code null}, defensively copied
+ *
+ * @author Oussama Mahjoub
  */
 public record ToolCallChunk(
         String id,

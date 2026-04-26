@@ -9,6 +9,8 @@ import java.util.Set;
  * via {@link #of(String)}.
  *
  * @param wireValue the exact string Fanar accepts (e.g. {@code "mp3"})
+ *
+ * @author Oussama Mahjoub
  */
 public record TtsResponseFormat(String wireValue) {
 

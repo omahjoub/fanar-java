@@ -14,6 +14,8 @@ import java.util.UUID;
  *
  * <p>Internal (ADR-018). Used by {@code AudioClientImpl} for {@code createVoice} and
  * {@code transcribe}; not part of the public API.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class MultipartBuilder {
 

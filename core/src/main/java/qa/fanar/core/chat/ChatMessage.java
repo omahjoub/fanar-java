@@ -16,6 +16,8 @@ import java.util.List;
  * @param content    content parts (text / image / audio); never {@code null}, may be empty
  * @param references authenticated source references; never {@code null}, may be empty
  * @param toolCalls  tool invocations the assistant made; never {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record ChatMessage(
         List<ResponseContent> content,

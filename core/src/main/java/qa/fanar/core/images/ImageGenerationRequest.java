@@ -11,6 +11,8 @@ import java.util.Objects;
  *
  * @param model  the image-generation model to use; must not be {@code null}
  * @param prompt a natural-language description of the desired image; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ImageGenerationRequest(ImageModel model, String prompt) {
 

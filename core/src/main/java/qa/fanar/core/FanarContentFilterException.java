@@ -10,6 +10,8 @@ package qa.fanar.core;
  * <p>Deliberately a direct child of {@link FanarException} (not of
  * {@link FanarClientException}), because content filtering is semantically distinct from other
  * 4xx errors: the request reached Fanar and was understood, but the response was withheld.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarContentFilterException extends FanarException {
 

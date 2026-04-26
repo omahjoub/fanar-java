@@ -18,6 +18,8 @@ import java.util.Set;
  * </ul>
  *
  * @param wireValue the exact string Fanar accepts on the wire
+ *
+ * @author Oussama Mahjoub
  */
 public record TranslationPreprocessing(String wireValue) {
 

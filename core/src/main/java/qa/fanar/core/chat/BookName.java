@@ -15,6 +15,8 @@ import java.util.Set;
  * themselves.</p>
  *
  * @param wireValue the exact wire string Fanar accepts for this book
+ *
+ * @author Oussama Mahjoub
  */
 public record BookName(String wireValue) {
 

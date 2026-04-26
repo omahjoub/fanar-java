@@ -16,6 +16,8 @@ import java.util.Objects;
  * @param created server-side timestamp
  * @param model   wire-format model id; must not be {@code null}
  * @param message bilingual progress description; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ProgressChunk(
         String id,

@@ -16,6 +16,8 @@ package qa.fanar.core.chat;
  *     case AudioContent a -> ui.appendAudio(a.url());
  * }
  * }</pre>
+ *
+ * @author Oussama Mahjoub
  */
 public sealed interface ResponseContent
         permits TextContent, ImageContent, AudioContent {

@@ -9,6 +9,8 @@ import java.util.Objects;
  * input-side concern; see {@link ImagePart}).</p>
  *
  * @param url the image URL; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ImageContent(String url) implements ResponseContent {
 

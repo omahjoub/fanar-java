@@ -41,6 +41,8 @@ import qa.fanar.core.spi.Interceptor;
  *
  * <p>Internal (ADR-018). Tests construct variants with deterministic {@link Sleeper} and
  * {@link RandomGenerator} via the package-private constructor.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class RetryInterceptor implements Interceptor {
 

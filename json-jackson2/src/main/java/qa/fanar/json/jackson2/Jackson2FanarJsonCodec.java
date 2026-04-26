@@ -45,6 +45,8 @@ import qa.fanar.core.translations.TranslationRequest;
  * <p>Thread-safe: an {@code ObjectMapper} is safe to share once configured. Callers who need
  * custom settings should build their own via {@link #defaultMapper()} and pass it to
  * {@link #Jackson2FanarJsonCodec(ObjectMapper)}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class Jackson2FanarJsonCodec implements FanarJsonCodec {
 

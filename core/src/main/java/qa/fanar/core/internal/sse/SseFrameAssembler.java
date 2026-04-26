@@ -18,6 +18,8 @@ package qa.fanar.core.internal.sse;
  * </ul>
  *
  * <p>Not thread-safe: one assembler per connection. Internal.</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class SseFrameAssembler {
 

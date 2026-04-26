@@ -10,6 +10,8 @@ import java.util.Set;
  * target a new translation model via {@link #of(String)} the day Fanar ships it.</p>
  *
  * @param wireValue the exact string Fanar accepts in the {@code model} field
+ *
+ * @author Oussama Mahjoub
  */
 public record TranslationModel(String wireValue) {
 

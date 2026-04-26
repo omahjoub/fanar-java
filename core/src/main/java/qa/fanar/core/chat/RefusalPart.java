@@ -11,6 +11,8 @@ import java.util.Objects;
  * before the model sees the input — a {@code RefusalPart} is the <em>model's own</em> refusal.</p>
  *
  * @param refusal the human-readable refusal text; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record RefusalPart(String refusal) implements AssistantContentPart {
 

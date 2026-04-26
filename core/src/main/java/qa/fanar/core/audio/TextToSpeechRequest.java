@@ -17,6 +17,8 @@ import java.util.Objects;
  * @param responseFormat audio container ({@link TtsResponseFormat#MP3} or
  *                       {@link TtsResponseFormat#WAV}); {@code null} → server default (mp3)
  * @param quranReciter   reciter selection for the Sadiq TTS model; {@code null} → server default
+ *
+ * @author Oussama Mahjoub
  */
 public record TextToSpeechRequest(
         TtsModel model,

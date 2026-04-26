@@ -12,6 +12,8 @@ import qa.fanar.core.chat.ProgressMessage;
  * Unwraps {@code progress.message.{en,ar}} into {@link ProgressChunk#message()}. The wire shape
  * nests the bilingual strings two levels deep inside a {@code progress} object; this
  * deserializer hoists them onto the chunk directly.
+ *
+ * @author Oussama Mahjoub
  */
 final class ProgressChunkDeserializer extends StdDeserializer<ProgressChunk> {
 

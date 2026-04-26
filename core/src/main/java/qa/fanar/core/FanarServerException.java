@@ -12,6 +12,8 @@ package qa.fanar.core;
  * limits are a transient server-side throttling event, not a permanent client-side condition
  * (contrast with {@link FanarQuotaExceededException}, which sits under
  * {@link FanarClientException}).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public abstract sealed class FanarServerException extends FanarException
         permits FanarRateLimitException, FanarOverloadedException,

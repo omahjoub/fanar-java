@@ -10,6 +10,8 @@ import java.util.Objects;
  * upload step.</p>
  *
  * @param url the video URL; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record VideoPart(String url) implements UserContentPart {
 

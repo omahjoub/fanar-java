@@ -19,6 +19,8 @@ import java.util.Map;
  *
  * <p>Fluent methods ({@link #attribute}, {@link #event}, {@link #error}, {@link #child}) return
  * this handle (or, for {@link #child}, a new one) to allow chaining.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public interface ObservationHandle extends AutoCloseable {
 

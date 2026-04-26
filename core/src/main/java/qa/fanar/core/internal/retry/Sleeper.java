@@ -5,6 +5,8 @@ import java.time.Duration;
 /**
  * Minimal abstraction over {@link Thread#sleep(Duration)} so tests can drive the retry loop
  * without actually waiting on the wall clock. Internal.
+ *
+ * @author Oussama Mahjoub
  */
 @FunctionalInterface
 interface Sleeper {

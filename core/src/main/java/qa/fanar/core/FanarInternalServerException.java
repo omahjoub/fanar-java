@@ -5,6 +5,8 @@ package qa.fanar.core;
  *
  * <p>Often transient — the built-in retry interceptor handles this by default, though
  * persistent 500s typically warrant human attention.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarInternalServerException extends FanarServerException {
 

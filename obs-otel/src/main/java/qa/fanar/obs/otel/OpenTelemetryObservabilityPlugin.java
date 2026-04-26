@@ -49,6 +49,8 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Thread-safe: a single plugin instance backs every concurrent operation on a
  * {@code FanarClient}. Span lifecycle is per-handle; close is idempotent.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class OpenTelemetryObservabilityPlugin implements ObservabilityPlugin {
 

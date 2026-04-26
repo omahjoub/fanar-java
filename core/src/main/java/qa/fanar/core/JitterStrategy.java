@@ -7,6 +7,8 @@ package qa.fanar.core;
  * recommended default — the AWS Architecture Blog post <em>"Exponential Backoff and Jitter"</em>
  * establishes that it prevents thundering-herd reconvergence more effectively than deterministic
  * or equal-jitter schemes.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public enum JitterStrategy {
 

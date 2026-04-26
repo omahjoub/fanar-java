@@ -10,6 +10,8 @@ import java.util.Objects;
  *
  * @param content the system prompt; must not be {@code null}
  * @param name    optional speaker name (nullable)
+ *
+ * @author Oussama Mahjoub
  */
 public record SystemMessage(String content, String name) implements Message {
 

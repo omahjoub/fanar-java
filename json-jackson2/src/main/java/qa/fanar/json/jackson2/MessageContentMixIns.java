@@ -12,6 +12,8 @@ import qa.fanar.core.chat.UserContentPart;
 /**
  * Mix-ins that attach {@link ContentListSerializer} to the {@code content} accessor on each
  * request-side message variant that carries a list of content parts.
+ *
+ * @author Oussama Mahjoub
  */
 final class MessageContentMixIns {
 

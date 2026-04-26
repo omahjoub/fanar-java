@@ -38,6 +38,8 @@ import qa.fanar.core.tokens.TokensClient;
  * on success, and maps 4xx/5xx through {@link ExceptionMapper}.</p>
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class TokensClientImpl implements TokensClient {
 

@@ -12,6 +12,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * back on responses, so no decoder path consumes it. If round-tripping a {@code ChatRequest}
  * through the codec ever becomes a supported workflow, add an explicit {@code @JsonCreator}-style
  * deserializer at that point.</p>
+ *
+ * @author Oussama Mahjoub
  */
 interface BookNameMixIn {
 

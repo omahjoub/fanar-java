@@ -15,6 +15,8 @@ package qa.fanar.core.moderations;
  * @param id                request-correlation identifier — undocumented in the OpenAPI spec
  *                          but consistently emitted by the live server. {@code null} when
  *                          the server omits it (e.g. older deployments).
+ *
+ * @author Oussama Mahjoub
  */
 public record SafetyFilterResponse(double safety, double culturalAwareness, String id) {
 }

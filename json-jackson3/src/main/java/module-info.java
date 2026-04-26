@@ -5,6 +5,8 @@
  * {@code tools.jackson.*} package family, as shipped by Spring Boot 4.x). The Jackson
  * dependency is declared {@code provided} so the consuming application supplies the concrete
  * runtime.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.json.jackson3 {
     requires qa.fanar.core;

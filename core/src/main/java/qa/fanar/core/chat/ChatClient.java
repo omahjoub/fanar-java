@@ -20,6 +20,8 @@ import java.util.concurrent.Flow;
  *
  * <p>Implementations must be thread-safe — one {@code ChatClient} instance backs every call on
  * a given {@code FanarClient}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public interface ChatClient {
 

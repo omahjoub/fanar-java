@@ -20,6 +20,8 @@ import qa.fanar.core.FanarTransportException;
  *
  * <p>Applies the per-request timeout by cloning the inbound request with {@code .timeout(...)}
  * when the builder-configured timeout is non-null.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class DefaultHttpTransport implements HttpTransport {
 

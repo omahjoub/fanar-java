@@ -12,6 +12,8 @@ import java.util.Objects;
  * @param logprob      the chosen token's log probability (natural log)
  * @param topLogprobs  the {@code top_logprobs} most likely alternative tokens at this position;
  *                     never {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record TokenLogprob(
         String token,

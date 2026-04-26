@@ -14,6 +14,8 @@ import qa.fanar.core.spi.ObservationHandle;
  * Fan-out {@link ObservabilityPlugin} produced by
  * {@link ObservabilityPlugin#compose(ObservabilityPlugin...)}. Internal implementation detail
  * (ADR-018) — callers construct it via the {@code compose(...)} factory, never directly.
+ *
+ * @author Oussama Mahjoub
  */
 public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
 

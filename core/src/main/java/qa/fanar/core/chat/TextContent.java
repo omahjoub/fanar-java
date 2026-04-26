@@ -9,6 +9,8 @@ import java.util.Objects;
  * keep the input and output content hierarchies disjoint.</p>
  *
  * @param text the text payload; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record TextContent(String text) implements ResponseContent {
 

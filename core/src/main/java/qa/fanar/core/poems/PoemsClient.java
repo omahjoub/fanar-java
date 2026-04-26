@@ -8,6 +8,8 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>The endpoint requires additional Fanar authorization (per spec); if your API key isn't
  * authorized, both methods surface a {@code FanarAuthorizationException} (HTTP 403).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public interface PoemsClient {
 

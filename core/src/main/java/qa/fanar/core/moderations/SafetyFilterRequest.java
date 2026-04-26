@@ -13,6 +13,8 @@ import java.util.Objects;
  * @param model    the moderation model to use; must not be {@code null}
  * @param prompt   the user's prompt; must not be {@code null}
  * @param response the model's response to evaluate alongside the prompt; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record SafetyFilterRequest(ModerationModel model, String prompt, String response) {
 

@@ -4,5 +4,7 @@
  * <p>Public type: {@code Jackson2FanarJsonCodec}. Register via {@code ServiceLoader} (automatic) or pass an
  * instance explicitly to {@code FanarClient.Builder.jsonCodec(...)}. The adapter accepts a user-configured
  * {@code ObjectMapper} so Spring-managed customizations flow through.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.json.jackson2;

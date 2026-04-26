@@ -14,6 +14,8 @@ import java.util.Objects;
  * @param created server-side timestamp
  * @param model   wire-format model id; must not be {@code null}
  * @param choices per-choice deltas; must not be {@code null}, defensively copied
+ *
+ * @author Oussama Mahjoub
  */
 public record TokenChunk(
         String id,

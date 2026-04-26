@@ -12,6 +12,8 @@
  * {@code micrometer-tracing-bridge-otel}) is wired in the consuming application, it updates the
  * tracer's context internally but does not surface back through this SPI. To inject
  * {@code traceparent} into outbound Fanar requests, compose with the {@code obs-otel} adapter.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.obs.micrometer {
     requires qa.fanar.core;
