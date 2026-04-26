@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.obs.slf4j.Slf4jObservabilityPlugin;
 
 /**
  * Factory methods for building {@link FanarClient} instances used by e2e tests.
@@ -43,14 +44,20 @@ public final class TestClients {
     }
 
     /**
-     * Same as {@link #live(FanarJsonCodec)} but with a {@link LoggingInterceptor} attached
-     * that prints every request and response to {@code stdout} — useful when a live test is
-     * failing and you want to see what's actually going over the wire. Bearer tokens are
-     * redacted; request/response bodies are printed verbatim.
+     * Same as {@link #live(FanarJsonCodec)} but with two diagnostics turned on:
+     * <ul>
+     *   <li>{@link LoggingInterceptor} — prints every request and response to {@code stdout}.
+     *       Bearer tokens are redacted; bodies are printed verbatim.</li>
+     *   <li>{@link Slf4jObservabilityPlugin} — emits one structured log line per SDK operation
+     *       through SLF4J. The e2e module's {@code simplelogger.properties} routes the
+     *       {@code fanar.*} loggers to {@code stderr} at {@code DEBUG} so a developer running
+     *       a live test sees the operation name, duration, and every observation attribute.</li>
+     * </ul>
      */
     public static FanarClient liveWithLogging(FanarJsonCodec codec) {
         return liveBuilder(codec)
                 .addInterceptor(LoggingInterceptor.toStdOut())
+                .observability(new Slf4jObservabilityPlugin())
                 .build();
     }
 

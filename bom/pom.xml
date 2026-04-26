@@ -34,6 +34,11 @@
                 <artifactId>fanar-json-jackson3</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-obs-slf4j</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

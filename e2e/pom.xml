@@ -49,6 +49,27 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- The SLF4J observability binding is wired into live tests so a developer running
+             them gets structured per-operation log lines on stderr alongside the existing
+             wire-bytes LoggingInterceptor output. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-slf4j</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Concrete SLF4J binding for the test runtime. Configuration in
+             src/test/resources/simplelogger.properties enables DEBUG for `fanar.*` loggers. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Jackson 2 and 3 are `provided` in their respective adapter modules; e2e runs need
              concrete runtimes for both on the test classpath. AdapterParityTest decodes the
