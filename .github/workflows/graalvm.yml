@@ -1,0 +1,82 @@
+name: GraalVM native-image
+
+# Verifies the SDK compiles to a GraalVM native binary and the chat decode path runs without
+# reachability gaps. Two jobs:
+#
+#   * native-smoke  — runs on every PR. Builds the binary and runs an offline `--self-test`
+#                     so missing reachability metadata fails the build before reaching users.
+#   * bootstrap     — workflow_dispatch only. Runs the binary's main class in JIT mode under
+#                     GraalVM's tracing agent (with a live FANAR_API_KEY), captures the
+#                     reachability metadata it emits, and uploads it as an artifact. A
+#                     contributor downloads the artifact and commits the JSON files under
+#                     `core/src/main/resources/META-INF/native-image/qa.fanar/fanar-core/`.
+
+on:
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'json-jackson3/**'
+      - 'e2e-graalvm/**'
+      - 'pom.xml'
+      - '.github/workflows/graalvm.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Job to run'
+        required: true
+        default: 'self-test'
+        type: choice
+        options:
+          - self-test
+          - bootstrap
+
+jobs:
+  native-smoke:
+    if: github.event_name == 'pull_request' || github.event.inputs.action == 'self-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          cache: 'maven'
+
+      - name: Build native binary
+        run: ./mvnw -Pnative -pl e2e-graalvm -am package -B
+
+      - name: Offline self-test
+        run: ./e2e-graalvm/target/fanar-graalvm-smoke --self-test
+
+  bootstrap:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'bootstrap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          cache: 'maven'
+
+      - name: Build executable jar (no native compile)
+        run: ./mvnw -pl e2e-graalvm -am package -B
+
+      - name: Run live with tracing agent
+        env:
+          FANAR_API_KEY: ${{ secrets.FANAR_API_KEY }}
+        run: |
+          mkdir -p metadata-out
+          java -agentlib:native-image-agent=config-output-dir=metadata-out \
+               -jar e2e-graalvm/target/fanar-java-e2e-graalvm-*.jar
+
+      - name: Upload reachability metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-image-metadata
+          path: metadata-out
+          if-no-files-found: error

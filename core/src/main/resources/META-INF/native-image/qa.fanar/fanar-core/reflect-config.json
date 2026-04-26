@@ -1,0 +1,297 @@
+[
+{
+  "name":"[B"
+},
+{
+  "name":"[Ltools.jackson.databind.deser.Deserializers;"
+},
+{
+  "name":"[Ltools.jackson.databind.deser.KeyDeserializers;"
+},
+{
+  "name":"[Ltools.jackson.databind.deser.ValueInstantiators;"
+},
+{
+  "name":"[Ltools.jackson.databind.ser.Serializers;"
+},
+{
+  "name":"io.opentelemetry.api.incubator.trace.ExtendedDefaultTracerProvider"
+},
+{
+  "name":"java.lang.Record",
+  "allDeclaredFields":true,
+  "queryAllDeclaredMethods":true
+},
+{
+  "name":"java.util.concurrent.atomic.AtomicBoolean",
+  "fields":[{"name":"value"}]
+},
+{
+  "name":"java.util.concurrent.atomic.AtomicReference",
+  "fields":[{"name":"value"}]
+},
+{
+  "name":"qa.fanar.core.audio.CreateVoiceRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"audio","parameterTypes":[] }, {"name":"name","parameterTypes":[] }, {"name":"transcript","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.audio.TextToSpeechRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"input","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"quranReciter","parameterTypes":[] }, {"name":"responseFormat","parameterTypes":[] }, {"name":"voice","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.audio.TranscriptionRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"contentType","parameterTypes":[] }, {"name":"file","parameterTypes":[] }, {"name":"filename","parameterTypes":[] }, {"name":"format","parameterTypes":[] }, {"name":"model","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.audio.VoiceResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.util.List"] }]
+},
+{
+  "name":"qa.fanar.core.chat.ChatChoice",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["qa.fanar.core.chat.FinishReason","int","qa.fanar.core.chat.ChatMessage","qa.fanar.core.chat.ChoiceLogprobs","java.lang.String"] }]
+},
+{
+  "name":"qa.fanar.core.chat.ChatMessage",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.util.List","java.util.List","java.util.List"] }]
+},
+{
+  "name":"qa.fanar.core.chat.ChatRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"bestOf","parameterTypes":[] }, {"name":"bookNames","parameterTypes":[] }, {"name":"earlyStopping","parameterTypes":[] }, {"name":"enableThinking","parameterTypes":[] }, {"name":"excludeSources","parameterTypes":[] }, {"name":"filterSources","parameterTypes":[] }, {"name":"frequencyPenalty","parameterTypes":[] }, {"name":"ignoreEos","parameterTypes":[] }, {"name":"lengthPenalty","parameterTypes":[] }, {"name":"logitBias","parameterTypes":[] }, {"name":"logprobs","parameterTypes":[] }, {"name":"maxTokens","parameterTypes":[] }, {"name":"messages","parameterTypes":[] }, {"name":"minP","parameterTypes":[] }, {"name":"minTokens","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"n","parameterTypes":[] }, {"name":"preferredSources","parameterTypes":[] }, {"name":"presencePenalty","parameterTypes":[] }, {"name":"promptLogprobs","parameterTypes":[] }, {"name":"repetitionPenalty","parameterTypes":[] }, {"name":"restrictToIslamic","parameterTypes":[] }, {"name":"skipSpecialTokens","parameterTypes":[] }, {"name":"spacesBetweenSpecialTokens","parameterTypes":[] }, {"name":"stop","parameterTypes":[] }, {"name":"stopTokenIds","parameterTypes":[] }, {"name":"temperature","parameterTypes":[] }, {"name":"topK","parameterTypes":[] }, {"name":"topLogprobs","parameterTypes":[] }, {"name":"topP","parameterTypes":[] }, {"name":"truncatePromptTokens","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.chat.ChatResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.util.List","long","java.lang.String","qa.fanar.core.chat.CompletionUsage","java.util.Map"] }]
+},
+{
+  "name":"qa.fanar.core.chat.ChoiceLogprobs",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.CompletionTokensDetails",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.CompletionUsage",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["int","int","int","qa.fanar.core.chat.CompletionTokensDetails","qa.fanar.core.chat.PromptTokensDetails","java.lang.Integer","java.lang.Double"] }]
+},
+{
+  "name":"qa.fanar.core.chat.Message",
+  "queryAllDeclaredMethods":true
+},
+{
+  "name":"qa.fanar.core.chat.PromptTokensDetails",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.Reference",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.TokenLogprob",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.ToolCall",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.TopLogprob",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true
+},
+{
+  "name":"qa.fanar.core.chat.UserMessage",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"content","parameterTypes":[] }, {"name":"name","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.images.ImageGenerationItem",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String"] }]
+},
+{
+  "name":"qa.fanar.core.images.ImageGenerationRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"model","parameterTypes":[] }, {"name":"prompt","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.images.ImageGenerationResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","long","java.util.List"] }]
+},
+{
+  "name":"qa.fanar.core.models.AvailableModel",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String","long","java.lang.String"] }]
+},
+{
+  "name":"qa.fanar.core.models.ModelsResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.util.List"] }]
+},
+{
+  "name":"qa.fanar.core.moderations.SafetyFilterRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"model","parameterTypes":[] }, {"name":"prompt","parameterTypes":[] }, {"name":"response","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.moderations.SafetyFilterResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["double","double","java.lang.String"] }]
+},
+{
+  "name":"qa.fanar.core.poems.PoemGenerationRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"model","parameterTypes":[] }, {"name":"prompt","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.poems.PoemGenerationResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
+},
+{
+  "name":"qa.fanar.core.tokens.TokenizationRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"content","parameterTypes":[] }, {"name":"model","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.tokens.TokenizationResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","int","int"] }]
+},
+{
+  "name":"qa.fanar.core.translations.TranslationRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"langPair","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"preprocessing","parameterTypes":[] }, {"name":"text","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.translations.TranslationResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
+},
+{
+  "name":"qa.fanar.json.jackson3.ContentListSerializer",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.json.jackson3.MessageContentMixIns$ChatMessageMixIn",
+  "allDeclaredFields":true,
+  "queryAllDeclaredMethods":true
+},
+{
+  "name":"qa.fanar.json.jackson3.MessageContentMixIns$UserMessageMixIn",
+  "allDeclaredFields":true,
+  "queryAllDeclaredMethods":true
+},
+{
+  "name":"qa.fanar.json.jackson3.MessageMixIn",
+  "queryAllDeclaredMethods":true
+},
+{
+  "name":"qa.fanar.json.jackson3.ResponseContentListDeserializer",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.json.jackson3.TranslationRequestMixIn",
+  "allDeclaredFields":true,
+  "queryAllDeclaredMethods":true
+}
+]
