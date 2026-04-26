@@ -57,7 +57,6 @@ class LiveTranslationsTest {
             assertNotNull(r.id(), "response id must be present");
             assertNotNull(r.text(), "translated text must be present");
             assertFalse(r.text().isBlank(), "translated text must not be blank");
-            System.out.println("Live /v1/translations: " + r.text());
         }
     }
 

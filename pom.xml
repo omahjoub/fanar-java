@@ -34,6 +34,7 @@
         <module>json-jackson2</module>
         <module>json-jackson3</module>
         <module>obs-slf4j</module>
+        <module>interceptor-logging</module>
         <module>bom</module>
         <!--
           `e2e` is part of the reactor so IDEs auto-detect it. It adds ~1 second to

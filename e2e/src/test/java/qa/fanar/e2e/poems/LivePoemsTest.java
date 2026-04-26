@@ -53,7 +53,6 @@ class LivePoemsTest {
             assertNotNull(r.id(), "response id must be present");
             assertNotNull(r.poem(), "poem text must be present");
             assertFalse(r.poem().isBlank(), "poem text must not be blank");
-            System.out.println("Live /v1/poems/generations: " + r.poem());
         }
     }
 

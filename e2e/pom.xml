@@ -49,12 +49,18 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- The SLF4J observability binding is wired into live tests so a developer running
-             them gets structured per-operation log lines on stderr alongside the existing
-             wire-bytes LoggingInterceptor output. -->
+        <!-- The SLF4J observability binding and the wire-logging interceptor are wired into
+             live tests so a developer running them gets structured per-operation log lines on
+             stderr alongside raw HTTP wire bytes. -->
         <dependency>
             <groupId>qa.fanar</groupId>
             <artifactId>fanar-obs-slf4j</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-interceptor-logging</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

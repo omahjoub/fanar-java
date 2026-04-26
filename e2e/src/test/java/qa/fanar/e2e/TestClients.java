@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.interceptor.logging.WireLoggingInterceptor;
 import qa.fanar.obs.slf4j.Slf4jObservabilityPlugin;
 
 /**
@@ -46,17 +47,20 @@ public final class TestClients {
     /**
      * Same as {@link #live(FanarJsonCodec)} but with two diagnostics turned on:
      * <ul>
-     *   <li>{@link LoggingInterceptor} — prints every request and response to {@code stdout}.
-     *       Bearer tokens are redacted; bodies are printed verbatim.</li>
+     *   <li>{@link WireLoggingInterceptor} at {@link WireLoggingInterceptor.Level#BODY} — prints
+     *       every request and response (method, URL, headers, body) through SLF4J. The e2e
+     *       module's {@code simplelogger.properties} routes the {@code fanar.wire} logger to
+     *       {@code stderr} at {@code DEBUG}.</li>
      *   <li>{@link Slf4jObservabilityPlugin} — emits one structured log line per SDK operation
-     *       through SLF4J. The e2e module's {@code simplelogger.properties} routes the
-     *       {@code fanar.*} loggers to {@code stderr} at {@code DEBUG} so a developer running
+     *       through SLF4J. Same routing on the {@code fanar.*} namespace. A developer running
      *       a live test sees the operation name, duration, and every observation attribute.</li>
      * </ul>
      */
     public static FanarClient liveWithLogging(FanarJsonCodec codec) {
         return liveBuilder(codec)
-                .addInterceptor(LoggingInterceptor.toStdOut())
+                .addInterceptor(WireLoggingInterceptor.builder()
+                        .level(WireLoggingInterceptor.Level.BODY)
+                        .build())
                 .observability(new Slf4jObservabilityPlugin())
                 .build();
     }

@@ -55,8 +55,6 @@ class LiveModerationsTest {
                     "safety score must be finite, got " + r.safety());
             assertTrue(Double.isFinite(r.culturalAwareness()),
                     "cultural awareness score must be finite, got " + r.culturalAwareness());
-            System.out.println("Live /v1/moderations: safety=" + r.safety()
-                    + " culturalAwareness=" + r.culturalAwareness());
         }
     }
 

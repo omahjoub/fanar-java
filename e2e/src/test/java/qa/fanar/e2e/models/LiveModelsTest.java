@@ -56,7 +56,6 @@ class LiveModelsTest {
             Set<String> wireIds = r.models().stream()
                     .map(AvailableModel::id)
                     .collect(Collectors.toSet());
-            System.out.println("Live /v1/models: " + wireIds);
 
             for (ChatModel known : ChatModel.KNOWN) {
                 assertTrue(wireIds.contains(known.wireValue()),
