@@ -44,6 +44,11 @@
                 <artifactId>fanar-interceptor-logging</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-obs-otel</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
