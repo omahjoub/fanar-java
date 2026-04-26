@@ -15,51 +15,20 @@ import qa.fanar.core.spi.ObservationHandle;
 /**
  * {@link ObservabilityPlugin} that opens one Micrometer {@link Observation} per SDK operation.
  *
- * <p>Each {@link #start(String)} call creates an Observation via the supplied
- * {@link ObservationRegistry}. Attributes attached through {@link ObservationHandle#attribute}
- * become {@linkplain Observation#lowCardinalityKeyValue low-cardinality} {@code KeyValue}s on
- * the Observation (suitable for metric tags); {@link ObservationHandle#event} becomes a
- * {@link Observation.Event}; {@link ObservationHandle#error} records the throwable;
- * {@link ObservationHandle#close} stops the Observation. Child observations are explicit
- * children of the captured parent context.</p>
+ * <p>Attributes become low-cardinality {@code KeyValue}s (suitable for metric tags); events,
+ * errors, and child observations map to the corresponding {@link Observation} APIs. The binding
+ * doesn't itself produce metrics or spans — that's the job of whatever {@code ObservationHandler}s
+ * the consuming application registers on the {@code ObservationRegistry} (typically Spring Boot's
+ * auto-configured {@code DefaultMeterObservationHandler} for metrics, plus an optional
+ * {@code micrometer-tracing-bridge-*} for spans).</p>
  *
- * <h2>Backends</h2>
- *
- * <p>This binding does not produce metrics or trace spans on its own — it only emits Observations.
- * The downstream effect depends on which Micrometer handlers the consuming application registers
- * on its {@code ObservationRegistry}:</p>
- * <ul>
- *   <li>{@code DefaultMeterObservationHandler} (Spring Boot auto-configures this when a
- *       {@code MeterRegistry} bean is present) — Observations become {@code Timer} samples for
- *       Prometheus, Datadog, JMX, etc.</li>
- *   <li>{@code micrometer-tracing-bridge-otel} or {@code -brave} — Observations become spans on
- *       the bridged tracer.</li>
- *   <li>Custom {@code ObservationHandler}s — application-defined behavior.</li>
- * </ul>
- *
- * <h2>Trace context propagation</h2>
- *
- * <p>{@link ObservationHandle#propagationHeaders()} returns an empty map. Micrometer's tracing
+ * <p>{@link ObservationHandle#propagationHeaders()} returns an empty map: Micrometer's tracing
  * bridges update the bridged tracer's context internally but don't surface trace headers back
- * through this SPI. To inject {@code traceparent} into outbound Fanar requests, use the
- * {@code obs-otel} adapter directly or compose:</p>
- * <pre>{@code
- * client.observability(ObservabilityPlugin.compose(
- *         new MicrometerObservabilityPlugin(registry),
- *         new OpenTelemetryObservabilityPlugin(otel)));
- * }</pre>
+ * through this SPI. To inject {@code traceparent} into outbound Fanar requests, compose with the
+ * {@code obs-otel} adapter via {@link ObservabilityPlugin#compose}.</p>
  *
- * <h2>Customizing what is recorded</h2>
- *
- * <pre>{@code
- * ObservabilityPlugin obs = MicrometerObservabilityPlugin.builder(registry)
- *         .attributeFilter(key -> !key.startsWith("internal."))
- *         .attributeRedactor((k, v) -> "fanar.user_id".equals(k) ? "***" : v)
- *         .build();
- * }</pre>
- *
- * <p>Thread-safe: a single plugin instance backs every concurrent operation on a
- * {@code FanarClient}. Observation lifecycle is per-handle; close is idempotent.</p>
+ * <p>Thread-safe; close is idempotent. Customize attribute filtering / redaction via
+ * {@link #builder(ObservationRegistry)}.</p>
  *
  * @author Oussama Mahjoub
  */
