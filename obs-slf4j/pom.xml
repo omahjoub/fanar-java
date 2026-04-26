@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-obs-slf4j</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Observability :: SLF4J</name>
+    <description>SLF4J binding for the Fanar ObservabilityPlugin SPI — emits one structured log line per SDK operation.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--
+          SLF4J is `provided` scope — the consuming application supplies the API jar (typical
+          via Spring Boot's logback dependency, Quarkus's JBoss LogManager bridge, or an
+          explicit binding). This module ships against the SLF4J 2.x surface but does not pull
+          SLF4J onto the downstream classpath.
+        -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Quiet SLF4J's "no provider" warning when the public no-arg constructor is exercised
+             from tests; the plugin's actual logging is verified via Proxy-based recorders. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

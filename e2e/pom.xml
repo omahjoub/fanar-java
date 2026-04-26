@@ -49,6 +49,77 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- The SLF4J observability binding and the wire-logging interceptor are wired into
+             live tests so a developer running them gets structured per-operation log lines on
+             stderr alongside raw HTTP wire bytes. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-slf4j</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-interceptor-logging</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-otel</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- OTel SDK + W3C propagator at test runtime so live tests can demo distributed-trace
+             header injection. No exporter is wired — spans are produced and dropped; the visible
+             effect is the `traceparent` header appearing in the wire log. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-micrometer</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Micrometer Observation API + a simple ObservationRegistry for the live demo so a
+             developer running the suite sees the Micrometer plugin participate in the composite
+             alongside SLF4J and OTel. No metrics handler is wired (so observations are dropped),
+             but the plugin path is exercised end-to-end. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Concrete SLF4J binding for the test runtime. Configuration in
+             src/test/resources/simplelogger.properties enables DEBUG for `fanar.*` loggers. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Jackson 2 and 3 are `provided` in their respective adapter modules; e2e runs need
              concrete runtimes for both on the test classpath. AdapterParityTest decodes the

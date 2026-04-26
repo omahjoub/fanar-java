@@ -1,6 +1,5 @@
 package qa.fanar.e2e.images;
 
-import java.nio.file.Path;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -74,15 +73,11 @@ class LiveImagesTest {
                 // Soft validation: the body should round-trip through the JDK Base64 decoder.
                 byte[] decoded = Base64.getDecoder().decode(item.b64Json());
                 String ext = LiveOutputs.detectImageExtension(decoded);
-                Path file = LiveOutputs.write("image-output", "image-cityscape", ext, decoded);
-                System.out.println("Live /v1/images/generations: decoded " + decoded.length
-                        + " bytes (base64 length " + item.b64Json().length() + ") → " + file);
+                LiveOutputs.write("image-output", "image-cityscape", ext, decoded);
             } catch (FanarAuthorizationException | FanarNotFoundException | FanarTimeoutException e) {
                 // Same lenient pattern as §M.5: SDK shape + typed-exception mapping is the
-                // signal we care about; an upstream access gap shouldn't fail the build.
-                System.out.println("Live /v1/images/generations: "
-                        + e.getClass().getSimpleName() + " (endpoint requires extra access) — "
-                        + e.getMessage());
+                // signal we care about; an upstream access gap shouldn't fail the build. The
+                // wire log already shows the response that produced the typed exception.
             }
         }
     }

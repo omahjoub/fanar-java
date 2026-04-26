@@ -1,6 +1,5 @@
 package qa.fanar.e2e.audio;
 
-import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -62,9 +61,7 @@ class LiveAudioSpeechTest {
                     "expected MP3 frame sync 0xFF Fx, got "
                             + String.format("0x%02x 0x%02x", audio[0] & 0xFF, audio[1] & 0xFF));
 
-            Path file = LiveOutputs.write("audio-output", "speech-harry-mp3", "mp3", audio);
-            System.out.println("Live /v1/audio/speech (mp3): " + audio.length
-                    + " bytes → " + file);
+            LiveOutputs.write("audio-output", "speech-harry-mp3", "mp3", audio);
         }
     }
 
@@ -85,9 +82,7 @@ class LiveAudioSpeechTest {
             assertTrue(audio[8] == 'W' && audio[9] == 'A' && audio[10] == 'V' && audio[11] == 'E',
                     "expected WAVE marker at byte 8");
 
-            Path file = LiveOutputs.write("audio-output", "speech-harry-wav", "wav", audio);
-            System.out.println("Live /v1/audio/speech (wav): " + audio.length
-                    + " bytes → " + file);
+            LiveOutputs.write("audio-output", "speech-harry-wav", "wav", audio);
         }
     }
 

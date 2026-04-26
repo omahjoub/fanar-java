@@ -1,6 +1,5 @@
 package qa.fanar.e2e.audio;
 
-import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -63,8 +62,7 @@ class LiveAudioTranscriptionTest {
         try (FanarClient client = TestClients.liveWithLogging(codec)) {
             byte[] wav = client.audio().speech(new TextToSpeechRequest(
                     TtsModel.FANAR_AURA_TTS_2, ARABIC_PROMPT, Voice.HUDA, TtsResponseFormat.WAV, null));
-            Path src = LiveOutputs.write("audio-output", "stt-source-text", "wav", wav);
-            System.out.println("STT source clip: " + wav.length + " bytes → " + src);
+            LiveOutputs.write("audio-output", "stt-source-text", "wav", wav);
 
             SpeechToTextResponse response = client.audio().transcribe(new TranscriptionRequest(
                     wav, "input.wav", "audio/wav", SttModel.FANAR_AURA_STT_1, SttFormat.TEXT));
@@ -73,8 +71,6 @@ class LiveAudioTranscriptionTest {
                     "format=text must produce a Text variant");
             assertNotNull(text.id(), "id must be present");
             assertFalse(text.text().isBlank(), "transcribed text must not be blank");
-            System.out.println("Live /v1/audio/transcriptions (text): id=" + text.id()
-                    + " → \"" + text.text() + "\"");
         }
     }
 
@@ -95,8 +91,6 @@ class LiveAudioTranscriptionTest {
             assertFalse(srt.srt().isBlank(), "srt body must not be blank");
             assertTrue(srt.srt().contains("-->"),
                     "SRT format includes timing arrows; got: " + srt.srt());
-            System.out.println("Live /v1/audio/transcriptions (srt): id=" + srt.id()
-                    + ", " + srt.srt().length() + " chars");
         }
     }
 
@@ -116,9 +110,6 @@ class LiveAudioTranscriptionTest {
             assertNotNull(json.id());
             assertFalse(json.segments().isEmpty(),
                     "json variant must have at least one segment");
-            System.out.println("Live /v1/audio/transcriptions (json): id=" + json.id()
-                    + ", segments=" + json.segments().size()
-                    + ", first=\"" + json.segments().getFirst().text() + "\"");
         }
     }
 

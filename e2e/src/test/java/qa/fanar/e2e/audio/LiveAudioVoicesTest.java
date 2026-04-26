@@ -58,8 +58,6 @@ class LiveAudioVoicesTest {
         try (FanarClient client = TestClients.liveWithLogging(codec)) {
             VoiceResponse r = client.audio().listVoices();
             assertNotNull(r.voices(), "voices list must be present (may be empty)");
-            System.out.println("Live /v1/audio/voices: "
-                    + r.voices().size() + " personalized voice(s) — " + r.voices());
         }
     }
 

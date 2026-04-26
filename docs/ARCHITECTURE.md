@@ -59,11 +59,15 @@ fanar-java                            (reactor parent — NOT published)
 │           ├── FanarClient, FanarException, ChatModel, …       (top-level public API)
 │           ├── chat/                                           (ChatRequest, StreamEvent, …)
 │           ├── audio/  images/  translations/  poems/
-│           ├── moderation/  tokens/  models/                   (domain DTO packages)
+│           ├── moderations/  tokens/  models/                  (domain DTO packages)
 │           ├── spi/                                            (Interceptor, FanarJsonCodec, …)
 │           └── internal/                                       (transport, SSE parser, retry — not exported)
 ├── json-jackson2/                    qa.fanar:fanar-json-jackson2         — jar  (Spring Boot 3 / Jackson 2)
 ├── json-jackson3/                    qa.fanar:fanar-json-jackson3         — jar  (Spring Boot 4 / Jackson 3)
+├── obs-slf4j/                        qa.fanar:fanar-obs-slf4j             — jar  (SLF4J observability adapter)
+├── obs-otel/                         qa.fanar:fanar-obs-otel              — jar  (OpenTelemetry observability adapter)
+├── obs-micrometer/                   qa.fanar:fanar-obs-micrometer        — jar  (Micrometer Observation API adapter)
+├── interceptor-logging/              qa.fanar:fanar-interceptor-logging   — jar  (wire-level request/response logging)
 └── bom/                              qa.fanar:fanar-java-bom              — pom  (dependency management for consumers)
 ```
 
@@ -194,6 +198,7 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat.{StreamEvent, TokenChunk, ToolCallChunk, ToolResultChunk, ProgressChunk, DoneChunk, ErrorChunk, ChoiceToken, ChoiceToolCall, ChoiceToolResult, ChoiceFinal, ChoiceError, ProgressMessage, FunctionData, ToolCallData, ToolResultData}` | **implemented** |
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
+| Composite observability | `qa.fanar.core.internal.observability.CompositeObservabilityPlugin` | **implemented** — produced by `ObservabilityPlugin.compose(...)`; fans out `start` / `attribute` / `event` / `error` / `child` to N children, merges `propagationHeaders` (last-write-wins on key collision) |
 | Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** (record + enum; retry loop still to come) |
 | HTTP transport | `qa.fanar.core.internal.transport` (`HttpTransport`, `DefaultHttpTransport`, `InterceptorChainImpl`, `ExceptionMapper`) | **implemented** |
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
@@ -201,7 +206,11 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — exponential back-off with configurable jitter, `Retry-After` honouring on 429, `retry_attempt` observation events, injectable `Sleeper`+`RandomGenerator` |
 | Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
-| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **partially** — both JSON adapters ship metadata; `fanar-core` pending |
+| SLF4J observability adapter | `qa.fanar.obs.slf4j.Slf4jObservabilityPlugin` | **implemented** — one structured log line per operation through SLF4J at `DEBUG` (success) / `ERROR` (failure); per-operation logger names (`fanar.chat.send`, `fanar.audio.speech`, ...); attribute filter / redactor knobs via builder; `provided`-scope SLF4J |
+| OpenTelemetry observability adapter | `qa.fanar.obs.otel.OpenTelemetryObservabilityPlugin` | **implemented** — one OTel span per operation, typed attribute dispatch (long / double / boolean / String), W3C `traceparent` injection via `propagationHeaders()`, parent-child via captured context (survives virtual-thread async hops); attribute filter / redactor knobs; `provided`-scope OpenTelemetry API |
+| Micrometer observability adapter | `qa.fanar.obs.micrometer.MicrometerObservabilityPlugin` | **implemented** — one Micrometer `Observation` per operation; attributes → low-cardinality `KeyValue`s for metric tags; backend (metrics / tracing) wired by the consuming application's `ObservationRegistry`; `provided`-scope `micrometer-observation` |
+| Wire logging interceptor | `qa.fanar.interceptor.logging.WireLoggingInterceptor` | **implemented** — OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`), SLF4J sink at `fanar.wire`, configurable header redaction (default `Authorization`), body byte cap, streaming-aware (skips `text/event-stream` bodies); `provided`-scope SLF4J |
+| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **partially** — both JSON adapters ship metadata; `fanar-core` and the obs / interceptor modules pending |
 
 ---
 

@@ -51,8 +51,6 @@ class LiveTokensTest {
             assertTrue(r.tokens() > 0, "expected at least one token, got " + r.tokens());
             assertTrue(r.maxRequestTokens() > 0,
                     "max_request_tokens must be positive, got " + r.maxRequestTokens());
-            System.out.println("Live /v1/tokens: tokens=" + r.tokens()
-                    + " maxRequestTokens=" + r.maxRequestTokens());
         }
     }
 

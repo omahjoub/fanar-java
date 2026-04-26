@@ -175,7 +175,19 @@ exposes one accessor per domain (`client.audio()`, `.images()`, etc.). All upstr
 discovered on the way are captured in project memory (Diwan 504s, audio voices auth
 gating, audio rate-limiting under chained TTS+STT) rather than papered over in tests.
 
-**Phase 2b — broaden once the core is proven.**
+**Phase 2b — done.** All three planned `ObservabilityPlugin` adapters shipped as separate
+modules with `provided`-scope dependencies and zero runtime cost in core: `obs-slf4j`
+(structured log lines), `obs-otel` (spans + W3C `traceparent` propagation),
+`obs-micrometer` (Micrometer Observation API → metrics / tracing through the user's wired
+handlers). A `compose(plugin...)` factory was added to {@code ObservabilityPlugin} so users
+can wire any combination at once via a single slot. The wire-logging path was also pulled
+out of e2e into a published `interceptor-logging` module (`WireLoggingInterceptor` with
+OkHttp-style level ladder, SLF4J sink, header redaction, body byte cap, streaming-aware).
+Observability adapters are <em>opt-in</em> by design — none ship a {@code ServiceLoader}
+descriptor, so adding the jar to the classpath does not silently change the
+{@code FanarClient} default of {@link qa.fanar.core.spi.ObservabilityPlugin#noop()}.
+
+**Phase 2c — broaden once the core is proven.**
 
 1. **Nightly CI for live e2e** — one scheduled GitHub Actions job runs the live suite with
    `FANAR_API_KEY` injected as a secret; PR builds stay offline-only.
@@ -183,11 +195,7 @@ gating, audio rate-limiting under chained TTS+STT) rather than papered over in t
    smoke tests live under `e2e-spring-boot-3/`, `e2e-spring-boot-4/`, etc. — sibling Maven
    modules added only when classpath isolation forces it (e.g. Spring 6 vs 7, jakarta
    namespace conflicts, GraalVM native-image build).
-3. **`ObservabilityPlugin` implementations** — Micrometer adapter, OpenTelemetry adapter,
-   shipped as separate `obs-micrometer` / `obs-otel` modules (structurally parallel to the
-   JSON adapters: `provided` scope, `ServiceLoader`-discoverable, zero runtime deps in
-   core).
-4. **v0.1.0 release** — Maven Central publication pipeline, a full README, the SDK
+3. **v0.1.0 release** — Maven Central publication pipeline, a full README, the SDK
    versioning policy from ADR-019 flipped on, and the pre-1.0 stability guarantees from
    JLBP applied.
 

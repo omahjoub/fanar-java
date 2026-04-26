@@ -1,15 +1,5 @@
 package qa.fanar.e2e.chat;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Flow;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
@@ -17,36 +7,23 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarClient;
-import qa.fanar.core.chat.ChatChoice;
-import qa.fanar.core.chat.ChatModel;
-import qa.fanar.core.chat.ChatRequest;
-import qa.fanar.core.chat.ChatResponse;
-import qa.fanar.core.chat.ChoiceToken;
-import qa.fanar.core.chat.DoneChunk;
-import qa.fanar.core.chat.FinishReason;
-import qa.fanar.core.chat.ProgressChunk;
-import qa.fanar.core.chat.ResponseContent;
-import qa.fanar.core.chat.StreamEvent;
-import qa.fanar.core.chat.TextContent;
-import qa.fanar.core.chat.TokenChunk;
-import qa.fanar.core.chat.ToolCallChunk;
-import qa.fanar.core.chat.ToolResultChunk;
+import qa.fanar.core.chat.*;
 import qa.fanar.core.spi.FanarJsonCodec;
-import qa.fanar.e2e.LoggingInterceptor;
 import qa.fanar.e2e.Probes;
 import qa.fanar.e2e.TestClients;
+import qa.fanar.interceptor.logging.WireLoggingInterceptor;
 import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Single-file battle-test of the {@code POST /v1/chat/completions} endpoint via the SDK, run
@@ -148,10 +125,8 @@ class LiveChatCompletionsTest {
         try (FanarClient client = liveClient(codec)) {
             ChatResponse r = client.chat().send(Probes.sadiq());
             ChatChoice choice = r.choices().getFirst();
-            // References field may be empty for some prompts; we assert the field is present
-            // and the assistant text is non-blank, then log the reference count for diagnostic
-            // value when running the file.
-            System.out.println("Sadiq reference count: " + choice.message().references().size());
+            // References field may be empty for some prompts; we assert only that the field
+            // is present. The reference list itself shows up in the wire log.
             assertNotNull(choice.message(), "assistant message must be present");
         }
     }
@@ -163,11 +138,8 @@ class LiveChatCompletionsTest {
         try (FanarClient client = liveClient(codec)) {
             ChatResponse r = client.chat().send(Probes.sadiqWithBookName());
             // Only assertion: the server accepted the typed BookName wire format. Whether the
-            // constrained book covers the prompt is Sadiq's retriever's call; we just log it.
+            // constrained book covers the prompt is Sadiq's retriever's call.
             assertNotNull(r.id(), "response id must be present");
-            ChatChoice choice = r.choices().getFirst();
-            System.out.println("Sadiq with BookName: "
-                    + choice.message().references().size() + " references");
         }
     }
 
@@ -185,8 +157,7 @@ class LiveChatCompletionsTest {
             String t2 = textOf(client.chat().send(req));
             // The server may not be perfectly deterministic across calls (caches, sharding),
             // but with temperature=0 + max_tokens=8 the outputs are extremely likely to match.
-            // Log either way; assert only that both came back.
-            System.out.println("temp=0 t1: " + t1 + " | t2: " + t2);
+            // Both responses appear in the wire log; assert only that both came back.
             assertNotNull(t1);
             assertNotNull(t2);
         }
@@ -212,15 +183,12 @@ class LiveChatCompletionsTest {
     void sampling_stopSequence(FanarJsonCodec codec) {
         try (FanarClient client = liveClient(codec)) {
             ChatResponse r = client.chat().send(Probes.withStop());
-            ChatChoice c = r.choices().getFirst();
             String text = textOf(r);
             assertNotNull(text);
             // SDK-side wire serialization is locked down by ChatRequestKnobsTest. Fanar's
             // chat-completion endpoint empirically ignores `stop` (see Probes.withStop), so
-            // we do not hard-assert truncation — we only verify the request/response loop
-            // works and log the result for diagnostic value.
-            System.out.println("stop probe text: \"" + text + "\" | finishReason="
-                    + c.finishReason());
+            // we do not hard-assert truncation — only verify the request/response loop works.
+            // The wire log shows the actual finish reason and text the server returned.
         }
     }
 
@@ -280,9 +248,7 @@ class LiveChatCompletionsTest {
                     .flatMap(t -> t.choices().stream())
                     .map(ChoiceToken::content)
                     .reduce("", String::concat);
-            // Determinism is best-effort; log both, assert both non-blank.
-            System.out.println("sync:    " + synchronous);
-            System.out.println("stream:  " + streamed);
+            // Determinism across sync vs stream is best-effort; assert only that both came back.
             assertNotNull(synchronous);
             assertFalse(streamed.isBlank(), "streamed text must not be blank");
         }
@@ -295,18 +261,8 @@ class LiveChatCompletionsTest {
         try (FanarClient client = liveClient(codec)) {
             List<StreamEvent> events = collectStream(client, Probes.sadiq());
 
-            int firstToken = -1;
-            int firstProgress = -1;
-            for (int i = 0; i < events.size(); i++) {
-                StreamEvent e = events.get(i);
-                if (firstToken < 0 && e instanceof TokenChunk) firstToken = i;
-                if (firstProgress < 0 && e instanceof ProgressChunk) firstProgress = i;
-            }
             // Sadiq doesn't always emit progress chunks (depends on whether retrieval ran);
-            // log either way, hard-assert only that the stream completed cleanly.
-            System.out.println("Sadiq first ProgressChunk @ " + firstProgress
-                    + ", first TokenChunk @ " + firstToken
-                    + ", total events: " + events.size());
+            // hard-assert only that the stream completed cleanly.
             assertInstanceOf(DoneChunk.class, events.getLast(),
                     "Sadiq stream must terminate with DoneChunk");
         }
@@ -319,7 +275,7 @@ class LiveChatCompletionsTest {
      * accept user-defined {@code tools}/{@code tool_choice} — function calling is not
      * supported on the request side. Any {@code ToolCallChunk}/{@code ToolResultChunk}s
      * we see here are emitted by Sadiq's own RAG retriever (server-side tool execution),
-     * not by a tool we registered. This test therefore logs counts and stops there;
+     * not by a tool we registered. This test only verifies the stream completes cleanly;
      * the offline {@code AdapterParityTest} locks down decoding for the canned shape.</p>
      */
     @ParameterizedTest(name = "[{0}]")
@@ -328,11 +284,8 @@ class LiveChatCompletionsTest {
     void streaming_sadiqToolCalls(FanarJsonCodec codec) throws Exception {
         try (FanarClient client = liveClient(codec)) {
             List<StreamEvent> events = collectStream(client, Probes.sadiq());
-
-            long toolCalls = events.stream().filter(e -> e instanceof ToolCallChunk).count();
-            long toolResults = events.stream().filter(e -> e instanceof ToolResultChunk).count();
-            System.out.println("Sadiq stream: " + toolCalls + " tool_call, "
-                    + toolResults + " tool_result chunks (server-internal)");
+            assertInstanceOf(DoneChunk.class, events.getLast(),
+                    "Sadiq stream must terminate with DoneChunk");
         }
     }
 
@@ -402,7 +355,8 @@ class LiveChatCompletionsTest {
         try (FanarClient client = FanarClient.builder()
                 .apiKey("definitely-not-a-real-key")
                 .jsonCodec(codec)
-                .addInterceptor(LoggingInterceptor.toStdOut())
+                .addInterceptor(WireLoggingInterceptor.builder()
+                        .level(WireLoggingInterceptor.Level.BODY).build())
                 .build()) {
             assertThrows(FanarAuthenticationException.class,
                     () -> client.chat().send(Probes.bogusAuthProbe()));

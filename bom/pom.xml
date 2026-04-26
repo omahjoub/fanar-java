@@ -34,6 +34,26 @@
                 <artifactId>fanar-json-jackson3</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-obs-slf4j</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-interceptor-logging</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-obs-otel</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-obs-micrometer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
