@@ -94,6 +94,21 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-obs-micrometer</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Micrometer Observation API + a simple ObservationRegistry for the live demo so a
+             developer running the suite sees the Micrometer plugin participate in the composite
+             alongside SLF4J and OTel. No metrics handler is wired (so observations are dropped),
+             but the plugin path is exercised end-to-end. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <scope>test</scope>

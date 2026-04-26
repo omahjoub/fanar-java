@@ -3,6 +3,7 @@ package qa.fanar.e2e;
 import java.time.Duration;
 import java.util.Optional;
 
+import io.micrometer.observation.ObservationRegistry;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
@@ -13,6 +14,7 @@ import qa.fanar.core.FanarClient;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.interceptor.logging.WireLoggingInterceptor;
+import qa.fanar.obs.micrometer.MicrometerObservabilityPlugin;
 import qa.fanar.obs.otel.OpenTelemetryObservabilityPlugin;
 import qa.fanar.obs.slf4j.Slf4jObservabilityPlugin;
 
@@ -53,7 +55,7 @@ public final class TestClients {
     }
 
     /**
-     * Same as {@link #live(FanarJsonCodec)} but with three diagnostics turned on:
+     * Same as {@link #live(FanarJsonCodec)} but with four diagnostics turned on:
      * <ul>
      *   <li>{@link WireLoggingInterceptor} at {@link WireLoggingInterceptor.Level#BODY} — prints
      *       every request and response (method, URL, headers, body) through SLF4J. The e2e
@@ -65,12 +67,15 @@ public final class TestClients {
      *       crucially, injects the W3C {@code traceparent} header into the outbound request via
      *       {@code propagationHeaders()}. The header is then visible in the {@code fanar.wire}
      *       log alongside the other request headers.</li>
+     *   <li>{@link MicrometerObservabilityPlugin} — opens a Micrometer Observation per operation
+     *       against a bare-bones {@link ObservationRegistry}. No metrics handler is wired so the
+     *       observations are dropped, but the plugin path is exercised end-to-end and would emit
+     *       Timer / Counter samples in a real Micrometer-wired application.</li>
      * </ul>
      *
-     * <p>Both observability plugins are wired through {@link ObservabilityPlugin#compose}, so a
-     * single live run produces all three signals at once — log line + span + trace-propagated
-     * header. No exporter is configured for OTel; spans are created and dropped, but the
-     * {@code traceparent} injection is the user-visible demo of the propagation contract.</p>
+     * <p>All three observability plugins are wired through {@link ObservabilityPlugin#compose},
+     * so a single live run dispatches every operation event to all of them in parallel — log
+     * line + OTel span (with traceparent) + Micrometer Observation.</p>
      */
     public static FanarClient liveWithLogging(FanarJsonCodec codec) {
         return liveBuilder(codec)
@@ -79,7 +84,8 @@ public final class TestClients {
                         .build())
                 .observability(ObservabilityPlugin.compose(
                         new Slf4jObservabilityPlugin(),
-                        new OpenTelemetryObservabilityPlugin(otelForDemo())))
+                        new OpenTelemetryObservabilityPlugin(otelForDemo()),
+                        new MicrometerObservabilityPlugin(ObservationRegistry.create())))
                 .build();
     }
 

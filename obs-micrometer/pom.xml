@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-obs-micrometer</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Observability :: Micrometer</name>
+    <description>Micrometer Observation API binding for the Fanar ObservabilityPlugin SPI — opens one Observation per SDK operation. Backends (metrics via MeterRegistry, traces via micrometer-tracing-bridge-*) are wired by the consuming application.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--
+          Micrometer Observation API is `provided` scope: the consuming application supplies the
+          concrete `ObservationRegistry` (typically Spring Boot's auto-configured one). This module
+          compiles against the API surface but does not pull metrics / tracing backends onto the
+          downstream classpath.
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+          Test runtime: Micrometer's official test helper. Provides `TestObservationRegistry` /
+          `TestObservationRegistryAssert` for asserting on captured observations.
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

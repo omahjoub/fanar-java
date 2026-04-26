@@ -49,6 +49,11 @@
                 <artifactId>fanar-obs-otel</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-obs-micrometer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
