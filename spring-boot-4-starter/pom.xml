@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-spring-boot-4-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Spring Boot 4 Starter</name>
+    <description>Spring Boot 4 auto-configuration for the Fanar Java SDK — typed `@ConfigurationProperties`, automatic `FanarClient` bean wiring, optional Actuator health indicator, and pluggable `ObservabilityPlugin` / `Interceptor` discovery.</description>
+
+    <dependencies>
+        <!-- Compile-scope: starter pulls the full SDK + Jackson 3 codec onto the consumer's
+             classpath. SB4 ships Jackson 3 by default, so the codec choice is baked in. The
+             wire-logging interceptor is included so the `fanar.wire-logging.level` property
+             can wire it without forcing a separate dep. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson3</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-interceptor-logging</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Jackson 3 runtime. The codec module declares it `provided`; the starter pulls it
+             through to the consumer's classpath. Spring Boot 4 apps already have it via
+             `spring-boot-starter-json`, so this is a no-op there; non-Spring-stack consumers
+             of the starter (rare) still get a working setup. -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- SLF4J API. `interceptor-logging` declares it `provided`; the starter pulls it
+             through. Spring Boot 4 always has SLF4J via `spring-boot-starter-logging`, so this
+             is a no-op there; ensures the starter is usable in non-Spring contexts too. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Spring Boot + Spring Framework — `provided` so the consuming application brings
+             its own runtime versions. The starter compiles against the API surface but doesn't
+             pull these onto downstream classpaths. `spring-beans` / `spring-context` are pulled
+             transitively from `spring-boot-autoconfigure` but the starter uses their types
+             directly (`@Configuration`, `@Bean`, `ObjectProvider`), so they're declared
+             explicitly per Maven's strict-dependency-analysis rule. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-beans</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- `spring-boot-health` carries the contributor SPI (`HealthIndicator`,
+             `AbstractHealthIndicator`, `Health`) — moved out of `spring-boot-actuator` in SB4.
+             `provided` + `optional` so the health indicator activates only when health is on
+             the consumer's classpath. Apps without it get the rest of the starter without a
+             dependency footprint. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-health</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test runtime: full Spring Boot Test for `ApplicationContextRunner`-based
+             auto-configuration tests. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <!--
+                  `jackson-databind` and `slf4j-api` are declared as `compile` so the runtime
+                  Jackson 3 / SLF4J classes ride along to consumers (Spring Boot apps already
+                  have them, but a non-Spring consumer of the starter wouldn't). The starter's
+                  own bytecode doesn't reference those types directly, so `dep-analyze` flags
+                  them as unused-declared. Ignore both.
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <configuration>
+                            <ignoredUnusedDeclaredDependencies combine.children="append">
+                                <ignoredUnusedDeclaredDependency>tools.jackson.core:jackson-databind:*</ignoredUnusedDeclaredDependency>
+                                <ignoredUnusedDeclaredDependency>org.slf4j:slf4j-api:*</ignoredUnusedDeclaredDependency>
+                            </ignoredUnusedDeclaredDependencies>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
