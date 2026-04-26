@@ -45,7 +45,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           java-version: '21'
-          distribution: 'graalvm-community'
+          distribution: 'graalvm'
           cache: 'maven'
 
       - name: Build native binary
@@ -64,7 +64,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           java-version: '21'
-          distribution: 'graalvm-community'
+          distribution: 'graalvm'
           cache: 'maven'
 
       - name: Build executable jar (no native compile)
