@@ -12,6 +12,8 @@ import java.util.Objects;
  * @param index        0-based position of this choice within the chunk's choices
  * @param finishReason finish reason (defaults to {@code "error"} if input was {@code null})
  * @param content      error description; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ChoiceError(int index, String finishReason, String content) {
 

@@ -11,6 +11,8 @@ import java.util.Set;
  * can target a new model via {@link #of(String)} the day Fanar ships it.</p>
  *
  * @param wireValue the exact string Fanar accepts in the {@code model} field
+ *
+ * @author Oussama Mahjoub
  */
 public record ImageModel(String wireValue) {
 

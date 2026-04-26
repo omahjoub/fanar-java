@@ -32,6 +32,8 @@ import java.util.function.Predicate;
  * @param backoffMultiplier factor applied to the backoff on each retry; must be ≥ 1.0
  * @param jitter            jitter policy applied to the computed backoff
  * @param retryable         predicate deciding whether a given exception is worth retrying
+ *
+ * @author Oussama Mahjoub
  */
 public record RetryPolicy(
         int maxAttempts,

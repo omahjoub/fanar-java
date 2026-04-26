@@ -23,6 +23,8 @@ import qa.fanar.core.chat.TextContent;
  * <p>Multi-part responses ({@code "content": [{type:..., ...}, ...]}) will need a type-info
  * mix-in on {@link ResponseContent} plus an array branch here. Deferred until a test actually
  * exercises one.</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class ResponseContentListDeserializer extends StdDeserializer<List<ResponseContent>> {
 

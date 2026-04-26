@@ -11,6 +11,8 @@ import java.util.Objects;
  * record stays flat to match what the server actually sends.</p>
  *
  * @param b64Json base64-encoded image bytes, ready to {@link java.util.Base64#getDecoder() decode}
+ *
+ * @author Oussama Mahjoub
  */
 public record ImageGenerationItem(String b64Json) {
 

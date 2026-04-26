@@ -6,6 +6,8 @@ package qa.fanar.core;
  *
  * <p>Typical cause: a combination of parameters that passes wire-format validation but violates
  * model-specific constraints. Not retryable without changing the request.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarUnprocessableException extends FanarClientException {
 

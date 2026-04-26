@@ -10,7 +10,11 @@ import tools.jackson.databind.deser.std.StdDeserializer;
 import qa.fanar.core.chat.ChoiceToolCall;
 import qa.fanar.core.chat.ToolCallData;
 
-/** Unwraps {@code choice.delta.tool_calls} (array) into {@link ChoiceToolCall#toolCalls()}. */
+/**
+ * Unwraps {@code choice.delta.tool_calls} (array) into {@link ChoiceToolCall#toolCalls()}.
+ *
+ * @author Oussama Mahjoub
+ */
 final class ChoiceToolCallDeserializer extends StdDeserializer<ChoiceToolCall> {
 
     ChoiceToolCallDeserializer() {

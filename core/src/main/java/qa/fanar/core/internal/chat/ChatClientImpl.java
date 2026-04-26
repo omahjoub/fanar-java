@@ -59,6 +59,8 @@ import qa.fanar.core.spi.ObservationHandle;
  * parses frames on a virtual thread and emits {@link StreamEvent}s to the subscriber.</p>
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class ChatClientImpl implements ChatClient {
 

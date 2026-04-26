@@ -17,6 +17,8 @@ import qa.fanar.core.chat.UserMessage;
  *
  * <p>Wired via {@code mapper.addMixIn(Message.class, MessageMixIn.class)} — the mixin annotations
  * are applied to {@code Message} at runtime without touching the core type.</p>
+ *
+ * @author Oussama Mahjoub
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "role")
 @JsonSubTypes({

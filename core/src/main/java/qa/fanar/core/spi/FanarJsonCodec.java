@@ -18,6 +18,8 @@ import java.io.OutputStream;
  *
  * <p>Implementations must not consume or close the supplied streams themselves beyond what JSON
  * parsing requires; stream lifecycle is the SDK's responsibility.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public interface FanarJsonCodec {
 

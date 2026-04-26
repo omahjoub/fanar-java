@@ -11,6 +11,8 @@ import java.util.Objects;
  * @param index        0-based position of this choice within the chunk's choices
  * @param finishReason finish reason; {@code null} while generation continues
  * @param toolResult   the tool invocation outcome; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ChoiceToolResult(int index, String finishReason, ToolResultData toolResult) {
 

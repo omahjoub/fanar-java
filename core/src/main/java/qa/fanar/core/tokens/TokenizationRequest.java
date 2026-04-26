@@ -16,6 +16,8 @@ import qa.fanar.core.chat.ChatModel;
  *
  * @param content the text to tokenize; must not be {@code null}
  * @param model   the tokenizer model to use; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record TokenizationRequest(String content, ChatModel model) {
 

@@ -12,6 +12,8 @@ import java.util.Set;
  * {@link #KNOWN} is the snapshot bundled with this build.</p>
  *
  * @param wireValue the exact string Fanar emits on the wire
+ *
+ * @author Oussama Mahjoub
  */
 public record FinishReason(String wireValue) {
 

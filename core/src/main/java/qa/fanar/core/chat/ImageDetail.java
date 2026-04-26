@@ -11,6 +11,8 @@ import java.util.Set;
  * The server uses this hint to decide how many image tokens to spend on the visual input.</p>
  *
  * @param wireValue the exact string Fanar accepts on the wire
+ *
+ * @author Oussama Mahjoub
  */
 public record ImageDetail(String wireValue) {
 

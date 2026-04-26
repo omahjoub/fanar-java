@@ -9,6 +9,8 @@ import java.util.Objects;
  * @param token   the alternative token as a UTF-8 string; must not be {@code null}
  * @param bytes   raw byte values of the token; never {@code null}, may be empty
  * @param logprob the alternative's log probability (natural log)
+ *
+ * @author Oussama Mahjoub
  */
 public record TopLogprob(
         String token,

@@ -6,6 +6,8 @@ package qa.fanar.core;
  * <p>Transient — the built-in retry interceptor handles this automatically with backoff. Not to
  * be confused with client-side socket timeouts, which surface as a {@link FanarTransportException}
  * wrapping an {@link java.net.http.HttpTimeoutException}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarTimeoutException extends FanarServerException {
 

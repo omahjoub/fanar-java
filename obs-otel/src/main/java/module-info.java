@@ -6,6 +6,8 @@
  * {@code Span.setAttribute} overload, and injects W3C trace-context headers via
  * {@code ObservationHandle.propagationHeaders()} so Fanar requests stitch into the caller's
  * distributed trace.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.obs.otel {
     requires qa.fanar.core;

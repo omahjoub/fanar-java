@@ -14,6 +14,8 @@ import java.net.http.HttpResponse;
  * <p>Internal (ADR-018): the SDK does not expose a public transport SPI. Callers who need to
  * swap the underlying HTTP client supply their own via
  * {@code FanarClient.Builder.httpClient(...)}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 @FunctionalInterface
 public interface HttpTransport {

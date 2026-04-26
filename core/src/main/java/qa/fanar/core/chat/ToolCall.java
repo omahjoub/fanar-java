@@ -21,6 +21,8 @@ import java.util.Objects;
  * @param result            result returned by the tool (wire-preserved, may be {@code null})
  * @param structuredContent structured representation of the tool's result (wire-preserved, may be {@code null})
  * @param isError           {@code true} if the tool invocation errored
+ *
+ * @author Oussama Mahjoub
  */
 public record ToolCall(
         String id,

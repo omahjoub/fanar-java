@@ -35,6 +35,8 @@ import qa.fanar.core.FanarUnprocessableException;
  * honoured for HTTP 429.</p>
  *
  * <p>Internal (ADR-018).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class ExceptionMapper {
 

@@ -24,6 +24,8 @@ import java.util.Objects;
  *
  * <p>Each exception carries a typed {@link ErrorCode} (except transport-level failures, where it
  * is {@code null}) and the HTTP status code it maps to.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public abstract sealed class FanarException extends RuntimeException
         permits FanarClientException, FanarServerException,

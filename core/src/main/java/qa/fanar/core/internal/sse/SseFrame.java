@@ -10,6 +10,8 @@ import java.util.Objects;
  * {@code id}, {@code retry}) are accepted silently but not modelled. Internal.</p>
  *
  * @param data joined {@code data:} lines (newline-separated); never {@code null}, may be blank
+ *
+ * @author Oussama Mahjoub
  */
 record SseFrame(String data) {
 

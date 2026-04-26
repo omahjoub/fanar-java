@@ -8,6 +8,8 @@ package qa.fanar.core;
  * HTTP status is {@code 429} (overlapping with {@link FanarRateLimitException} under
  * {@link FanarServerException}), because quota exhaustion is a permanent client-side condition,
  * not a transient throttling event.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public abstract sealed class FanarClientException extends FanarException
         permits FanarAuthenticationException, FanarAuthorizationException,

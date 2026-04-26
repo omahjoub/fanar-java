@@ -8,6 +8,8 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Internal implementation detail accessed only via {@link ObservabilityPlugin#noop()}. Not
  * part of the public API — may be replaced, renamed, or deleted in any release (ADR-018).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class NoopObservabilityPlugin implements ObservabilityPlugin {
 

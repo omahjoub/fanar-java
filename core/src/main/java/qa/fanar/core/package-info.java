@@ -7,5 +7,7 @@
  *
  * <p>Extension interfaces (JSON codec, interceptor, observability) live in the {@code spi} subpackage.
  * Implementation details live in {@code internal} and are not exported.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.core;

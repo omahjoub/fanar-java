@@ -10,5 +10,7 @@
  * ADR-018 and JLBP-10. Implementations may live in downstream modules (Jackson adapters, future
  * framework starters, user code) or in {@code qa.fanar.core.internal.*} for the SDK's own
  * built-in implementations.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.core.spi;

@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.JsonNode;
  * node has the wire shape {@code {index, finish_reason, delta: {...}}}; these helpers pull out
  * the common top-level fields and the {@code delta} subtree so each deserializer can focus on
  * its own delta-specific field.
+ *
+ * @author Oussama Mahjoub
  */
 final class ChoiceNodes {
 

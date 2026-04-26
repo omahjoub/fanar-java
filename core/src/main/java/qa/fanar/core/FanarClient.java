@@ -63,6 +63,8 @@ import qa.fanar.core.spi.ObservabilityPlugin;
  * <h2>Environment</h2>
  * <p>When not explicitly set, the API key is read from {@code FANAR_API_KEY} and the base URL
  * from {@code FANAR_BASE_URL}. Explicit builder settings always win over the environment.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarClient implements AutoCloseable {
 

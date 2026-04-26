@@ -13,6 +13,8 @@ import qa.fanar.core.chat.ChoiceToken;
  * Unwraps {@code choice.delta.content} (String) into {@link ChoiceToken#content()}.
  * Missing or {@code null} content becomes the empty string so the record's non-null invariant
  * holds for the common "finish-reason only" tail chunk that carries no token delta.
+ *
+ * @author Oussama Mahjoub
  */
 final class ChoiceTokenDeserializer extends StdDeserializer<ChoiceToken> {
 

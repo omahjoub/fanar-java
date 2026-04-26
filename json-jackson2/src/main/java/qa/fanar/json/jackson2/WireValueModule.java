@@ -36,6 +36,8 @@ import qa.fanar.core.translations.TranslationPreprocessing;
  * the mapping. {@code of(String)} is permissive — if Fanar emits a wire value the SDK doesn't
  * yet know about, decoding produces a value-class instance carrying the new wire string instead
  * of throwing.</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class WireValueModule {
 

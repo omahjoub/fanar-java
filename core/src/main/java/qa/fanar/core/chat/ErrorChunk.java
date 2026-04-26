@@ -18,6 +18,8 @@ import java.util.Objects;
  * @param created server-side timestamp
  * @param model   wire-format model id; must not be {@code null}
  * @param choices error-bearing choices; must not be {@code null}, defensively copied
+ *
+ * @author Oussama Mahjoub
  */
 public record ErrorChunk(
         String id,

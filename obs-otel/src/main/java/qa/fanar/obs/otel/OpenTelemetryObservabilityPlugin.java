@@ -19,36 +19,21 @@ import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
 
 /**
- * {@link ObservabilityPlugin} that opens one OpenTelemetry span per SDK operation.
- *
- * <p>Each {@link #start(String)} call creates a span via the supplied {@link OpenTelemetry}'s
- * {@link Tracer}. Attributes attached through {@link ObservationHandle#attribute} are mapped to
- * the right typed {@code Span.setAttribute} overload (long / double / boolean / String);
- * {@link ObservationHandle#event} becomes a span event; {@link ObservationHandle#error} records
- * the exception and sets the span status to {@link StatusCode#ERROR}; {@link ObservationHandle#close}
- * ends the span. Child observations create child spans whose parent is the captured context, so
- * parent-child relationships hold even when the SDK hops threads (virtual-thread async paths).</p>
- *
- * <h2>Distributed-trace context propagation</h2>
+ * {@link ObservabilityPlugin} that opens one OpenTelemetry span per SDK operation. Attributes
+ * are mapped to the typed {@code Span.setAttribute} overloads (long / double / boolean / String);
+ * events become span events; errors set {@link StatusCode#ERROR} and record the throwable. Child
+ * observations are explicit children of the captured context — parent-child holds across
+ * virtual-thread async hops.
  *
  * <p>{@link ObservationHandle#propagationHeaders()} injects the W3C {@code traceparent} (and
- * {@code tracestate} if configured) into a fresh map via the {@link OpenTelemetry}'s configured
- * {@link ContextPropagators}. The SDK merges these headers into the outbound HTTP request, so
- * the Fanar server's logs / spans (when exposed) link back to the calling application's trace.</p>
+ * {@code tracestate} if configured) via the {@link OpenTelemetry}'s {@link ContextPropagators}.
+ * The SDK merges them into outbound requests so Fanar's server-side spans (when exposed) link
+ * back to the caller's trace.</p>
  *
- * <h2>Customizing what is logged</h2>
+ * <p>Thread-safe; close is idempotent. Customize instrumentation name/version + attribute
+ * filtering / redaction via {@link #builder(OpenTelemetry)}.</p>
  *
- * <pre>{@code
- * ObservabilityPlugin obs = OpenTelemetryObservabilityPlugin.builder(otel)
- *         .instrumentationName("my-app")          // default: "qa.fanar.obs.otel"
- *         .instrumentationVersion("1.0.0")        // default: null
- *         .attributeFilter(key -> !key.startsWith("internal."))
- *         .attributeRedactor((k, v) -> "fanar.user_id".equals(k) ? "***" : v)
- *         .build();
- * }</pre>
- *
- * <p>Thread-safe: a single plugin instance backs every concurrent operation on a
- * {@code FanarClient}. Span lifecycle is per-handle; close is idempotent.</p>
+ * @author Oussama Mahjoub
  */
 public final class OpenTelemetryObservabilityPlugin implements ObservabilityPlugin {
 

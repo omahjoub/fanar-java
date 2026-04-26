@@ -27,6 +27,8 @@ import qa.fanar.core.spi.FanarJsonCodec;
  * and interrupts the reader.</p>
  *
  * <p>Internal (ADR-018).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
 

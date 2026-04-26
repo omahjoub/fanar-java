@@ -18,6 +18,8 @@ package qa.fanar.core.chat;
  *
  * <p>The compiler verifies this switch is exhaustive. Adding a new permitted variant in a future
  * release is a source-breaking change and will be called out per the stability policy.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public sealed interface Message
         permits SystemMessage, UserMessage, AssistantMessage,

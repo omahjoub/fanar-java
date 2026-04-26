@@ -19,6 +19,8 @@ package qa.fanar.core.chat;
  *                                  response; {@code null} on non-Sadiq responses
  * @param totalCost                 dollar cost of the Sadiq retrieval calls; {@code null} on
  *                                  non-Sadiq responses
+ *
+ * @author Oussama Mahjoub
  */
 public record CompletionUsage(
         int completionTokens,

@@ -10,6 +10,8 @@ import java.util.Objects;
  * endpoint instead).</p>
  *
  * @param url the audio URL; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record AudioContent(String url) implements ResponseContent {
 

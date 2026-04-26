@@ -19,6 +19,8 @@ import qa.fanar.core.chat.VideoPart;
  * OpenAPI). The mixins below emit the {@code type} field correctly but do not yet rewrite the
  * body shape — adding that is a future step, handled the day a test actually sends an image or
  * video content part.</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class ContentPartMixIns {
 

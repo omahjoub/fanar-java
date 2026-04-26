@@ -11,6 +11,8 @@ import java.util.Objects;
  *
  * @param model  the poem-generation model to use; must not be {@code null}
  * @param prompt a natural-language description of the desired poem; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record PoemGenerationRequest(PoemModel model, String prompt) {
 

@@ -47,6 +47,8 @@ import qa.fanar.core.spi.FanarJsonCodec;
  * <p>Thread-safe: a {@code JsonMapper} is safe to share once configured. Callers who need custom
  * settings should build their own via {@link #defaultMapperBuilder()} and pass it to
  * {@link #Jackson3FanarJsonCodec(JsonMapper)}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class Jackson3FanarJsonCodec implements FanarJsonCodec {
 

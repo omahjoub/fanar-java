@@ -16,6 +16,8 @@ import java.util.Objects;
  * @param created   Unix epoch seconds at which the model was registered
  * @param ownedBy   organization that owns the model, e.g. {@code "QCRI"} (Qatar Computing
  *                  Research Institute) for first-party Fanar models
+ *
+ * @author Oussama Mahjoub
  */
 public record AvailableModel(
         String id,

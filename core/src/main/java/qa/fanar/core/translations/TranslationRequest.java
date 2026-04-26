@@ -17,6 +17,8 @@ import java.util.Objects;
  * @param langPair      source-target language pair; must not be {@code null}
  * @param preprocessing how to preprocess text before translation; {@code null} → server default
  *                      (which is {@link TranslationPreprocessing#DEFAULT})
+ *
+ * @author Oussama Mahjoub
  */
 public record TranslationRequest(
         TranslationModel model,

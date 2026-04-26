@@ -5,5 +5,7 @@
  * {@code FanarClient.builder().addInterceptor(WireLoggingInterceptor.builder().level(BODY).build()).build()}
  * — defaults to {@code BASIC} (one line per request) sinking to SLF4J at {@code DEBUG} on the
  * {@code fanar.wire} logger.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.interceptor.logging;

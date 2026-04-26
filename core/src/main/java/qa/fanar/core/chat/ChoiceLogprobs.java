@@ -11,6 +11,8 @@ import java.util.List;
  * @param content token-level logprobs for the assistant's regular content; never {@code null},
  *                may be empty
  * @param refusal token-level logprobs for a refusal; never {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record ChoiceLogprobs(
         List<TokenLogprob> content,

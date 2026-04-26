@@ -5,6 +5,8 @@ package qa.fanar.core;
  *
  * <p>Typical cause: attempting to create a personalized voice with a name already in use. Not
  * retryable without changing the request.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarConflictException extends FanarClientException {
 

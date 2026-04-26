@@ -10,6 +10,8 @@ package qa.fanar.core;
  *
  * <p>For {@link InterruptedException} specifically, the transport layer also restores the
  * current thread's interrupt flag before throwing this exception.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarTransportException extends FanarException {
 

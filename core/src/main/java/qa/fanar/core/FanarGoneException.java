@@ -7,6 +7,8 @@ package qa.fanar.core;
  * <p>Permanent — retry will not help. Typical cause: using a deprecated model identifier that
  * has since been removed. Consult the Fanar release notes or {@code /v1/models} for current
  * alternatives.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarGoneException extends FanarClientException {
 

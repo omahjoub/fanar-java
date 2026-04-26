@@ -13,6 +13,8 @@ import java.util.Set;
  * was drawn from.</p>
  *
  * @param wireValue the exact string Fanar uses on the wire for this source
+ *
+ * @author Oussama Mahjoub
  */
 public record Source(String wireValue) {
 

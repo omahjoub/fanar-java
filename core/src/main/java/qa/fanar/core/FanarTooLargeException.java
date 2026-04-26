@@ -5,6 +5,8 @@ package qa.fanar.core;
  *
  * <p>Typical causes: input token count over the model's context window, uploaded audio file
  * exceeds the STT size cap. Not retryable without shrinking the request.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarTooLargeException extends FanarClientException {
 

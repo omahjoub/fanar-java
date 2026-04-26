@@ -19,6 +19,8 @@ import java.util.Objects;
  * @param structuredContent parsed-structure representation of the tool's result; may be
  *                          {@code null}
  * @param isError           whether the invocation failed
+ *
+ * @author Oussama Mahjoub
  */
 public record ToolResultData(
         String id,

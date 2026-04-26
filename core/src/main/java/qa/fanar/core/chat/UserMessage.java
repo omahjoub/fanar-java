@@ -12,6 +12,8 @@ import java.util.Objects;
  *
  * @param content non-empty list of content parts; must not be {@code null} or empty
  * @param name    optional speaker name (nullable)
+ *
+ * @author Oussama Mahjoub
  */
 public record UserMessage(List<UserContentPart> content, String name) implements Message {
 

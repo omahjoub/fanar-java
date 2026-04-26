@@ -6,6 +6,8 @@
  * duration in milliseconds, and every attribute the SDK attached. Logger names mirror the
  * operation namespace (for example {@code fanar.chat.send}, {@code fanar.audio.speech}) so
  * users can scope their logging configuration at any prefix granularity.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.obs.slf4j {
     requires qa.fanar.core;

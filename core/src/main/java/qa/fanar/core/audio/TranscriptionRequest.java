@@ -22,6 +22,8 @@ import java.util.Objects;
  * @param model       the STT model to use; must not be {@code null}
  * @param format      output format ({@link SttFormat#TEXT}, {@link SttFormat#SRT},
  *                    {@link SttFormat#JSON}); {@code null} → server default ({@code text})
+ *
+ * @author Oussama Mahjoub
  */
 public record TranscriptionRequest(
         byte[] file,

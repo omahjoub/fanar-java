@@ -21,6 +21,8 @@ import qa.fanar.core.audio.SpeechToTextResponse;
  *   <li>{@code srt}  → {@link SpeechToTextResponse.Srt}</li>
  *   <li>{@code json} → {@link SpeechToTextResponse.Json} (flattened).</li>
  * </ul>
+ *
+ * @author Oussama Mahjoub
  */
 final class SpeechToTextResponseDeserializer extends StdDeserializer<SpeechToTextResponse> {
 

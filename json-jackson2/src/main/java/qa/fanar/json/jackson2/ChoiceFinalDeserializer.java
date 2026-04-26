@@ -16,6 +16,8 @@ import qa.fanar.core.chat.Reference;
  * The record itself defaults {@code finishReason} to {@code "stop"} and {@code references} to
  * an empty list when the arguments are {@code null}, so this deserializer does not need to
  * synthesise defaults.
+ *
+ * @author Oussama Mahjoub
  */
 final class ChoiceFinalDeserializer extends StdDeserializer<ChoiceFinal> {
 

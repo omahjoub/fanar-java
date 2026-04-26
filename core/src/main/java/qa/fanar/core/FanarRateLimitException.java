@@ -12,6 +12,8 @@ import java.time.Duration;
  * <p>When the server provides a {@code Retry-After} header, its value is exposed via
  * {@link #retryAfter()} so custom retry logic can honor it. Distinct from
  * {@link FanarQuotaExceededException}, which is a permanent condition at the same HTTP status.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarRateLimitException extends FanarServerException {
 

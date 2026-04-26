@@ -11,6 +11,8 @@ import java.util.Objects;
  *
  * @param id     unique identifier for this list response
  * @param models models the API key has access to
+ *
+ * @author Oussama Mahjoub
  */
 public record ModelsResponse(
         String id,

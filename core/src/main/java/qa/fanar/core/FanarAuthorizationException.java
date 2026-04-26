@@ -5,6 +5,8 @@ package qa.fanar.core;
  * {@link ErrorCode#INVALID_AUTHORIZATION} and HTTP 403.
  *
  * <p>Not retryable — the credential lacks the required scope or model access.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarAuthorizationException extends FanarClientException {
 

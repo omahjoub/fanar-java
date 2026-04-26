@@ -44,6 +44,8 @@ import qa.fanar.core.spi.ObservationHandle;
  * <p>{@link #listAsync} spawns one virtual thread per call.</p>
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class ModelsClientImpl implements ModelsClient {
 

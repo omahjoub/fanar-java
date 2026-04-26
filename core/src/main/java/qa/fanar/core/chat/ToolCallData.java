@@ -13,6 +13,8 @@ import java.util.Objects;
  * @param id       unique invocation id; must not be {@code null}
  * @param type     tool type — defaults to {@code "function"} if {@code null}
  * @param function the function being invoked; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ToolCallData(int index, String id, String type, FunctionData function) {
 

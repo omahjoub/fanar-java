@@ -9,6 +9,8 @@ package qa.fanar.core.chat;
  *                      prompt had no audio
  * @param cachedTokens  prompt tokens served from Fanar's prompt cache; {@code null} when the
  *                      prompt had no cached portion
+ *
+ * @author Oussama Mahjoub
  */
 public record PromptTokensDetails(
         Integer audioTokens,

@@ -11,6 +11,8 @@ import qa.fanar.core.translations.LanguagePair;
  *
  * <p>Wired via {@code mapper.addMixIn(TranslationRequest.class, TranslationRequestMixIn.class)}
  * so the core record can stay annotation-free.</p>
+ *
+ * @author Oussama Mahjoub
  */
 interface TranslationRequestMixIn {
 

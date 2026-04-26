@@ -16,6 +16,8 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>Implementations must be thread-safe — one {@code ModerationsClient} instance backs every
  * call on a given {@code FanarClient}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public interface ModerationsClient {
 

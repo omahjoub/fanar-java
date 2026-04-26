@@ -12,6 +12,8 @@ import qa.fanar.core.spi.ObservationHandle;
  * free after first load.</p>
  *
  * <p>Internal implementation detail. Not part of the public API (ADR-018).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class NoopObservationHandle implements ObservationHandle {
 

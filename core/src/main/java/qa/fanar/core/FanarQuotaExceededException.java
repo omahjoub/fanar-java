@@ -9,6 +9,8 @@ package qa.fanar.core;
  * event at the same HTTP status.</p>
  *
  * <p>Not retryable — retrying wastes cycles. Fail fast and surface to the caller.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarQuotaExceededException extends FanarClientException {
 

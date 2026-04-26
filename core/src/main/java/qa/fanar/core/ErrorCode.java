@@ -8,6 +8,8 @@ import java.util.Objects;
  * <p>Mirrors the {@code ErrorCode} enum in the Fanar OpenAPI specification. Wire values are the
  * strings Fanar transmits on the wire; prefer the typed enum in code and convert at the
  * serialization boundary via {@link #wireValue()} and {@link #fromWireValue(String)}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public enum ErrorCode {
 

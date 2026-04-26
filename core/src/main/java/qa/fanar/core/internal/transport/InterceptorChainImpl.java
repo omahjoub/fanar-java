@@ -19,6 +19,8 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Internal (ADR-018). Implements {@link Interceptor.Chain}, which is the public SPI seen by
  * user-authored interceptors.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class InterceptorChainImpl implements Interceptor.Chain {
 

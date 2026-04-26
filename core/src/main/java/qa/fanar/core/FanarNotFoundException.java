@@ -5,6 +5,8 @@ package qa.fanar.core;
  *
  * <p>Typical causes: unknown model identifier, unknown personalized voice name, misspelled
  * endpoint. Not retryable.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarNotFoundException extends FanarClientException {
 

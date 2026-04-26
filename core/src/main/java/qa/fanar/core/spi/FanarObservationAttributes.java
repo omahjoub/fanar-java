@@ -11,6 +11,8 @@ package qa.fanar.core.spi;
  *
  * <p>Adding a new canonical attribute is a minor-version change. Renaming or removing one is a
  * breaking change subject to the deprecation discipline in JLBP-7.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class FanarObservationAttributes {
 

@@ -12,6 +12,8 @@ import java.util.Set;
  * the requested combination is invalid.</p>
  *
  * @param wireValue the exact string Fanar accepts on the wire
+ *
+ * @author Oussama Mahjoub
  */
 public record SttFormat(String wireValue) {
 

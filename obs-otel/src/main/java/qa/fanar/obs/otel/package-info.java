@@ -13,5 +13,7 @@
  * <p>This module does not ship a {@code ServiceLoader} descriptor — observability is opt-in by
  * design, so adding the jar to the classpath alone does not change the {@code FanarClient}
  * default of {@link qa.fanar.core.spi.ObservabilityPlugin#noop()}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 package qa.fanar.obs.otel;

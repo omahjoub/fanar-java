@@ -11,6 +11,8 @@ import java.util.Objects;
  * the user-created voices.</p>
  *
  * @param voices voice names, defensively copied and unmodifiable
+ *
+ * @author Oussama Mahjoub
  */
 public record VoiceResponse(List<String> voices) {
 

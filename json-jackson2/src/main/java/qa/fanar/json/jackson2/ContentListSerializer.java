@@ -17,6 +17,8 @@ import qa.fanar.core.chat.TextPart;
  * {@code "content": [{type:..., ...}, ...]} for multi-modal. Fanar's server uses the shape of
  * the content field to route to text-only vs. multi-modal backends, so text-only models reject
  * single-part arrays even when they carry only text.</p>
+ *
+ * @author Oussama Mahjoub
  */
 final class ContentListSerializer extends StdSerializer<List<?>> {
 

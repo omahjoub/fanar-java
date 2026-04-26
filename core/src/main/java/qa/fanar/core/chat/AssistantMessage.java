@@ -15,6 +15,8 @@ import java.util.List;
  * @param content    list of content parts (text or refusal); never {@code null}, may be empty
  * @param name       optional speaker name (nullable)
  * @param toolCalls  list of tool calls the assistant invoked; never {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record AssistantMessage(
         List<AssistantContentPart> content,

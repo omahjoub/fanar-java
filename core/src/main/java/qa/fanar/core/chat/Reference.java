@@ -19,6 +19,8 @@ import java.util.Objects;
  * @param number  the reference number as rendered in the response text
  * @param source  the source identifier; must not be {@code null}
  * @param content the quoted text from the source; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record Reference(int index, int number, String source, String content) {
 

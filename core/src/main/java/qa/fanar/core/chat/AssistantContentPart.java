@@ -6,6 +6,8 @@ package qa.fanar.core.chat;
  * <p>Sealed hierarchy permitting {@link TextPart} and {@link RefusalPart}. The assistant either
  * returns regular text or an explicit structured refusal; it does not send image or video parts
  * as content (image generation has its own endpoint; videos are input-only).</p>
+ *
+ * @author Oussama Mahjoub
  */
 public sealed interface AssistantContentPart
         permits TextPart, RefusalPart {

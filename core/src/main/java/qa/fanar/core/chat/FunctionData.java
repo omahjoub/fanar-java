@@ -11,6 +11,8 @@ import java.util.Objects;
  *
  * @param name      the function name being invoked; must not be {@code null}
  * @param arguments arguments as a JSON-encoded string; must not be {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record FunctionData(String name, String arguments) {
 

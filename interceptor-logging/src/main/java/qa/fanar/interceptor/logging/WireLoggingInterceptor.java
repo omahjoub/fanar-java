@@ -31,47 +31,22 @@ import qa.fanar.core.spi.Interceptor;
 
 /**
  * {@link Interceptor} that prints the outbound HTTP request and the inbound HTTP response to a
- * configurable sink. Modeled after OkHttp's {@code HttpLoggingInterceptor}: a four-step level
- * ladder from silence to full body capture.
+ * configurable sink. Modeled after OkHttp's {@code HttpLoggingInterceptor}: a {@link Level} ladder
+ * from silence ({@code NONE}) to full body capture ({@code BODY}).
  *
- * <h2>Levels</h2>
+ * <p>Default sink routes through SLF4J at the {@code fanar.wire} logger / {@code DEBUG} level —
+ * configure your binding to silence or redirect. {@link Builder#sink(Consumer)} swaps in a custom
+ * {@code Consumer<String>} for non-SLF4J destinations.</p>
  *
- * <ul>
- *   <li>{@link Level#NONE} — interceptor is a no-op.</li>
- *   <li>{@link Level#BASIC} — one line per request {@code (--> METHOD URL)} and one per response
- *       {@code (<-- STATUS URL (Nms))}.</li>
- *   <li>{@link Level#HEADERS} — {@code BASIC} plus all request and response headers (with the
- *       configured ones redacted).</li>
- *   <li>{@link Level#BODY} — {@code HEADERS} plus request and response bodies, truncated to the
- *       configured byte cap. Streaming responses ({@code Content-Type: text/event-stream}) are
- *       <em>not</em> drained — at {@code BODY} level the interceptor still emits headers but
- *       prints {@code (streaming response — body not captured)} in place of the body so SSE
- *       chunks keep flowing to the consumer.</li>
- * </ul>
+ * <p>{@code Authorization} is redacted by default (scheme preserved, credential replaced); add
+ * more headers via {@link Builder#addRedactedHeader(String)}. Bodies at {@code BODY} level are
+ * truncated to {@link Builder#bodyByteCap(int)} (8 KB default) with a {@code (... N more bytes
+ * elided)} marker. Streaming responses ({@code text/event-stream}) are passed through without
+ * draining so SSE chunks keep flowing to the consumer.</p>
  *
- * <h2>Sink</h2>
+ * <p>Thread-safe — a single instance backs every request on a {@code FanarClient}.</p>
  *
- * <p>By default the interceptor routes lines through SLF4J: logger name {@code fanar.wire},
- * level {@code DEBUG}. Configure your SLF4J binding to silence, redirect, or change format. For
- * non-SLF4J destinations (stdout, a custom file, a structured-log shipper), pass a
- * {@code Consumer<String>} via {@link Builder#sink(Consumer)}.</p>
- *
- * <h2>Redaction</h2>
- *
- * <p>By default, the {@code Authorization} header value is partially redacted (the scheme prefix
- * — {@code Bearer}, {@code Basic} — is preserved, the credential is replaced with
- * {@code [redacted]}). Add header names to redact via {@link Builder#addRedactedHeader(String)};
- * non-{@code Authorization} headers in the redaction set have their entire value replaced.
- * Header-name comparison is case-insensitive (per RFC 7230).</p>
- *
- * <h2>Body byte cap</h2>
- *
- * <p>At {@code BODY} level, request and response bodies are truncated to
- * {@link Builder#bodyByteCap(int)} bytes (default 8192). Truncation appends a marker
- * {@code (... N more bytes elided)} so callers know the body was cut. This protects against
- * accidentally logging multi-megabyte audio downloads or image-generation responses.</p>
- *
- * <p>Thread-safe: a single instance is shared across all requests on a {@code FanarClient}.</p>
+ * @author Oussama Mahjoub
  */
 public final class WireLoggingInterceptor implements Interceptor {
 

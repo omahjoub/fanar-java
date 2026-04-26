@@ -16,6 +16,8 @@ import java.util.Objects;
  *                     consistently present on real responses; useful for diagnosing why
  *                     generation halted at a finer granularity than the normalised enum.
  *                     {@code null} when the server omits it.
+ *
+ * @author Oussama Mahjoub
  */
 public record ChatChoice(
         FinishReason finishReason,

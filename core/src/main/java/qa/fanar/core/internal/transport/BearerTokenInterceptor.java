@@ -18,6 +18,8 @@ import qa.fanar.core.spi.Interceptor;
  *
  * <p>Internal (ADR-018). Callers enable this indirectly via
  * {@code FanarClient.Builder.apiKey(...)}.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public final class BearerTokenInterceptor implements Interceptor {
 

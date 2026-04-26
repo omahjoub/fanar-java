@@ -17,6 +17,8 @@ import java.util.Objects;
  * @param choices  final choice records carrying accumulated references; defensively copied
  * @param usage    token-usage summary; may be {@code null}
  * @param metadata opaque Fanar-specific metadata; never {@code null}, may be empty
+ *
+ * @author Oussama Mahjoub
  */
 public record DoneChunk(
         String id,

@@ -11,6 +11,8 @@ import java.util.Objects;
  *
  * @param content the user-message text recorded alongside the thinking trace; must not be
  *                {@code null}
+ *
+ * @author Oussama Mahjoub
  */
 public record ThinkingUserMessage(String content) implements Message {
 

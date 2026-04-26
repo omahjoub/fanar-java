@@ -15,6 +15,8 @@ import qa.fanar.core.chat.ToolResultData;
  * The record requires a non-null {@code toolResult}; absence is a shape mismatch — the SDK's
  * shape classifier routes here only when {@code delta.tool_result} is present, so if this
  * deserializer fires without it, the record's canonical-constructor NPE is the right signal.
+ *
+ * @author Oussama Mahjoub
  */
 final class ChoiceToolResultDeserializer extends StdDeserializer<ChoiceToolResult> {
 

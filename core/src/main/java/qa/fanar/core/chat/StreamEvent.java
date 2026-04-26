@@ -21,6 +21,8 @@ package qa.fanar.core.chat;
  * the server-side {@link #created} timestamp, and the {@link #model} used. The wire-protocol
  * field {@code object} (always {@code "chat.completion.chunk"}) is not modelled — the JSON
  * codec sets it on serialize.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public sealed interface StreamEvent
         permits TokenChunk, ToolCallChunk, ToolResultChunk, ProgressChunk, DoneChunk, ErrorChunk {

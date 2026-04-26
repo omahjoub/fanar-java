@@ -11,6 +11,8 @@ import qa.fanar.core.chat.ChoiceError;
  * Unwraps {@code choice.delta.content} (String) into {@link ChoiceError#content()}. The record's
  * canonical constructor defaults a missing {@code finishReason} to {@code "error"}, so we only
  * need to supply the content.
+ *
+ * @author Oussama Mahjoub
  */
 final class ChoiceErrorDeserializer extends StdDeserializer<ChoiceError> {
 

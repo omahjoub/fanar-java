@@ -20,6 +20,8 @@ import qa.fanar.core.internal.observability.NoopObservabilityPlugin;
  * <p>The default implementation ({@link #noop()}) is silent — every {@link ObservationHandle}
  * method is a no-op. It is the plugin used when the user has not installed one explicitly and
  * ensures the SDK's internal {@code observation().event(...)} calls are always safe.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public interface ObservabilityPlugin {
 

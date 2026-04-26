@@ -16,39 +16,19 @@ import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
 
 /**
- * {@link ObservabilityPlugin} that emits one structured log line per SDK operation through
- * SLF4J. {@code DEBUG} on success, {@code ERROR} on failure; the line carries the operation
- * name (in the logger), duration in milliseconds, and every attribute the SDK attached.
+ * {@link ObservabilityPlugin} that emits one structured log line per SDK operation through SLF4J:
+ * {@code DEBUG} on success, {@code ERROR} on failure. The line carries the operation name (as the
+ * logger name, e.g., {@code fanar.chat.send}), duration in ms, and every attribute the SDK
+ * attached — so SLF4J configuration can scope verbosity at any prefix granularity.
  *
- * <p>Logger names mirror the SDK's operation namespace verbatim, so configuration scopes
- * naturally:</p>
- * <pre>{@code
- * <logger name="fanar"             level="DEBUG"/>   <!-- everything -->
- * <logger name="fanar.audio"       level="DEBUG"/>   <!-- audio domain only -->
- * <logger name="fanar.audio.speech" level="OFF"/>    <!-- silence one operation -->
- * }</pre>
+ * <p>{@link ObservationHandle#propagationHeaders()} returns an empty map; SLF4J doesn't carry
+ * distributed-trace context. Compose with the OpenTelemetry binding for {@code traceparent}
+ * injection.</p>
  *
- * <h2>Customizing what is logged</h2>
+ * <p>Thread-safe; close is idempotent. Customize attribute filtering / redaction via
+ * {@link #builder()}.</p>
  *
- * <p>The default no-arg constructor logs every attribute the SDK emits with no transformation.
- * For non-default behavior, use the {@linkplain #builder() builder}:</p>
- *
- * <pre>{@code
- * ObservabilityPlugin obs = Slf4jObservabilityPlugin.builder()
- *         .attributeFilter(key -> !key.startsWith("internal."))      // drop internal.* keys
- *         .attributeRedactor((k, v) -> "fanar.user_id".equals(k) ? "***" : v)
- *         .build();
- * }</pre>
- *
- * <p>Both knobs apply on the close-summary line; raw attribute state is preserved internally so
- * the SDK's own attribute calls remain unaffected.</p>
- *
- * <p>Thread-safe: a single plugin instance backs every concurrent operation on a
- * {@code FanarClient}. Attributes are stored in a concurrent map; close is idempotent.</p>
- *
- * <p>Distributed-trace context propagation is <em>not</em> performed by this plugin —
- * {@link ObservationHandle#propagationHeaders()} returns an empty map. Use the OpenTelemetry
- * binding for trace context.</p>
+ * @author Oussama Mahjoub
  */
 public final class Slf4jObservabilityPlugin implements ObservabilityPlugin {
 

@@ -1,64 +1,37 @@
-## What does this PR do?
+## Summary
 
-<!-- Brief description of the change. Focus on the "why" — the "what" is in the diff. -->
+<!-- 1–3 bullets. Lead with the "why" — the "what" is in the diff. Link a related issue or ADR. -->
 
-## Scope
-
-<!-- Tick what this PR touches. At least one must be checked. -->
-
-- [ ] Core module (`qa.fanar.core`)
-- [ ] Downstream / framework module — which: `__________`
-- [ ] BOM
-- [ ] Docs / tooling / CI only
+-
 
 ## Type of change
 
 - [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation
-- [ ] Refactoring (no behavior change)
+- [ ] New feature / capability
 - [ ] New module
+- [ ] Refactoring (no behavior change)
+- [ ] Breaking change
+- [ ] Documentation / tooling / CI only
 
----
+## Test plan
 
-## Checklist
-
-Items are split by scope. **Delete the block(s) that do not apply.** The rationale behind each item lives in
-[`docs/JAVA_LIBRARY_BEST_PRACTICES.md`](../docs/JAVA_LIBRARY_BEST_PRACTICES.md) — that document is the source of truth,
-this template mirrors it.
-
-### Common — every PR
-
-- [ ] I have read [`CONTRIBUTING.md`](../docs/CONTRIBUTING.md)
-- [ ] Tests added or updated
 - [ ] `mvn verify` passes locally
-- [ ] `mvn dependency:analyze` reports no undeclared or unused direct dependencies
-- [ ] No version ranges in dependency declarations
-- [ ] No split packages across modules
-- [ ] No shading anywhere in the build
-- [ ] Minimum Java version unchanged — no API from a newer JDK accidentally used
-- [ ] Deprecated API carries `@Deprecated(since, forRemoval)` and a migration path
-- [ ] BOM updated if this PR adds or removes a module
-- [ ] Javadoc builds clean on any new public API
-- [ ] ADR added or updated if a design decision changed
+- [ ] Live tests pass against the real Fanar API (if applicable, with `FANAR_API_KEY` set)
+- [ ] GraalVM `--self-test` passes (if the SDK's reflective surface changed)
 
-### Core-module checklist
+## Reviewer checklist
 
-<!-- Delete this block if the PR does not touch the core module. -->
+<!-- Items CI can't check on its own — human judgment required. Tick or mark N/A. -->
 
-- [ ] No new dependency added to core
-- [ ] No third-party types on public API surfaces
-- [ ] `module-info.java` exports only the intended public packages
-- [ ] `mvn dependency:tree` shows no unexpected transitives
-- [ ] New public types are `sealed`, `final`, or explicitly designed for extension
+- [ ] Public API changes are intentional, documented in javadoc, and an ADR was added/updated if the design changed
+- [ ] Breaking changes carry `@Deprecated(since, forRemoval = true)` and a migration path in the PR description
+- [ ] BOM updated if modules were added or removed
+- [ ] No third-party types leak into `qa.fanar.core` public API
+- [ ] If a non-obvious project decision was made, capture it in `memory/` so future contributors find it
 
-### Downstream / framework-module checklist
-
-<!-- Delete this block if the PR does not touch an adapter or framework-integration module. -->
-
-- [ ] Core module untouched, or touched only to extend an existing public plug point
-- [ ] Framework dependencies declared with `provided` scope
-- [ ] No framework types leak back into core
-- [ ] Module owns a distinct package subtree under `qa.fanar.<x>`
-- [ ] Adapter is a thin wrapper — no capability duplicated from core
-- [ ] Target ecosystem's minimum Java version respected
+<!--
+The full engineering checklist (no version ranges, no split packages, dependency hygiene,
+core-vs-adapter rules, native-image reachability, …) lives in
+`docs/JAVA_LIBRARY_BEST_PRACTICES.md`. CI enforces every machine-checkable item from there on
+every push — the boxes above are the human-judgment residue.
+-->

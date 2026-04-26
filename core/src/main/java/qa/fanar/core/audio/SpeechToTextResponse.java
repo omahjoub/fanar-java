@@ -23,6 +23,8 @@ import java.util.Objects;
  * sealed-interface form gives you exhaustive switch coverage. The {@code Json} variant
  * <em>flattens</em> the wire's nested {@code "json": {"segments": [...]}} into the record's
  * {@link Json#segments()} accessor — the JSON adapter does that unwrap during decode.</p>
+ *
+ * @author Oussama Mahjoub
  */
 public sealed interface SpeechToTextResponse {
 

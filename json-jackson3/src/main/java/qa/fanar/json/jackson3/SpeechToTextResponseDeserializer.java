@@ -21,6 +21,8 @@ import qa.fanar.core.audio.SpeechToTextResponse;
  *   <li>{@code json} → {@link SpeechToTextResponse.Json} (flattened: the wire's
  *       {@code "json": {"segments": [...]}} unwraps to {@code Json(id, segments)}).</li>
  * </ul>
+ *
+ * @author Oussama Mahjoub
  */
 final class SpeechToTextResponseDeserializer extends StdDeserializer<SpeechToTextResponse> {
 

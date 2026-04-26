@@ -5,6 +5,8 @@
  * {@code com.fasterxml.jackson.*} package family, as shipped by Spring Boot 3.x). The Jackson
  * dependency is declared {@code provided} so the consuming application supplies the concrete
  * runtime.</p>
+ *
+ * @author Oussama Mahjoub
  */
 module qa.fanar.json.jackson2 {
     requires qa.fanar.core;
