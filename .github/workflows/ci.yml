@@ -43,7 +43,7 @@ jobs:
       # somewhere is uncovered" with no way to find which line.
       - name: Upload JaCoCo report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-java-${{ matrix.java }}
           path: |
