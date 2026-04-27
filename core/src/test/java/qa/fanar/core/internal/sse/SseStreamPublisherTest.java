@@ -100,7 +100,20 @@ class SseStreamPublisherTest {
             public void close() throws IOException { closed.set(true); piped.close(); }
         };
 
-        CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
+        // Cancel synchronously from inside onNext — this runs on the producer thread, so
+        // `cancelled=true` is published before the producer re-evaluates the while-loop header.
+        // Without this, cancelling from the test thread races the producer: when it wins, the
+        // producer enters a blocking readLine() that wakes up via close() and either returns
+        // null (covering the cancelled-short-circuit branches at L115/L131 of the publisher) or
+        // throws IOException (jumping to the catch path and missing those branches). The race
+        // flips between Java 21 and 25 on CI; cancelling from onNext makes the path deterministic.
+        CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE) {
+            @Override
+            public void onNext(StreamEvent item) {
+                super.onNext(item);
+                subscription.cancel();
+            }
+        };
         new SseStreamPublisher(body, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "x")))
         )).subscribe(sub);
@@ -108,9 +121,8 @@ class SseStreamPublisherTest {
         out.write("data: {\"a\":1}\n\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
         sub.nextReceived.get(5, TimeUnit.SECONDS);
-
-        sub.subscription.cancel();
-        // Give the reader thread a moment to observe the close.
+        // Bounded wait: lets the producer reach the while header (and therefore L131) so a
+        // regression that fires onComplete after cancel would be caught here.
         Thread.sleep(100);
 
         assertEquals(1, sub.events.size());
