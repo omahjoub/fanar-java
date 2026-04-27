@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-spring-boot-4-sample</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Spring Boot 4 Sample</name>
+    <description>Runnable Spring Boot 4 application demonstrating the Fanar Java starter — typed
+        `fanar.*` config, auto-wired `FanarClient`, `/actuator/health` integration, wire-logging via
+        property. Not published; not part of the BOM. Run with `./mvnw -pl spring-boot-4-sample
+        spring-boot:run` after exporting `FANAR_API_KEY`.</description>
+
+    <!--
+      Sample app: never publishes, never enforces JaCoCo, doesn't run dep-analyze. The point is to
+      stay small, pull in everything Spring Boot bundles, and "just work" when a developer reads it.
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+        <jacoco.skip>true</jacoco.skip>
+    </properties>
+
+    <dependencies>
+        <!-- The starter under demonstration. Pulls fanar-core + Jackson 3 codec + the
+             wire-logging interceptor transitively. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-spring-boot-4-starter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Web stack: bring in MVC for the demo controller. SB4's web starter ships
+             spring-boot-starter-json (Jackson 3), spring-boot-starter-logging (Logback +
+             SLF4J), and Tomcat. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Actuator: activates `FanarHealthAutoConfiguration` so `/actuator/health` reports
+             Fanar reachability. Without this, the starter still works — the health bean just
+             isn't registered. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Test: minimal smoke test that the auto-config wires up correctly. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Repackages into a runnable fat jar; also enables `mvn spring-boot:run`. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Disable dep-analyze gate. Spring Boot starters intentionally pull a wide set of
+                 transitive deps that the sample's tiny code surface doesn't import directly,
+                 which is exactly what `failOnWarning=true` flags. Same rationale as e2e and
+                 e2e-graalvm. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

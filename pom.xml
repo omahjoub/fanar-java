@@ -20,6 +20,7 @@
         <slf4j.version>2.0.17</slf4j.version>
         <opentelemetry.version>1.61.0</opentelemetry.version>
         <micrometer.version>1.16.5</micrometer.version>
+        <spring-boot.version>4.0.0</spring-boot.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-dependency-plugin.version>3.10.0</maven-dependency-plugin.version>
@@ -42,6 +43,8 @@
         <module>obs-otel</module>
         <module>obs-micrometer</module>
         <module>interceptor-logging</module>
+        <module>spring-boot-4-starter</module>
+        <module>spring-boot-4-sample</module>
         <module>bom</module>
         <!--
           `e2e` is part of the reactor so IDEs auto-detect it. It adds ~1 second to
@@ -95,6 +98,13 @@
                 <groupId>io.micrometer</groupId>
                 <artifactId>micrometer-bom</artifactId>
                 <version>${micrometer.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

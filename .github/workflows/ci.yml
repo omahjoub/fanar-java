@@ -37,6 +37,21 @@ jobs:
         #   - jacoco:check
         run: mvn -B verify
 
+      # JaCoCo runs `report` in the `test` phase and `check` in `verify`, so the HTML report
+      # exists by the time a coverage gate fails. Upload it on failure so we can pinpoint the
+      # missed branch when CI flakes — without this, a 0.99 ratio just tells us "something
+      # somewhere is uncovered" with no way to find which line.
+      - name: Upload JaCoCo report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-java-${{ matrix.java }}
+          path: |
+            **/target/site/jacoco/
+            **/target/jacoco.exec
+          if-no-files-found: ignore
+          retention-days: 1
+
   check-docs:
     name: Check documentation links
     runs-on: ubuntu-latest

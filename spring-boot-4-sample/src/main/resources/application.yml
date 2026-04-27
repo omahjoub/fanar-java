@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+# Fanar SDK config — typed, validated by FanarProperties.
+fanar:
+  api-key: ${FANAR_API_KEY}
+  # connect-timeout: 10s
+  # request-timeout: 60s
+  # retry:
+  #   max-attempts: 3
+  #   initial-backoff: 100ms
+  wire-logging:
+    level: BASIC   # NONE | BASIC | HEADERS | BODY — auto-wires the WireLoggingInterceptor
+
+# Actuator: expose /actuator/health with the Fanar contributor's details.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
+
+# Make the wire-logging output actually visible — the interceptor logs at DEBUG
+# under the `fanar.wire` SLF4J name.
+logging:
+  level:
+    fanar.wire: DEBUG
