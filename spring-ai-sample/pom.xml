@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-spring-ai-sample</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Spring AI Sample</name>
+    <description>Runnable Spring Boot 4 application demonstrating the Fanar Spring AI starter —
+        ChatClient with MessageChatMemoryAdvisor, streaming, image generation, TTS, and STT.
+        Not published; not part of the BOM. Run with `FANAR_API_KEY=… ./mvnw -pl spring-ai-sample
+        spring-boot:run`.</description>
+
+    <!--
+      Sample app: never publishes, never enforces JaCoCo, doesn't run dep-analyze. Same posture
+      as `spring-boot-4-sample` and `e2e-graalvm`.
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+        <jacoco.skip>true</jacoco.skip>
+    </properties>
+
+    <dependencies>
+        <!-- The Spring AI starter under demonstration. Pulls fanar-spring-boot-4-starter
+             (and therefore fanar-core + Jackson 3 codec + wire-logging interceptor) plus
+             spring-ai-model transitively. Compile scope so the user gets the whole stack
+             with one dep. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-spring-ai-starter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring AI's high-level fluent surface (ChatClient, MessageChatMemoryAdvisor,
+             MessageWindowChatMemory). The starter only depends on `spring-ai-model` (the SPI);
+             the sample needs the client API to demo it. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+        </dependency>
+
+        <!-- Web stack: brings MVC, Jackson 3, Tomcat, Logback. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Test: minimal smoke test that the sample's beans wire up. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Repackages into a runnable fat jar; also enables `mvn spring-boot:run`. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Disable dep-analyze gate. Spring Boot starters intentionally pull a wide set
+                 of transitive deps that the sample's tiny code surface doesn't import directly,
+                 which is exactly what `failOnWarning=true` flags. Same rationale as e2e and
+                 spring-boot-4-sample. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

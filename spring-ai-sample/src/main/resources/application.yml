@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+# Fanar SDK config — typed, validated by FanarProperties (in fanar-spring-boot-4-starter).
+fanar:
+  api-key: ${FANAR_API_KEY}
+  wire-logging:
+    level: BASIC   # NONE | BASIC | HEADERS | BODY
+
+# Make the wire-logging output visible — the interceptor logs at DEBUG under `fanar.wire`.
+logging:
+  level:
+    fanar.wire: DEBUG
+
+# Spring AI uses Spring Boot's normal config; nothing to set here for the sample because the
+# defaults (model, voice, etc.) come from FanarSpringAiAutoConfiguration. Per-call overrides
+# happen via Spring AI's *Options builders in controller code.

@@ -50,6 +50,7 @@
         <module>spring-boot-4-starter</module>
         <module>spring-boot-4-sample</module>
         <module>spring-ai-starter</module>
+        <module>spring-ai-sample</module>
         <module>bom</module>
         <!--
           `e2e` is part of the reactor so IDEs auto-detect it. It adds ~1 second to
