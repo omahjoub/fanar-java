@@ -85,7 +85,7 @@ jobs:
                -jar e2e-graalvm/target/fanar-java-e2e-graalvm-*.jar
 
       - name: Upload reachability metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-image-metadata
           path: metadata-out
