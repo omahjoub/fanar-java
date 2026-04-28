@@ -8,6 +8,40 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <name>Fanar Java SDK</name>
+    <description>Java SDK for Qatar's Fanar AI platform — typed, pluggable, observable
+        transport over the Fanar API plus Spring Boot 4 / Spring AI 2.0 framework adapters.
+    </description>
+    <url>https://github.com/omahjoub/fanar-java</url>
+    <inceptionYear>2026</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Oussama Mahjoub</name>
+            <email>mahjoub.oussama@gmail.com</email>
+            <url>https://github.com/omahjoub</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/omahjoub/fanar-java</url>
+        <connection>scm:git:https://github.com/omahjoub/fanar-java.git</connection>
+        <developerConnection>scm:git:git@github.com:omahjoub/fanar-java.git</developerConnection>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/omahjoub/fanar-java/issues</url>
+    </issueManagement>
+
     <properties>
         <java.version>21</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
