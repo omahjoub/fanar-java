@@ -7,6 +7,10 @@ Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI 
 > against the live API. Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
 > Not yet on Maven Central — install via `./mvnw install` for now.
 
+<p align="center">
+  <img src="docs/images/fanar_java_runtime_architecture.svg" alt="Runtime architecture: Spring AI fluent surface over fanar-spring-ai-starter over fanar-spring-boot-4-starter over fanar-core, with JSON / interceptor / observability SPIs at the side and JDK HttpClient at the bottom." width="720">
+</p>
+
 ## Why this SDK?
 
 **To open Fanar to the Java world.** Java still powers the majority of production systems in
