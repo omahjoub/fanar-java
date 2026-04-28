@@ -67,9 +67,13 @@ jobs:
               docs/COMPATIBILITY.md \
               docs/CONTRIBUTING.md \
               docs/GLOSSARY.md \
+              docs/GRAALVM.md \
               docs/JAVA_LIBRARY_BEST_PRACTICES.md \
               docs/PROJECT_STATE.md \
               docs/adr/INDEX.md \
+              docs/adr/020-spring-boot-4-starter.md \
+              docs/adr/021-spring-ai-2-adapter.md \
+              docs/adr/022-observability-compose-factory.md \
               .github/pull_request_template.md \
               .github/SECURITY.md; do
             if [ ! -f "$file" ]; then

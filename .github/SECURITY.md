@@ -19,10 +19,10 @@ We will acknowledge receipt within 48 hours and provide a timeline for resolutio
 
 ## Supported Versions
 
-The SDK is in **pre-1.0 / design phase**. Until 1.0 ships:
+The SDK is **pre-1.0**. Until 1.0 ships:
 
 - Only the **latest release** receives security fixes.
-- API may change between minor versions (0.x.y → 0.x+1.0); see `docs/JAVA_LIBRARY_BEST_PRACTICES.md` (JLBP-3, JLBP-12) for the stability policy.
+- API may change between minor versions (0.x.y → 0.x+1.0); see [ADR-019](../docs/adr/019-pre-10-stability-policy.md) for the stability policy.
 
 Once 1.0 ships, the policy below applies:
 
