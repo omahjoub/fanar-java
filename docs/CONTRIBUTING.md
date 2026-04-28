@@ -26,15 +26,27 @@ cd fanar-java
 ./mvnw verify
 ```
 
-The build is currently a reactor skeleton — `verify` passes with two expected warnings about module-name terminal
-digits (documented in ADR-010). If it fails for any other reason, that is a bug; please open an issue.
+`verify` passes with two expected warnings about module-name terminal digits (documented in ADR-010).
+If it fails for any other reason, that is a bug — please open an issue.
 
 ### Running one module only
 
 ```bash
-./mvnw -pl core verify              # core only
-./mvnw -pl json-jackson3 -am verify # adapter + its dependencies
+./mvnw -pl core verify                # core only
+./mvnw -pl json-jackson3 -am verify   # adapter + its dependencies
+./mvnw -pl spring-ai-starter verify   # Spring AI adapter + starter chain
 ```
+
+### Running the live e2e suite
+
+The `fanar-java-e2e` module is gated on `FANAR_API_KEY` — without it, the live tests skip silently.
+With a real key in scope:
+
+```bash
+FANAR_API_KEY=… ./mvnw -pl e2e -am verify
+```
+
+PR CI does not run live tests (no key in PR scope); the nightly job will (planned).
 
 ## Getting a change in
 
@@ -80,23 +92,33 @@ Reference ADRs where relevant: `core: implement retry chain (ADR-012, ADR-014)`.
 
 The full set lives in [Library best practices](JAVA_LIBRARY_BEST_PRACTICES.md). Highlights:
 
-- Core module has **zero runtime dependencies**. Any new dep is an ADR conversation, not a PR.
+- **Core module has zero runtime dependencies.** Any new dep is an ADR conversation, not a PR.
 - **No third-party types on the public API surface.** JDK types (`Flow.Publisher`, `CompletableFuture`, etc.) and
   our own DTOs only.
 - **Top-level package = public API**, `.spi` = extension interfaces, `.internal` = implementation (not exported).
 - **Records** for DTOs, **sealed interfaces** for unions, no `Optional` fields. See ADR-015.
 - **Javadoc** on every public type and method. `-Xdoclint:all,-missing` is enforced at compile time.
 - **`module-info.java`** exports only public packages. Never internal ones.
+- **`-parameters` is enabled globally.** Spring MVC's `@PathVariable String foo` binds by parameter name
+  reflectively; the flag must be on for that to work without explicit name args.
+- **Test patterns to mimic**: `ApplicationContextRunner` + AssertJ for auto-config tests;
+  `FilteredClassLoader(ChatModel.class)` to assert "without spring-ai on classpath, the bean isn't
+  registered"; real `HttpServer` (no mocks) for adapter wire-format tests — see `FanarChatModelTest` and
+  `FanarHealthIndicatorTest`.
 
-## Running tests
+## Quality gates
 
-```bash
-./mvnw verify                  # full reactor
-./mvnw -pl core verify         # one module
-```
+Every shipping module enforces:
 
-Skeleton modules currently have `<jacoco.skip>true</jacoco.skip>` and `dependency:analyze` unbound. When your PR
-adds real code and tests to a module, remove those overrides in the same PR.
+- **JaCoCo 100 %** on instructions, lines, branches, methods, complexity. Sample apps and `e2e*` modules
+  set `jacoco.skip=true`.
+- **`dependency:analyze` strict** — fails on undeclared or unused direct deps. Sample apps disable it.
+- **Doclint** at javac time.
+
+When CI flakes on a coverage gate, the failing job uploads the JaCoCo HTML report as an artifact named
+`jacoco-java-{21,25}` — drill into the package row at < 100 % and the highlighted source line tells you
+which branch is missed. Concurrency-flake fixes belong on the test (deterministic ordering, latches),
+not on the threshold.
 
 ## Where to ask questions
 

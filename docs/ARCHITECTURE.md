@@ -52,26 +52,68 @@
 
 ```
 fanar-java                            (reactor parent — NOT published)
-├── core/                             qa.fanar:fanar-core                  — jar
+├── core/                             qa.fanar:fanar-core                   — jar
 │   └── src/main/java/
 │       ├── module-info.java          module qa.fanar.core
 │       └── qa/fanar/core/
-│           ├── FanarClient, FanarException, ChatModel, …       (top-level public API)
-│           ├── chat/                                           (ChatRequest, StreamEvent, …)
-│           ├── audio/  images/  translations/  poems/
-│           ├── moderations/  tokens/  models/                  (domain DTO packages)
-│           ├── spi/                                            (Interceptor, FanarJsonCodec, …)
+│           ├── FanarClient, FanarException, …                  (top-level public API)
+│           ├── chat/  audio/  images/  translations/  poems/
+│           ├── moderations/  tokens/  models/                  (domain packages)
+│           ├── spi/                                            (Interceptor, FanarJsonCodec, ObservabilityPlugin)
 │           └── internal/                                       (transport, SSE parser, retry — not exported)
-├── json-jackson2/                    qa.fanar:fanar-json-jackson2         — jar  (Spring Boot 3 / Jackson 2)
-├── json-jackson3/                    qa.fanar:fanar-json-jackson3         — jar  (Spring Boot 4 / Jackson 3)
-├── obs-slf4j/                        qa.fanar:fanar-obs-slf4j             — jar  (SLF4J observability adapter)
-├── obs-otel/                         qa.fanar:fanar-obs-otel              — jar  (OpenTelemetry observability adapter)
-├── obs-micrometer/                   qa.fanar:fanar-obs-micrometer        — jar  (Micrometer Observation API adapter)
-├── interceptor-logging/              qa.fanar:fanar-interceptor-logging   — jar  (wire-level request/response logging)
-└── bom/                              qa.fanar:fanar-java-bom              — pom  (dependency management for consumers)
+├── json-jackson2/                    qa.fanar:fanar-json-jackson2          — jar  (Jackson 2 codec; pair with SB3)
+├── json-jackson3/                    qa.fanar:fanar-json-jackson3          — jar  (Jackson 3 codec; pair with SB4)
+├── obs-slf4j/                        qa.fanar:fanar-obs-slf4j              — jar  (ObservabilityPlugin → SLF4J)
+├── obs-otel/                         qa.fanar:fanar-obs-otel               — jar  (ObservabilityPlugin → OpenTelemetry)
+├── obs-micrometer/                   qa.fanar:fanar-obs-micrometer         — jar  (ObservabilityPlugin → Micrometer)
+├── interceptor-logging/              qa.fanar:fanar-interceptor-logging    — jar  (wire-level request/response logging)
+├── spring-boot-4-starter/            qa.fanar:fanar-spring-boot-4-starter  — jar  (auto-config + actuator health for SB4)
+├── spring-boot-4-sample/             qa.fanar:fanar-spring-boot-4-sample   — jar  (runnable sample; not published)
+├── spring-ai-starter/                qa.fanar:fanar-spring-ai-starter      — jar  (Spring AI 2.0 ChatModel/Image/TTS/STT adapters)
+├── spring-ai-sample/                 qa.fanar:fanar-spring-ai-sample       — jar  (runnable sample; not published)
+├── e2e/                              qa.fanar:fanar-java-e2e               — jar  (live integration tests; not published)
+├── e2e-graalvm/                      qa.fanar:fanar-java-e2e-graalvm       — jar  (native-image self-test + live walk; not published)
+└── bom/                              qa.fanar:fanar-java-bom               — pom  (dependency management for consumers)
 ```
 
-Each module has its own `module-info.java`. The reactor parent is never published; consumers import the BOM.
+Each library module ships a `module-info.java`. The samples and the Spring Boot 4 starter run on
+the classpath (no JPMS) because Spring jars don't fully declare modules; `spring-ai-starter`
+follows the same posture for the same reason. The reactor parent is never published; consumers
+import the BOM.
+
+### Framework adapter layering
+
+The framework story is two slices stacked over the core, each adapter a sibling Maven module:
+
+```
+       ┌─────────────────────────────────────────────────────────────────┐
+       │  Spring AI fluent surface — ChatClient, advisors, ChatMemory,   │
+       │  RAG / vector store / structured-output converters              │
+       └─────────────────────────────────────────────────────────────────┘
+                                    ▲ uses Spring AI's ChatModel SPI
+       ┌─────────────────────────────────────────────────────────────────┐
+       │  fanar-spring-ai-starter                                        │
+       │  FanarChatModel + FanarImageModel + FanarTextToSpeechModel +    │
+       │  FanarTranscriptionModel + FanarSpringAiAutoConfiguration       │
+       └─────────────────────────────────────────────────────────────────┘
+                                    ▲ uses FanarClient
+       ┌─────────────────────────────────────────────────────────────────┐
+       │  fanar-spring-boot-4-starter                                    │
+       │  FanarAutoConfiguration + FanarProperties +                     │
+       │  FanarHealthAutoConfiguration                                   │
+       └─────────────────────────────────────────────────────────────────┘
+                                    ▲ uses FanarClient builder + SPIs
+       ┌─────────────────────────────────────────────────────────────────┐
+       │  fanar-core   +   fanar-json-jackson3   +   fanar-obs-* (opt)   │
+       │  fanar-interceptor-logging (opt)                                │
+       └─────────────────────────────────────────────────────────────────┘
+                                    ▲ uses HttpTransport SPI
+                          JDK HttpClient (default)
+```
+
+Memory, prompt templating, RAG advisors, structured-output converters, vector stores all live
+in Spring AI; we expose `ChatModel` (the SPI) and they compose on top. We never have to update
+those features; tracking Spring AI's milestones suffices.
 
 ### Request flow — sync call
 
@@ -180,8 +222,9 @@ One subtype per Fanar `ErrorCode` plus `FanarTransportException` for JDK-transpo
 
 ## 3. Where things live
 
-Lookup table for "I want to change X, where's X?". **Status** reflects the design-phase skeleton; all marked
-"not implemented" are to be built per [PROJECT_STATE.md](PROJECT_STATE.md).
+Lookup table for "I want to change X, where's X?". Everything below is implemented; status notes
+flag whether the type is part of the public contract or the freely-refactorable `.internal.*`
+zone (ADR-018).
 
 | Concern | Package | Status |
 |---|---|---|
@@ -210,7 +253,13 @@ Lookup table for "I want to change X, where's X?". **Status** reflects the desig
 | OpenTelemetry observability adapter | `qa.fanar.obs.otel.OpenTelemetryObservabilityPlugin` | **implemented** — one OTel span per operation, typed attribute dispatch (long / double / boolean / String), W3C `traceparent` injection via `propagationHeaders()`, parent-child via captured context (survives virtual-thread async hops); attribute filter / redactor knobs; `provided`-scope OpenTelemetry API |
 | Micrometer observability adapter | `qa.fanar.obs.micrometer.MicrometerObservabilityPlugin` | **implemented** — one Micrometer `Observation` per operation; attributes → low-cardinality `KeyValue`s for metric tags; backend (metrics / tracing) wired by the consuming application's `ObservationRegistry`; `provided`-scope `micrometer-observation` |
 | Wire logging interceptor | `qa.fanar.interceptor.logging.WireLoggingInterceptor` | **implemented** — OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`), SLF4J sink at `fanar.wire`, configurable header redaction (default `Authorization`), body byte cap, streaming-aware (skips `text/event-stream` bodies); `provided`-scope SLF4J |
-| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **partially** — both JSON adapters ship metadata; `fanar-core` and the obs / interceptor modules pending |
+| Spring Boot 4 auto-configuration | `qa.fanar.spring.boot.v4.FanarAutoConfiguration` + `FanarProperties` | **implemented** — typed `fanar.*` `@ConfigurationProperties` record (api-key, base-url, timeouts, retry, wire-logging level), `FanarClient` bean with auto-wired `Interceptor` + `ObservabilityPlugin` via `ObjectProvider`, default Jackson 3 codec |
+| Spring Boot 4 health indicator | `qa.fanar.spring.boot.v4.FanarHealthIndicator` + `FanarHealthAutoConfiguration` | **implemented** — `AbstractHealthIndicator` calling `models().list()`; activates only when `spring-boot-health` is on the classpath (`provided + optional`); UP carries model count + request id, DOWN carries error class + HTTP status; gated by `management.health.fanar.enabled` |
+| Spring AI 2.0 chat adapter | `qa.fanar.spring.ai.FanarChatModel` | **implemented** — `ChatModel` + `StreamingChatModel`; maps `Prompt` / `ChatOptions` onto `ChatRequest`, bridges `Flow.Publisher<StreamEvent>` to `Flux<ChatResponse>`, drops TOOL messages and `ProgressChunk` / `ToolCallChunk` / `ToolResultChunk` (Fanar's tool calls are server-internal Sadiq retriever telemetry, not user tools) |
+| Spring AI 2.0 image adapter | `qa.fanar.spring.ai.FanarImageModel` | **implemented** — `ImageModel`; maps `ImagePrompt` onto `ImageGenerationRequest`, joins multi-message prompts with newlines, returns `b64Json` |
+| Spring AI 2.0 audio adapters | `qa.fanar.spring.ai.FanarTextToSpeechModel`, `FanarTranscriptionModel` | **implemented** — TTS satisfies `StreamingTextToSpeechModel` by wrapping the one-shot result as a single-element `Flux`; STT reads bytes from Spring's `Resource`, infers `Content-Type` from filename extension, always requests text format |
+| Spring AI 2.0 auto-configuration | `qa.fanar.spring.ai.FanarSpringAiAutoConfiguration` | **implemented** — registers all four model beans `@ConditionalOnMissingBean` so users override per slot; activates after `FanarAutoConfiguration` |
+| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **shipped** — `fanar-core` carries reflect-config + resource-config metadata for the 38 records the JSON codec touches; both JSON adapters carry adapter-specific metadata; obs / interceptor modules don't need any (no reflection) |
 
 ---
 

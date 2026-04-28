@@ -79,19 +79,47 @@ A **strong, universal foundation** over everything in §1. Nothing more.
 
 ---
 
-## 3. What downstream modules will add
+## 3. What downstream modules add
 
-The core is intentionally narrow. Everything that is *not* Fanar's wire protocol — but that production callers still need — lives in downstream modules that plug in through the core's extension points:
+Two layers sit on top of the core: **observability adapters** (one HTTP-call's worth of cross-cutting concern, opt-in via the `ObservabilityPlugin` SPI) and **framework adapters** (idiomatic wiring + provider bindings into a JVM AI framework).
 
-- **Conversation / chat memory**
-- **Prompt templating**
-- **Structured-output post-processing** (compensating for the ❌ JSON-schema gap in §1)
-- **Vector stores and retrieval pipelines** (compensating for the ❌ embeddings gap in §1 with a user-chosen provider)
-- **Evaluation harnesses**
-- **Ecosystem wiring** — whatever idiomatic configuration, bean/CDI binding, or native-image metadata each target JVM framework expects
-- **Provider adapters** that expose Fanar in the idiom of each major JVM AI framework
+### Observability — shipped
 
-Their *names, scope and shape* get decided when each module is actually built — not now. Build the core right and each downstream module becomes a thin adapter: a weekend, not a rewrite.
+| Adapter | Module | What it produces |
+|---|---|---|
+| SLF4J | `fanar-obs-slf4j` | One structured log line per operation; `DEBUG` on success, `ERROR` on failure. |
+| OpenTelemetry | `fanar-obs-otel` | One OTel span per operation; W3C `traceparent` propagation; survives virtual-thread async hops. |
+| Micrometer | `fanar-obs-micrometer` | One `Observation` per operation; metric tags from low-cardinality attributes; backend wired by the consuming app's `ObservationRegistry`. |
+
+Compose any combination via `ObservabilityPlugin.compose(slf4j, otel, micrometer)` — single slot, fan-out semantics. None ship a `ServiceLoader` descriptor, so adding the jar to the classpath does not silently change the `FanarClient` default of `ObservabilityPlugin.noop()`.
+
+### Framework adapters — shipped
+
+| Adapter | Module | What it adds |
+|---|---|---|
+| Spring Boot 4 | `fanar-spring-boot-4-starter` | `@AutoConfiguration` + typed `fanar.*` properties + auto-wired `Interceptor` / `ObservabilityPlugin` beans + `FanarHealthIndicator` (when `spring-boot-health` is on the classpath). Wire-logging interceptor enabled via `fanar.wire-logging.level`. |
+| Spring AI 2.0 | `fanar-spring-ai-starter` | `ChatModel` + `StreamingChatModel` + `ImageModel` + `TextToSpeechModel` + `TranscriptionModel` adapters layered on top of the SB4 starter. Memory + RAG advisors compose via Spring AI's `ChatClient`; we don't expose memory primitives in core. |
+
+### Framework adapters — planned
+
+- **Spring Boot 3** — Jackson 2 codec, mechanical port of the SB4 starter.
+- **LangChain4j** — `ChatLanguageModel` provider binding; same shape as the Spring AI adapter.
+- **Quarkus** — CDI beans, build-time wiring, native-image friendliness.
+
+### Deferred — Spring AI gaps with rationale
+
+- **`ModerationModel`** — Fanar returns continuous `safety` + `culturalAwareness` scores; Spring AI's surface expects 16 category booleans (`Categories.isHate()` etc.). A best-effort mapping would always report all categories `false`, misleading consumers. Use `FanarClient.moderations()` directly.
+- **`EmbeddingModel`** — Fanar has no embeddings endpoint at all (the ❌ in §1 above). RAG users bring their own embedder (`spring-ai-openai`, `spring-ai-transformers`, etc.).
+- **Native chat structured output** — Fanar exposes no `response_format` field. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work end-to-end since they shape the prompt text, not a model flag.
+- **User-supplied tool calling** — Fanar rejects user `tools` / `tool_choice` server-side. Spring AI's tool-callback advisors degrade silently in our adapter (we drop `ToolResponseMessage` from outbound prompts and never emit `tool_calls` to consumers).
+
+### What still belongs downstream
+
+- **Conversation / chat memory** — owned by Spring AI / LangChain4j, not core. We expose the model SPI; the framework's advisors persist history.
+- **Prompt templating** — same.
+- **Structured-output post-processing** — same; framework concern that calls into our typed model.
+- **Vector stores + retrieval pipelines** — same; pair our adapter with the framework's RAG advisor and a user-chosen embedder.
+- **Evaluation harnesses** — out of scope.
 
 > **Design principles** — small surface, clear seams, Java idioms first (sealed interfaces for unions, records for DTOs, builders for ergonomics, SPIs for extensibility), no leakage of internal choices into public API, **anticipate the future, don't specify it**.
 

@@ -1,13 +1,12 @@
 # API sketch
 
-> **Status — aspirational, living document.** No Java code exists in this repository yet. Every snippet below is the
-> intended shape captured by the 19 accepted ADRs in [`docs/adr/`](adr/INDEX.md).
+> **Status — living reference.** Every snippet below matches a shipped type. When implementation reveals
+> that a sketch was wrong, we revise the sketch (and the ADR that backed it) — not the code. Treat a
+> discrepancy between sketch and code as a triage question ("which one should change?"), not a correctness
+> ruling.
 >
-> The sketch is the **primary target for implementation** — when the SDK ships, the public API should look like
-> what you see here. It is also a **living document**: when implementation reveals that a sketch was wrong,
-> naïve, or missed a constraint we didn't anticipate, we revise the sketch (and the ADR that backed it) rather
-> than force the code into a shape that turned out not to work. Treat a discrepancy between sketch and code as
-> a triage question — "which one should change?" — not a correctness ruling.
+> Framework integration patterns (Spring Boot 4 starter, Spring AI 2.0 adapters) appear at the end of
+> this doc. The core sections show the framework-agnostic API every adapter sits on top of.
 
 ---
 
@@ -323,8 +322,9 @@ FanarClient client = FanarClient.builder()
 ```
 
 The default plugin is a no-op. The SDK emits one observation per semantic operation (`fanar.chat`,
-`fanar.audio.speech`, etc.) with standardized attribute names defined in `FanarObservationAttributes`. Downstream
-adapter modules (future) will wrap Micrometer, OpenTelemetry, SLF4J, or any other observability backend.
+`fanar.audio.speech`, etc.) with standardized attribute names defined in `FanarObservationAttributes`.
+Three adapters ship: `fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer`. Combine them via
+`ObservabilityPlugin.compose(slf4j, otel, micrometer)` — single slot, fan-out semantics.
 
 ---
 
@@ -350,13 +350,100 @@ RetryPolicy.disabled()
 
 ---
 
+---
+
+## 11. Spring Boot 4 starter
+
+```xml
+<dependency>
+    <groupId>qa.fanar</groupId>
+    <artifactId>fanar-spring-boot-4-starter</artifactId>
+    <version>${fanar.version}</version>
+</dependency>
+```
+
+```yaml
+fanar:
+  api-key: ${FANAR_API_KEY}
+  base-url: https://api.fanar.qa     # optional
+  connect-timeout: 10s
+  request-timeout: 60s
+  retry:
+    max-attempts: 3
+    initial-backoff: 100ms
+  wire-logging:
+    level: BASIC                      # NONE | BASIC | HEADERS | BODY
+```
+
+```java
+@RestController
+class MyController {
+    private final FanarClient fanar;
+    MyController(FanarClient fanar) { this.fanar = fanar; }      // auto-wired
+    // …
+}
+```
+
+Any `Interceptor` or `ObservabilityPlugin` beans on the application context get picked up via
+`ObjectProvider` and added to the client. With `spring-boot-starter-actuator` on the classpath,
+`/actuator/health` includes a `fanar` contributor that calls `models().list()` — disable with
+`management.health.fanar.enabled=false`.
+
+---
+
+## 12. Spring AI 2.0 provider
+
+```xml
+<dependency>
+    <groupId>qa.fanar</groupId>
+    <artifactId>fanar-spring-ai-starter</artifactId>
+    <version>${fanar.version}</version>
+</dependency>
+<dependency>
+    <groupId>org.springframework.ai</groupId>
+    <artifactId>spring-ai-client-chat</artifactId>
+    <!-- 2.0.0-Mx; the starter pins the version we test against -->
+</dependency>
+```
+
+The starter registers Spring AI `ChatModel`, `ImageModel`, `TextToSpeechModel`, `TranscriptionModel`
+beans wrapping the auto-configured `FanarClient`. Compose with Spring AI's higher-level surface:
+
+```java
+@Bean
+ChatMemory chatMemory() { return MessageWindowChatMemory.builder().maxMessages(20).build(); }
+
+@Bean
+ChatClient chatClient(ChatModel model, ChatMemory memory) {
+    return ChatClient.builder(model)
+            .defaultAdvisors(MessageChatMemoryAdvisor.builder(memory).build())
+            .build();
+}
+
+@PostMapping("/chat/{conversationId}")
+String chat(@PathVariable("conversationId") String id, @RequestBody Prompt p) {
+    return chatClient.prompt()
+            .user(p.message())
+            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, id))
+            .call()
+            .content();
+}
+```
+
+Memory + RAG advisors + prompt templates + structured-output converters all attach via Spring
+AI's standard machinery — we provide only the model SPIs.
+
+---
+
 ## What this document does **not** show — and why
 
 - **Conversation memory, prompt templating, vector stores, structured-output synthesis, evaluation harnesses.**
-  These are framework-layer concerns, not core SDK concerns (ADR-002). Whichever framework you chose already solves
-  them; this SDK does not duplicate the work.
-- **Framework integration** (auto-configuration, bean wiring, native-image hints per framework, etc.).
-  The core is framework-agnostic (ADR-003). A future downstream module will bridge the core's typed API to whatever
-  framework you use — Spring Boot, Quarkus, Micronaut, CDI, plain-JDK — through that framework's idioms.
+  These are framework concerns (ADR-002). Spring AI / LangChain4j already solve them; this SDK does not duplicate
+  the work — it exposes the model SPIs they consume. Sections 11–12 above show the integration points.
+- **`ModerationModel` / `EmbeddingModel` Spring AI adapters.** Surface mismatches with Fanar — see
+  [COMPATIBILITY.md](COMPATIBILITY.md) §3 for the rationale. Use `FanarClient.moderations()` directly; bring an
+  external embedder for RAG.
+- **LangChain4j / Quarkus integration.** Planned, same pattern as the Spring AI adapter — see
+  [PROJECT_STATE.md](PROJECT_STATE.md) for the roadmap.
 
 Every snippet in this document should compile against the SDK once implemented. Until then, this is the *target*.

@@ -51,3 +51,9 @@ Every ADR follows an extended Michael Nygard template:
 - [009 — GraalVM native-image as a day-one CI target](009-native-image-day-one.md)
 - [010 — Module layout](010-module-layout.md)
 - [011 — Package conventions](011-package-conventions.md)
+
+### Framework adapters
+
+- [020 — Spring Boot 4 starter shape](020-spring-boot-4-starter.md)
+- [021 — Spring AI 2.0 adapter](021-spring-ai-2-adapter.md)
+- [022 — Observability composition via `compose(...)` factory](022-observability-compose-factory.md)

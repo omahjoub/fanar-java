@@ -80,10 +80,28 @@ Exact model IDs as accepted by the API.
 
 - **Core** — the `fanar-core` module and its public API: typed, pluggable, observable transport for the Fanar API. Zero runtime dependencies (ADR-002).
 - **Downstream module** — a module that sits on top of the core, typically adapting it to a framework or adding higher-level capabilities (memory, templating, vectors, evaluation). Out of core scope.
-- **Domain facade** — a sub-client exposed from `FanarClient`: `client.chat()`, `client.audio()`, `client.images()`, `client.translations()`, `client.poems()`, `client.moderation()`, `client.tokens()`, `client.models()`. See ADR-016.
+- **Domain facade** — a sub-client exposed from `FanarClient`: `client.chat()`, `client.audio()`, `client.images()`, `client.translations()`, `client.poems()`, `client.moderations()`, `client.tokens()`, `client.models()`. See ADR-016.
 - **Interceptor chain** — Chain-of-Responsibility for cross-cutting concerns (auth, retry, rate-limit, logging, caching, custom). See ADR-012.
 - **Lighthouse** — shorthand for [COMPATIBILITY.md](COMPATIBILITY.md), the authoritative "what's in / out / framework-layer" matrix.
-- **Observability plugin** — our unified metrics + tracing SPI, one per `FanarClient`. See ADR-013.
+- **Observability plugin** — our unified metrics + tracing SPI, one per `FanarClient`. See ADR-013. `ObservabilityPlugin.compose(...)` fans out a single slot to multiple plugins.
 - **Seam** — an extension point on the core where a user or downstream module can supply an alternative (HTTP client, JSON codec, observability backend, interceptor, retry policy). Every seam is behind a typed interface.
 - **SSE** — Server-Sent Events. HTTP content type `text/event-stream`, used by Fanar's streaming chat endpoint. Parsed internally; dispatched as typed `StreamEvent` on `Flow.Publisher`.
 - **`StreamEvent`** — the sealed interface over SSE chunk types: `TokenChunk`, `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`. Consumed via pattern-matching switch.
+- **Wire-logging interceptor** — `qa.fanar.interceptor.logging.WireLoggingInterceptor`, OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`). Logs to SLF4J under `fanar.wire`. Auto-wired by the SB4 starter when `fanar.wire-logging.level` ≠ `NONE`.
+
+## Framework-adapter terms (Spring Boot 4 + Spring AI)
+
+Some words are overloaded — the Spring AI **`ChatModel`** type is unrelated to Fanar's `ChatModel` model-id record. The list below disambiguates.
+
+- **`FanarHealthIndicator`** — Spring Boot Actuator health contributor in the SB4 starter. Calls `client.models().list()` and reports UP / DOWN with diagnostics. Disable via `management.health.fanar.enabled=false`.
+- **Spring AI `ChatModel`** — `org.springframework.ai.chat.model.ChatModel`. Spring AI's provider SPI; we implement it in `FanarChatModel`. *Distinct* from `qa.fanar.core.chat.ChatModel`, which is a typed wrapper around the Fanar wire model id (e.g. `"Fanar"`, `"Fanar-S-1-7B"`).
+- **Spring AI `ChatClient`** — `org.springframework.ai.chat.client.ChatClient`. Spring AI's high-level fluent surface (`chat.prompt().user(...).call()`); built on top of a `ChatModel`. Memory advisors, RAG advisors, prompt templates, structured-output converters all attach here.
+- **Advisor** — Spring AI's interceptor for the `ChatClient` chain. Runs `before()` to mutate the outbound prompt and `after()` to mutate the response. Memory and RAG are advisors.
+- **`ChatMemory`** — Spring AI's chat-history SPI. We use `MessageWindowChatMemory` (sliding window, in-memory) in the sample; production apps swap for the JDBC / Redis variants Spring AI ships.
+- **`MessageChatMemoryAdvisor`** — Spring AI's memory advisor. Loads prior messages into the prompt by `conversationId`, persists the response on the way out.
+
+## Build / tooling terms
+
+- **`-parameters`** — javac flag that emits method-parameter names into bytecode. Required for Spring MVC's `@PathVariable String foo` / `@RequestParam String bar` to bind by reflection without an explicit name argument. Enabled globally in our parent POM.
+- **GraalVM tracing agent** — `-agentlib:native-image-agent` records every reflective lookup, classpath resource read, JNI call, dynamic proxy, and serialization seen during a JVM run. Output JSON files become reachability metadata for AOT compilation. Used to bootstrap our `META-INF/native-image/` payload.
+- **Reachability Metadata Repository (GRMR)** — community-maintained metadata index Oracle ships with GraalVM. We disable it in our build (`metadataRepository.enabled=false`) because we control our own metadata; mixing the two leads to schema-mismatch failures across GraalVM versions.

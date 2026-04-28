@@ -2,45 +2,129 @@
 
 Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI platform.
 
-> **Status:** design phase. No public release yet. The lighthouse document for every design decision is
-> [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md).
+> **Status:** pre-1.0. The core SDK and every Fanar domain (chat, audio, images, translations,
+> moderations, tokens, models, poems) are implemented with 100 % JaCoCo coverage and battle-tested
+> against the live API. Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
+> Not yet on Maven Central — install via `./mvnw install` for now.
 
 ## Why this SDK?
 
-**To open Fanar to the Java world.**
+**To open Fanar to the Java world.** Java still powers the majority of production systems in
+enterprise, finance, government, telco and research, and the JVM ecosystem has doubled down on
+AI. A first-class SDK puts Fanar in the idiomatic shape each of these audiences already
+expects — Spring Boot apps, Spring AI providers, Quarkus extensions, GraalVM native binaries,
+plain-JDK code, Kotlin.
 
-Java still powers the majority of production systems in enterprise, finance, government, telco and research — and
-the JVM ecosystem has doubled down on AI. A first-class SDK puts Fanar in the idiomatic shape each of these audiences
-already expects:
+And yes — you *could* point an OpenAI-compatible client at `https://api.fanar.qa/v1` and get
+basic chat. **But Fanar is not OpenAI.** Islamic RAG with authenticated source references,
+Quranic TTS with validated tajweed, Arabic poetry through a dedicated model, cultural-awareness
+scoring in moderation, bilingual progress events during streaming, two distinct thinking-mode
+protocols, a vision model that understands Arabic calligraphy. None of that fits in an
+OpenAI-shaped client.
 
-- **Spring** and **Spring Boot** applications — auto-configured clients, properties, Actuator endpoints
-- **Spring AI** and **LangChain4j** — Fanar as a native provider alongside OpenAI, Anthropic, Mistral & co
-- **Quarkus** and **Quarkus LangChain4j** — CDI beans, build-time wiring, fast startup
-- **GraalVM native-image** workloads — reflection-free by design, ready for serverless and edge
-- **Plain-JDK** users on `java.net.http.HttpClient`, and Kotlin on top — zero framework required
+The core SDK is a **thin, pluggable, observable transport** over the Fanar API — nothing more.
+Memory, templating, vectors, evaluation belong in **framework modules** on top.
 
-That is the real opportunity: Qatar's AI platform meeting the global developer stage in the ecosystem that still runs
-the lion's share of the world's backends.
+## Quick start
 
-And yes — you *could* point the OpenAI Java SDK at `https://api.fanar.qa/v1` and get basic chat. So why a dedicated SDK?
+Three install paths depending on your stack.
 
-**Because Fanar is not OpenAI.** Fanar has capabilities no OpenAI client knows about — Islamic RAG with authenticated
-source references, Quranic text-to-speech with validated tajweed recitation, Arabic poetry through a dedicated model,
-cultural-awareness scoring in moderation, bilingual progress events during streaming, two distinct thinking-mode
-protocols, and a vision model that understands Arabic calligraphy. None of that fits in an OpenAI-shaped client.
+### 1. Pure Java (any framework, no Spring)
 
-The core SDK will be a **thin, pluggable, observable transport** over the Fanar API — nothing more. Memory, templating,
-vectors and evaluation belong in **downstream framework modules** on top: Spring Boot auto-configuration, Spring AI and
-LangChain4j provider bindings, Quarkus build-time integration, and whatever else the ecosystem needs.
+```xml
+<dependencies>
+    <dependency>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-json-jackson3</artifactId>     <!-- or fanar-json-jackson2 -->
+        <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+</dependencies>
+```
+
+```java
+try (FanarClient client = FanarClient.builder().apiKey(System.getenv("FANAR_API_KEY")).build()) {
+    ChatResponse r = client.chat().send(ChatRequest.builder()
+            .model(ChatModel.FANAR)
+            .addMessage(UserMessage.of("Say hello in Arabic"))
+            .build());
+    System.out.println(r.choices().getFirst().message().content());
+}
+```
+
+### 2. Spring Boot 4
+
+```xml
+<dependency>
+    <groupId>qa.fanar</groupId>
+    <artifactId>fanar-spring-boot-4-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+```yaml
+fanar:
+  api-key: ${FANAR_API_KEY}
+  wire-logging:
+    level: BASIC                   # NONE | BASIC | HEADERS | BODY
+```
+
+```java
+@RestController
+class MyController {
+    @Autowired FanarClient fanar;   // auto-wired; /actuator/health includes Fanar reachability
+}
+```
+
+### 3. Spring AI 2.0
+
+```xml
+<dependency>
+    <groupId>qa.fanar</groupId>
+    <artifactId>fanar-spring-ai-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+```java
+@Bean
+ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI types
+    return ChatClient.builder(model)
+            .defaultAdvisors(MessageChatMemoryAdvisor.builder(memory).build())
+            .build();
+}
+// Now the standard Spring AI surface — memory, RAG advisors, prompt templates — works
+// with Fanar as the provider. ImageModel, TextToSpeechModel, TranscriptionModel beans
+// auto-register too.
+```
+
+## Modules
+
+| Module | Purpose |
+|---|---|
+| `fanar-core` | Typed client + SPIs + every Fanar domain. Zero runtime deps. |
+| `fanar-json-jackson2` / `fanar-json-jackson3` | JSON codec adapters (pick by Jackson version). |
+| `fanar-obs-slf4j` / `fanar-obs-otel` / `fanar-obs-micrometer` | `ObservabilityPlugin` adapters; opt-in. |
+| `fanar-interceptor-logging` | OkHttp-style wire-logging interceptor. |
+| `fanar-spring-boot-4-starter` | `@AutoConfiguration` + `fanar.*` properties + actuator health. |
+| `fanar-spring-boot-4-sample` | Runnable sample app. |
+| `fanar-spring-ai-starter` | Spring AI 2.0 `ChatModel` / `ImageModel` / `TextToSpeechModel` / `TranscriptionModel` adapters. |
+| `fanar-spring-ai-sample` | Runnable sample app with `ChatClient` + memory. |
+| `fanar-java-bom` | Imports for aligned versioning. |
 
 ## Docs
 
-- [Project state](docs/PROJECT_STATE.md) — current phase, what's decided, what's built, what's next
-- [Compatibility matrix](docs/COMPATIBILITY.md) — the lighthouse: what's in core, what's framework-layer, what makes Fanar unique
-- [Architecture](docs/ARCHITECTURE.md) — Fanar API surface plus our module layout and request-flow diagrams
-- [ADRs](docs/adr/INDEX.md) — non-obvious design decisions
-- [API sketch](docs/API_SKETCH.md) — aspirational code shape; the target the implementation aims for (living document, revised as we learn)
-- [Library best practices](docs/JAVA_LIBRARY_BEST_PRACTICES.md) — hygiene rules every PR must respect
-- [Glossary](docs/GLOSSARY.md) — Fanar-specific and project-specific terminology
-- [Contributing](docs/CONTRIBUTING.md)
-- [Fanar OpenAPI spec](api-spec/openapi.json)
+- [Project state](docs/PROJECT_STATE.md) — what's shipped, planned, deferred.
+- [Compatibility matrix](docs/COMPATIBILITY.md) — capability map: Fanar ↔ core ↔ framework layer.
+- [Architecture](docs/ARCHITECTURE.md) — module layout, request-flow diagrams, where things live.
+- [API sketch](docs/API_SKETCH.md) — concrete code shapes for every call.
+- [GraalVM walkthrough](docs/GRAALVM.md) — native-image build, end-to-end.
+- [Glossary](docs/GLOSSARY.md) — Fanar-specific and project-specific terminology.
+- [ADRs](docs/adr/INDEX.md) — non-obvious design decisions.
+- [Library best practices](docs/JAVA_LIBRARY_BEST_PRACTICES.md) — internal hygiene rules.
+- [Contributing](docs/CONTRIBUTING.md) — workflow, conventions.
+- [Fanar OpenAPI spec](api-spec/openapi.json) — the wire contract we model.
