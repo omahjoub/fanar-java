@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload artifacts
         # Always upload to the workflow run (so dry runs are inspectable).
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fanar-java-${{ steps.ver.outputs.version }}
           path: artifacts/
