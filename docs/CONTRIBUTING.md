@@ -120,6 +120,53 @@ When CI flakes on a coverage gate, the failing job uploads the JaCoCo HTML repor
 which branch is missed. Concurrency-flake fixes belong on the test (deterministic ordering, latches),
 not on the threshold.
 
+## Releasing a new version
+
+We use the **release-and-bump** flow: every tagged commit's `pom.xml` matches the release version
+exactly — no `-SNAPSHOT` suffix appears in published artifacts. The release workflow guards this
+by failing fast if the pom doesn't match the resolved version.
+
+Step by step:
+
+1. **Cut a release branch** from `main`:
+   ```bash
+   git switch -c release/0.1.0 main
+   ./mvnw -B versions:set -DnewVersion=0.1.0 -DgenerateBackupPoms=false
+   git commit -am "release: 0.1.0"
+   git push -u origin release/0.1.0
+   ```
+
+2. **Dry-run the release workflow** from the release branch:
+   `Actions → Release → Run workflow → Branch: release/0.1.0, version: 0.1.0, dry_run: true`.
+   The workflow builds, verifies, stages 12 artifacts (9 library jars + BOM `.pom` + 2 sample fat
+   jars), uploads them to the workflow run page, and stops short of creating a GitHub Release.
+   Inspect the artifact list — every filename should end in `0.1.0.jar` / `0.1.0.pom`.
+
+3. **Open a PR** `release/0.1.0 → main`. Review checks the version bump and changelog.
+
+4. **Merge** with a normal merge commit (not squash — keeps the pom-version commit in history).
+
+5. **Tag the merged commit**:
+   ```bash
+   git switch main && git pull
+   git tag -a v0.1.0 -m "Release 0.1.0"
+   git push origin v0.1.0
+   ```
+   Tag-push fires the release workflow again, this time creating the GitHub Release with the
+   12 artifacts attached and auto-generated PR notes.
+
+6. **Bump main back to the next snapshot** — mandatory follow-up:
+   ```bash
+   git switch -c bump/0.2.0-SNAPSHOT main
+   ./mvnw -B versions:set -DnewVersion=0.2.0-SNAPSHOT -DgenerateBackupPoms=false
+   git commit -am "build: bump to 0.2.0-SNAPSHOT"
+   ```
+   PR → main. Without this, every subsequent dev build still says `0.1.0` and trying to release
+   `0.1.0` again will fail noisily.
+
+The `Verify pom version matches release version` step in `release.yml` enforces step 1 — if you
+forget the `versions:set` commit, the workflow fails with a one-line fix instruction.
+
 ## Where to ask questions
 
 - **[GitHub Discussions](https://github.com/omahjoub/fanar-java/discussions)** — questions, ideas, help.

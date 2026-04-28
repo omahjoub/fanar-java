@@ -51,12 +51,24 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Releasing version: $VERSION"
 
-      - name: Set project version
-        # Strip the -SNAPSHOT suffix in every reactor pom in one shot.
+      - name: Verify pom version matches release version
+        # Pattern B / release-and-tag flow: the commit being released MUST already carry the
+        # release version in its pom (set on a `release/<version>` branch via
+        # `mvn versions:set -DnewVersion=<version> -DgenerateBackupPoms=false`, then merged to
+        # main and tagged). Fail loudly if it doesn't — that means the release branch wasn't
+        # prepared correctly and we'd otherwise ship `<version>-SNAPSHOT.jar` files.
         run: |
-          mvn -B versions:set \
-              -DnewVersion=${{ steps.ver.outputs.version }} \
-              -DgenerateBackupPoms=false
+          set -euo pipefail
+          POM_VERSION=$(mvn -B -q -DforceStdout help:evaluate -Dexpression=project.version)
+          EXPECTED=${{ steps.ver.outputs.version }}
+          if [ "$POM_VERSION" != "$EXPECTED" ]; then
+            echo "::error::pom.xml version is '$POM_VERSION' but the release expects '$EXPECTED'."
+            echo "::error::On the release branch run:"
+            echo "::error::  mvn versions:set -DnewVersion=$EXPECTED -DgenerateBackupPoms=false"
+            echo "::error::then commit, merge to main, and tag."
+            exit 1
+          fi
+          echo "pom.xml version matches: $POM_VERSION"
 
       - name: Build + verify
         # Full reactor verify — JaCoCo gates, dep-analyze, doclint, all tests. The release jars
