@@ -77,10 +77,14 @@ jobs:
         run: mvn -B clean install -DskipITs=false
 
       - name: Stage artifacts
-        # Collect everything consumers might want into one directory:
+        # Only ship consumable library artifacts:
         #   - 9 library jars (core, jackson2/3, obs-3, interceptor-logging, sb4-starter, spring-ai-starter)
         #   - the BOM (.pom — pom-packaging artifact, copied from the source pom.xml)
-        #   - 2 runnable sample fat jars (spring-boot-4-sample, spring-ai-sample)
+        # The sample apps are intentionally NOT here. Their poms set `maven.deploy.skip` and
+        # `maven.install.skip`; they're runnable demos meant to be cloned + `./mvnw spring-boot:run`,
+        # not artifacts a downstream project pins to. Including their fat jars would bloat the
+        # release page (each is ~50 MB of Spring web stack) and confuse the "what's a Fanar SDK
+        # artifact?" question.
         run: |
           set -euo pipefail
           V=${{ steps.ver.outputs.version }}
@@ -90,8 +94,7 @@ jobs:
           for m in core json-jackson2 json-jackson3 \
                     obs-slf4j obs-otel obs-micrometer \
                     interceptor-logging \
-                    spring-boot-4-starter spring-ai-starter \
-                    spring-boot-4-sample spring-ai-sample; do
+                    spring-boot-4-starter spring-ai-starter; do
             cp "$m/target/fanar-$m-$V.jar" artifacts/
           done
 

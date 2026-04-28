@@ -138,9 +138,10 @@ Step by step:
 
 2. **Dry-run the release workflow** from the release branch:
    `Actions → Release → Run workflow → Branch: release/0.1.0, version: 0.1.0, dry_run: true`.
-   The workflow builds, verifies, stages 12 artifacts (9 library jars + BOM `.pom` + 2 sample fat
-   jars), uploads them to the workflow run page, and stops short of creating a GitHub Release.
-   Inspect the artifact list — every filename should end in `0.1.0.jar` / `0.1.0.pom`.
+   The workflow builds, verifies, stages 10 consumable artifacts (9 library jars + BOM `.pom`),
+   uploads them to the workflow run page, and stops short of creating a GitHub Release. Inspect
+   the artifact list — every filename should end in `0.1.0.jar` / `0.1.0.pom`. (Sample apps are
+   not shipped — they're cloneable demos, not pinnable artifacts.)
 
 3. **Open a PR** `release/0.1.0 → main`. Review checks the version bump and changelog.
 
