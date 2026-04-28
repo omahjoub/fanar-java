@@ -7,10 +7,6 @@ Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI 
 > against the live API. Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
 > Not yet on Maven Central — install via `./mvnw install` for now.
 
-<p align="center">
-  <img src="docs/images/fanar_java_runtime_architecture.svg" alt="Runtime architecture: Spring AI fluent surface over fanar-spring-ai-starter over fanar-spring-boot-4-starter over fanar-core, with JSON / interceptor / observability SPIs at the side and JDK HttpClient at the bottom." width="720">
-</p>
-
 ## Why this SDK?
 
 **To open Fanar to the Java world.** Java still powers the majority of production systems in
@@ -119,6 +115,10 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 | `fanar-spring-ai-starter` | Spring AI 2.0 `ChatModel` / `ImageModel` / `TextToSpeechModel` / `TranscriptionModel` adapters. |
 | `fanar-spring-ai-sample` | Runnable sample app with `ChatClient` + memory. |
 | `fanar-java-bom` | Imports for aligned versioning. |
+
+<p align="center">
+  <img src="docs/images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, and three categories of extension modules (JSON codecs, observability adapters, interceptors) implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+</p>
 
 ## Docs
 
