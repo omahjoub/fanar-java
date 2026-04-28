@@ -116,6 +116,10 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 | `fanar-spring-ai-sample` | Runnable sample app with `ChatClient` + memory. |
 | `fanar-java-bom` | Imports for aligned versioning. |
 
+<p align="center">
+  <img src="docs/images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, and three categories of extension modules (JSON codecs, observability adapters, interceptors) implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+</p>
+
 ## Docs
 
 - [Project state](docs/PROJECT_STATE.md) — what's shipped, planned, deferred.

@@ -50,6 +50,10 @@
 
 ### Module layout
 
+<p align="center">
+  <img src="images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, and three categories of extension modules implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+</p>
+
 ```
 fanar-java                            (reactor parent — NOT published)
 ├── core/                             qa.fanar:fanar-core                   — jar
@@ -82,6 +86,10 @@ follows the same posture for the same reason. The reactor parent is never publis
 import the BOM.
 
 ### Framework adapter layering
+
+<p align="center">
+  <img src="images/fanar_java_runtime_architecture.svg" alt="Runtime composition: Spring AI's fluent surface (ChatClient, advisors, ChatMemory, RAG) sits over fanar-spring-ai-starter (which exposes ChatModel/ImageModel/TextToSpeechModel/TranscriptionModel beans), which sits over fanar-spring-boot-4-starter (which builds the FanarClient bean), which sits over fanar-core. Three SPI seams (JSON codec, interceptor chain, observability) are implemented by sibling modules. JDK HttpClient is the default transport." width="720">
+</p>
 
 The framework story is two slices stacked over the core, each adapter a sibling Maven module:
 
