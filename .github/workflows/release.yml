@@ -51,12 +51,24 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Releasing version: $VERSION"
 
-      - name: Set project version
-        # Strip the -SNAPSHOT suffix in every reactor pom in one shot.
+      - name: Verify pom version matches release version
+        # Pattern B / release-and-tag flow: the commit being released MUST already carry the
+        # release version in its pom (set on a `release/<version>` branch via
+        # `mvn versions:set -DnewVersion=<version> -DgenerateBackupPoms=false`, then merged to
+        # main and tagged). Fail loudly if it doesn't — that means the release branch wasn't
+        # prepared correctly and we'd otherwise ship `<version>-SNAPSHOT.jar` files.
         run: |
-          mvn -B versions:set \
-              -DnewVersion=${{ steps.ver.outputs.version }} \
-              -DgenerateBackupPoms=false
+          set -euo pipefail
+          POM_VERSION=$(mvn -B -q -DforceStdout help:evaluate -Dexpression=project.version)
+          EXPECTED=${{ steps.ver.outputs.version }}
+          if [ "$POM_VERSION" != "$EXPECTED" ]; then
+            echo "::error::pom.xml version is '$POM_VERSION' but the release expects '$EXPECTED'."
+            echo "::error::On the release branch run:"
+            echo "::error::  mvn versions:set -DnewVersion=$EXPECTED -DgenerateBackupPoms=false"
+            echo "::error::then commit, merge to main, and tag."
+            exit 1
+          fi
+          echo "pom.xml version matches: $POM_VERSION"
 
       - name: Build + verify
         # Full reactor verify — JaCoCo gates, dep-analyze, doclint, all tests. The release jars
@@ -65,10 +77,14 @@ jobs:
         run: mvn -B clean install -DskipITs=false
 
       - name: Stage artifacts
-        # Collect everything consumers might want into one directory:
+        # Only ship consumable library artifacts:
         #   - 9 library jars (core, jackson2/3, obs-3, interceptor-logging, sb4-starter, spring-ai-starter)
         #   - the BOM (.pom — pom-packaging artifact, copied from the source pom.xml)
-        #   - 2 runnable sample fat jars (spring-boot-4-sample, spring-ai-sample)
+        # The sample apps are intentionally NOT here. Their poms set `maven.deploy.skip` and
+        # `maven.install.skip`; they're runnable demos meant to be cloned + `./mvnw spring-boot:run`,
+        # not artifacts a downstream project pins to. Including their fat jars would bloat the
+        # release page (each is ~50 MB of Spring web stack) and confuse the "what's a Fanar SDK
+        # artifact?" question.
         run: |
           set -euo pipefail
           V=${{ steps.ver.outputs.version }}
@@ -78,8 +94,7 @@ jobs:
           for m in core json-jackson2 json-jackson3 \
                     obs-slf4j obs-otel obs-micrometer \
                     interceptor-logging \
-                    spring-boot-4-starter spring-ai-starter \
-                    spring-boot-4-sample spring-ai-sample; do
+                    spring-boot-4-starter spring-ai-starter; do
             cp "$m/target/fanar-$m-$V.jar" artifacts/
           done
 
@@ -90,7 +105,7 @@ jobs:
 
       - name: Upload artifacts
         # Always upload to the workflow run (so dry runs are inspectable).
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fanar-java-${{ steps.ver.outputs.version }}
           path: artifacts/

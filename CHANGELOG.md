@@ -35,8 +35,9 @@ from a clone, or download the artifacts attached to this release.
 - **`fanar-spring-ai-starter`** — Spring AI 2.0 (pinned to `2.0.0-M4`) `ChatModel` +
   `StreamingChatModel` + `ImageModel` + `TextToSpeechModel` + `TranscriptionModel`
   adapters. Memory + RAG advisors compose via Spring AI's `ChatClient`.
-- **Sample apps** — `fanar-spring-boot-4-sample` and `fanar-spring-ai-sample`,
-  both runnable fat jars (`java -jar … && export FANAR_API_KEY=…`).
+- **Sample apps** (cloneable, not shipped as release artifacts) —
+  `fanar-spring-boot-4-sample` and `fanar-spring-ai-sample`. Run with
+  `FANAR_API_KEY=… ./mvnw -pl <module> spring-boot:run`.
 - **GraalVM native-image** — reachability metadata for the 38 records the JSON codec
   touches; `e2e-graalvm` module with self-test + live-walk modes; PR-time native smoke
   workflow; bootstrap workflow for re-tracing metadata.
