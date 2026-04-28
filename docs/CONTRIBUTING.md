@@ -144,7 +144,8 @@ Step by step:
 
 3. **Open a PR** `release/0.1.0 → main`. Review checks the version bump and changelog.
 
-4. **Merge** with a normal merge commit (not squash — keeps the pom-version commit in history).
+4. **Merge** — squash or merge-commit, doesn't matter. The release branch only has one commit
+   (the version bump), so both produce equivalent history on main.
 
 5. **Tag the merged commit**:
    ```bash
