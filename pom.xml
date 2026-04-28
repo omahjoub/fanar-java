@@ -21,6 +21,10 @@
         <opentelemetry.version>1.61.0</opentelemetry.version>
         <micrometer.version>1.16.5</micrometer.version>
         <spring-boot.version>4.0.6</spring-boot.version>
+        <!-- Spring AI 2.0 milestone — aligned with Spring Boot 4 / Spring Framework 7. Pinned
+               to an exact milestone (not a range) until 2.0 GA, since pre-GA APIs can shift between
+               milestones. Expect a re-pin + small adapter touch-up at 2.0.0 GA. -->
+        <spring-ai.version>2.0.0-M4</spring-ai.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-dependency-plugin.version>3.10.0</maven-dependency-plugin.version>
@@ -45,6 +49,8 @@
         <module>interceptor-logging</module>
         <module>spring-boot-4-starter</module>
         <module>spring-boot-4-sample</module>
+        <module>spring-ai-starter</module>
+        <module>spring-ai-sample</module>
         <module>bom</module>
         <!--
           `e2e` is part of the reactor so IDEs auto-detect it. It adds ~1 second to
@@ -108,8 +114,34 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <!--
+      Spring AI 2.0.x is still in milestone phase: artifacts are published to repo.spring.io's
+      milestone repository, not Maven Central. Scoped to milestones only — `releases.enabled=false`
+      means we never accidentally pull a non-GA version of any other artifact through this repo.
+    -->
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>

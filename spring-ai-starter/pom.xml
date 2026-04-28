@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-spring-ai-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Spring AI Starter</name>
+    <description>Spring AI ChatModel adapter for the Fanar Java SDK. Layered on top of
+        `fanar-spring-boot-4-starter` — drop the dep, configure `fanar.api-key`, and use Spring
+        AI's `ChatClient` with memory advisors, RAG advisors, prompt templates, and structured
+        output.</description>
+
+    <dependencies>
+        <!-- The SB4 starter provides the FanarClient bean + fanar.* properties. Compile-scope
+             so users get the whole stack with one dep. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-spring-boot-4-starter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- fanar-core: declared explicitly because the adapter directly references
+             FanarClient + chat domain types. Pulled transitively via the SB4 starter, but
+             dep-analyze (strict mode) requires direct declaration of any used symbol. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring AI 2.0 Chat SPI: ChatModel, StreamingChatModel, Prompt, ChatResponse,
+             Generation, AssistantMessage. All live in spring-ai-model — `spring-ai-client-chat`
+             is the higher-level fluent API (ChatClient, advisors) that consumers use, but our
+             adapter only needs the SPI. Provided scope so consumers control the version. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Spring Boot autoconfigure: gives us @AutoConfiguration + @ConditionalOnClass /
+             @ConditionalOnBean / @ConditionalOnMissingBean. The SB4 starter declares it
+             `provided` for itself and so doesn't transit to us — declare it directly. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Reactor: required for `Flux<ChatResponse>` on the streaming path. Spring AI itself
+             pulls Reactor; we declare it explicitly for the strict-dep gate. Provided since it
+             rides along with Spring AI on the consumer's classpath. -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- reactive-streams: declared because Flux's compiled signature extends
+             org.reactivestreams.Publisher, so dep-analyze sees the type in our bytecode. -->
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- spring-core: needed for org.springframework.core.io.Resource, used by the
+             transcription adapter to read the audio bytes Spring AI hands us. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- fanar-json-jackson3: test only — used by FanarChatModelTest to build a real
+             FanarClient against a local HttpServer. Not part of the adapter's runtime
+             dependencies; the SB4 starter handles codec wiring at runtime. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson3</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Test runtime: full Spring Boot Test for ApplicationContextRunner-based tests. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>
