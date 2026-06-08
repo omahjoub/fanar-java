@@ -65,7 +65,7 @@
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
 
         <!-- Test -->
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <jacoco.line.coverage>1.00</jacoco.line.coverage>
         <jacoco.branch.coverage>1.00</jacoco.branch.coverage>
         <jacoco.instruction.coverage>1.00</jacoco.instruction.coverage>
