@@ -52,20 +52,20 @@
         <jackson3-bom.version>3.1.4</jackson3-bom.version>
         <jackson2-bom.version>2.21.3</jackson2-bom.version>
         <slf4j.version>2.0.18</slf4j.version>
-        <opentelemetry.version>1.62.0</opentelemetry.version>
-        <micrometer.version>1.16.5</micrometer.version>
+        <opentelemetry.version>1.63.0</opentelemetry.version>
+        <micrometer.version>1.17.0</micrometer.version>
         <spring-boot.version>4.0.6</spring-boot.version>
         <!-- Spring AI 2.0 milestone — aligned with Spring Boot 4 / Spring Framework 7. Pinned
                to an exact milestone (not a range) until 2.0 GA, since pre-GA APIs can shift between
                milestones. Expect a re-pin + small adapter touch-up at 2.0.0 GA. -->
-        <spring-ai.version>2.0.0-M6</spring-ai.version>
+        <spring-ai.version>2.0.0-RC1</spring-ai.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-dependency-plugin.version>3.10.0</maven-dependency-plugin.version>
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
 
         <!-- Test -->
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <jacoco.line.coverage>1.00</jacoco.line.coverage>
         <jacoco.branch.coverage>1.00</jacoco.branch.coverage>
         <jacoco.instruction.coverage>1.00</jacoco.instruction.coverage>
