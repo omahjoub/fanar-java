@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.audio.AudioClient;
+import qa.fanar.core.audio.AvailableVoice;
 import qa.fanar.core.audio.CreateVoiceRequest;
 import qa.fanar.core.audio.VoiceResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -53,11 +54,17 @@ class LiveAudioVoicesTest {
 
     @ParameterizedTest(name = "[{0}]")
     @MethodSource("codecs")
-    @DisplayName("§M.7a listVoices returns the (possibly empty) personalized voice list")
+    @DisplayName("§M.7a listVoices returns rich voice objects, always including the built-in public voices")
     void listVoices(FanarJsonCodec codec) {
         try (FanarClient client = TestClients.liveWithLogging(codec)) {
             VoiceResponse r = client.audio().listVoices();
-            assertNotNull(r.voices(), "voices list must be present (may be empty)");
+            assertNotNull(r.voices(), "voices list must be present");
+            // Per the 2026-08 spec the listing always includes the built-in public voices.
+            assertFalse(r.voices().isEmpty(), "built-in public voices must always be listed");
+            for (AvailableVoice v : r.voices()) {
+                assertNotNull(v.name(), "every listed voice carries its name");
+                assertNotNull(v.type(), "every listed voice carries its public/personal type");
+            }
         }
     }
 
@@ -74,7 +81,7 @@ class LiveAudioVoicesTest {
 
             try {
                 VoiceResponse afterCreate = audio.listVoices();
-                assertTrue(afterCreate.voices().contains(voiceName),
+                assertTrue(containsName(afterCreate, voiceName),
                         "voice " + voiceName + " not in list after create: "
                                 + afterCreate.voices());
             } finally {
@@ -101,9 +108,13 @@ class LiveAudioVoicesTest {
 
             // Assert: voice is no longer in the list.
             VoiceResponse afterDelete = audio.listVoices();
-            assertFalse(afterDelete.voices().contains(voiceName),
+            assertFalse(containsName(afterDelete, voiceName),
                     "voice " + voiceName + " still present after delete: "
                             + afterDelete.voices());
         }
+    }
+
+    private static boolean containsName(VoiceResponse response, String voiceName) {
+        return response.voices().stream().map(AvailableVoice::name).anyMatch(voiceName::equals);
     }
 }

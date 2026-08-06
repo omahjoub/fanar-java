@@ -27,6 +27,10 @@
     {
       "type": "qa.fanar.json.jackson2.ProgressChunkDeserializer",
       "allDeclaredConstructors": true
+    },
+    {
+      "type": "qa.fanar.json.jackson2.SpeechToTextResponseDeserializer",
+      "allDeclaredConstructors": true
     }
   ]
 }

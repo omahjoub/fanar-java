@@ -1,5 +1,6 @@
 package qa.fanar.spring.ai;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -19,6 +20,7 @@ import org.springframework.ai.audio.tts.TextToSpeechResponse;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.RetryPolicy;
+import qa.fanar.core.audio.QuranReciter;
 import qa.fanar.core.audio.TtsModel;
 import qa.fanar.core.audio.Voice;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
@@ -79,8 +81,9 @@ class FanarTextToSpeechModelTest {
     }
 
     @Test
-    void streamEmitsSingleResponseWithTheSameAudio() {
+    void fanarOptionsForwardEmotionAndReciter() {
         server.createContext("/v1/audio/speech", exchange -> {
+            capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, FAKE_AUDIO.length);
             try (OutputStream out = exchange.getResponseBody()) { out.write(FAKE_AUDIO); }
         });
@@ -89,12 +92,41 @@ class FanarTextToSpeechModelTest {
 
         FanarTextToSpeechModel model = new FanarTextToSpeechModel(
                 client, TtsModel.FANAR_AURA_TTS_2, Voice.AMELIA);
-        // Fanar's TTS isn't a true stream — the adapter wraps the one-shot result as a
-        // single-element Flux. Asserting cardinality + content matches the call() path.
+        model.call(new TextToSpeechPrompt("hello", FanarTextToSpeechOptions.builder()
+                .voice("Radwa")
+                .format("wav")
+                .withEmotion(true)
+                .quranReciter(QuranReciter.MAHER_AL_MUAIQLY)
+                .build()));
+
+        assertThat(capturedRequestBody)
+                .contains("\"voice\":\"Radwa\"")
+                .contains("\"response_format\":\"wav\"")
+                .contains("\"with_emotion\":true")
+                .contains("\"quran_reciter\":\"" + QuranReciter.MAHER_AL_MUAIQLY.wireValue() + "\"");
+    }
+
+    @Test
+    void streamEmitsChunksThatConcatenateToTheAudio() {
+        server.createContext("/v1/audio/speech", exchange -> {
+            capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, FAKE_AUDIO.length);
+            try (OutputStream out = exchange.getResponseBody()) { out.write(FAKE_AUDIO); }
+        });
+        server.start();
+        client = clientFor(server);
+
+        FanarTextToSpeechModel model = new FanarTextToSpeechModel(
+                client, TtsModel.FANAR_AURA_TTS_2, Voice.AMELIA);
+        // Real chunked streaming: one TextToSpeechResponse per transport read, concatenating
+        // to the full clip. The wire request must carry the spliced stream flag.
         var chunks = model.stream(new TextToSpeechPrompt("hi")).collectList().block(Duration.ofSeconds(5));
 
-        assertThat(chunks).hasSize(1);
-        assertThat(chunks.getFirst().getResult().getOutput()).isEqualTo(FAKE_AUDIO);
+        assertThat(chunks).isNotEmpty();
+        ByteArrayOutputStream collected = new ByteArrayOutputStream();
+        chunks.forEach(c -> collected.writeBytes(c.getResult().getOutput()));
+        assertThat(collected.toByteArray()).isEqualTo(FAKE_AUDIO);
+        assertThat(capturedRequestBody).contains("\"stream\":true");
     }
 
     @Test

@@ -25,11 +25,11 @@ The core stays **universal**: no hard dependency on any framework, no JSON-libra
 | Multiple completions            |   ✅   | `n > 1` returns multiple choices                                                                          |
 | Streaming                       |   ✅   | SSE with a typed discriminated union: token · tool-call · tool-result · progress ⭐ · done · error         |
 | Tokenization                    |   ✅   | `POST /v1/tokens` — token count and `max_request_tokens` per model                                        |
-| Retrieval-Augmented Generation  | ✅ ⭐ | Native via `Fanar-Sadiq` — Islamic-only, with authenticated source references (details below)              |
+| Retrieval-Augmented Generation  | ✅ ⭐ | Native via `Fanar-Sadiq` / `Fanar-Sadiq-2` — Islamic-only, with authenticated source references; Sadiq-2 adds madhab-aware filtering (details below) |
 | Moderation                      | ✅ ⭐ | `POST /v1/moderations` — returns a safety score **and** a cultural-awareness score                         |
 | Thinking / reasoning            | 🟡 ⭐ | Two coexisting protocols (flag + first-class message roles) + `reasoning_tokens` accounted in usage        |
 | Tool calls (client-declared)    |   🟡   | The stream emits tool-call and tool-result events, but the request has no `tools` / `tool_choice` parameter — tool invocation is server-initiated only |
-| Error model                     |   ✅   | Typed `ErrorCode` enum aligned with HTTP status (content-filter, rate-limit, exceeded-quota, no-longer-supported, …) |
+| Error model                     |   ✅   | Typed `ErrorCode` enum, routed from the error envelope's `code` with HTTP-status fallback (content-filter, rate-limit, exceeded-quota, no-longer-supported, client-closed-request, …) |
 | Structured output (JSON schema) |   ❌   | No `response_format` / `json_schema` parameter                                                            |
 | Seed / reproducibility          |   ❌   | No `seed` parameter                                                                                        |
 | Embeddings                      |   ❌   | No `/v1/embeddings` endpoint — hard gap                                                                    |
@@ -43,11 +43,11 @@ The core stays **universal**: no hard dependency on any framework, no JSON-libra
 | Text                     | ✅ | ✅  | `text` content parts in chat messages                                                                      |
 | Image (vision)           | ✅ | —   | `image_url` user-content part — Arabic-calligraphy-aware ⭐                                                |
 | Video                    | ✅ | —   | `video_url` user-content part — first-class type ⭐                                                        |
-| Image generation         | —  | ✅  | `POST /v1/images/generations` — base64 payload                                                             |
-| Text-to-Speech           | —  | ✅  | `POST /v1/audio/speech` — includes Quranic TTS with validated reciters ⭐                                  |
+| Image generation         | —  | ✅  | `POST /v1/images/generations` — base64 payload; automatic prompt revision (`revise`, default on) with the revised prompt echoed back ⭐ |
+| Text-to-Speech           | —  | ✅  | `POST /v1/audio/speech` — buffered or chunk-streamed (`stream`), emotional synthesis (`with_emotion`) on capable voices ⭐, Quranic TTS with validated reciters ⭐ |
 | Speech-to-Text           | ✅ | —   | `POST /v1/audio/transcriptions` — short + long-form, speaker-diarized segments, `text` / `srt` / `json`   |
 | Audio in chat output     | —  | 🟡  | Assistant response may contain `audio_url` content parts                                                   |
-| Voice cloning ⭐         | ✅ | ✅  | `POST/GET/DELETE /v1/audio/voices` — register a named personalized voice from a WAV sample + transcript    |
+| Voice cloning ⭐         | ✅ | ✅  | `POST/GET/DELETE /v1/audio/voices` — register a named personalized voice from a WAV sample + transcript; the listing returns rich voice objects (Arabic display name, gender, accent, languages, emotion capability) and always includes the built-in public voices |
 | Machine translation      | ✅ | ✅  | `POST /v1/translations` — EN↔AR, with HTML/whitespace-preserving preprocessing ⭐                          |
 | Poetry generation ⭐     | —  | ✅  | `POST /v1/poems/generations` — dedicated Arabic-poetry model                                               |
 
@@ -56,7 +56,10 @@ The core stays **universal**: no hard dependency on any framework, no JSON-libra
 Signals with **no counterpart** in the generic LLM vocabulary — the reason this SDK is more than a thin OpenAI-compatible client:
 
 - **Islamic RAG** — `message.references[]` = `{number, source, content}`; sources include `quran`, `tafsir`, `sunnah`, `dorar`, `islamweb*`, `islam_qa`, `islamonline`, `shamela`.
-- **Scope knobs** for the RAG model — by book (`book_names`), by source (`preferred_sources` / `exclude_sources` / `filter_sources`), and a `restrict_to_islamic` guardrail that rejects non-Islamic prompts server-side.
+- **Scope knobs** for the RAG models — by book (`book_names`), by source (`preferred_sources` / `exclude_sources` / `filter_sources`), by madhab (`madhab`: `all` / `hanafi` / `maliki` / `shafii` / `hanbali`, honoured by `Fanar-Sadiq-2`), and a `restrict_to_islamic` guardrail that rejects non-Islamic prompts server-side.
+- **Custom persona** — free-form `persona` text controlling the assistant's voice and identity on `Fanar-Sadiq`.
+- **Emotional TTS** — `with_emotion` synthesis on emotion-capable voices (`Abdulrahman`, `Radwa`).
+- **Culturally-aligned prompt revision** — image generation auto-revises prompts for style, quality, and cultural alignment (server default on), reporting `revised` / `revised_prompt` per image.
 - **Bilingual progress events** mid-stream — `ProgressChunk.progress.message = {en, ar}`.
 - **Cultural-awareness moderation score**, separate from the standard safety score.
 - **Quranic TTS with validated reciters** — `quran_reciter ∈ {abdul-basit, maher-al-muaiqly, mahmoud-al-husary}`; the endpoint may return an `X-Revised-Input` header when the recitation text was normalized.

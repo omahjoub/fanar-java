@@ -4,17 +4,18 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Response from {@code GET /v1/audio/voices} — the personalized voices created for the API key.
+ * Response from {@code GET /v1/audio/voices}.
  *
- * <p>The list contains voice names suitable for use in {@code TextToSpeechRequest.voice()}.
- * The 8 built-in voices ({@link Voice#KNOWN}) are <em>not</em> included; this list is solely
- * the user-created voices.</p>
+ * <p>The listing always includes the built-in public voices and additionally the personalized
+ * voices registered for this API key when voice personalization is authorized. Each entry is a
+ * rich {@link AvailableVoice}; its {@link AvailableVoice#name() name} is the identifier accepted
+ * by {@code TextToSpeechRequest.voice()}.</p>
  *
- * @param voices voice names, defensively copied and unmodifiable
+ * @param voices the available voices, defensively copied and unmodifiable
  *
  * @author Oussama Mahjoub
  */
-public record VoiceResponse(List<String> voices) {
+public record VoiceResponse(List<AvailableVoice> voices) {
 
     public VoiceResponse {
         Objects.requireNonNull(voices, "voices");

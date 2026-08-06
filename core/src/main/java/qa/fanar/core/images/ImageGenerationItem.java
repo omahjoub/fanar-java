@@ -5,18 +5,24 @@ import java.util.Objects;
 /**
  * One generated image returned in {@link ImageGenerationResponse#data()}.
  *
- * <p>Per the OpenAPI spec, the only shape Fanar emits is base64-encoded bytes via
+ * <p>Per the OpenAPI spec, the only image shape Fanar emits is base64-encoded bytes via
  * {@code b64_json}. If Fanar later adds a URL-output variant, this type would become a sealed
  * hierarchy ({@code ImageGenerationItem} → {@code Base64Item} / {@code UrlItem}); for now the
  * record stays flat to match what the server actually sends.</p>
  *
- * @param b64Json base64-encoded image bytes, ready to {@link java.util.Base64#getDecoder() decode}
+ * @param b64Json       base64-encoded image bytes, ready to
+ *                      {@link java.util.Base64#getDecoder() decode}
+ * @param revised       whether Fanar revised the prompt before generation (see
+ *                      {@link ImageGenerationRequest#revise()})
+ * @param revisedPrompt the prompt actually used for generation — equal to the request prompt
+ *                      when {@link #revised()} is {@code false}
  *
  * @author Oussama Mahjoub
  */
-public record ImageGenerationItem(String b64Json) {
+public record ImageGenerationItem(String b64Json, boolean revised, String revisedPrompt) {
 
     public ImageGenerationItem {
         Objects.requireNonNull(b64Json, "b64Json");
+        Objects.requireNonNull(revisedPrompt, "revisedPrompt");
     }
 }

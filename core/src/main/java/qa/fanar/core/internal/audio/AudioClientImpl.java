@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.function.Supplier;
 
 import qa.fanar.core.FanarTransportException;
@@ -30,6 +31,7 @@ import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.internal.transport.MultipartBuilder;
+import qa.fanar.core.internal.transport.StreamFlag;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
@@ -44,6 +46,8 @@ import qa.fanar.core.spi.ObservationHandle;
  *   <li>{@link #listVoices} / {@link #deleteVoice} — JSON in/out, simple {@code GET}/{@code DELETE}.</li>
  *   <li>{@link #createVoice} / {@link #transcribe} — {@code multipart/form-data} body via {@link MultipartBuilder}.</li>
  *   <li>{@link #speech} — JSON request, binary audio response (drain raw bytes, no JSON decode).</li>
+ *   <li>{@link #speechStream} — same request with {@code "stream":true} spliced in; the response
+ *       body is handed to an {@link AudioStreamPublisher} instead of being drained.</li>
  *   <li>{@link #transcribe} — multipart audio upload, sealed JSON response (text / srt / json variant).</li>
  * </ul>
  *
@@ -206,6 +210,28 @@ public final class AudioClientImpl implements AudioClient {
     public CompletableFuture<byte[]> speechAsync(TextToSpeechRequest request) {
         Objects.requireNonNull(request, "request");
         return supplyAsync("fanar-audio-speech-async-", () -> speech(request));
+    }
+
+    @Override
+    public Flow.Publisher<byte[]> speechStream(TextToSpeechRequest request) {
+        Objects.requireNonNull(request, "request");
+        try (ObservationHandle obs = observability.start(OP_SPEECH)) {
+            try {
+                obs.attribute(FanarObservationAttributes.FANAR_MODEL, request.model().wireValue());
+                byte[] body = StreamFlag.inject(encodeJsonBody(request, "TextToSpeechRequest"));
+                HttpRequest httpReq = applyCommonHeaders(HttpRequest.newBuilder(speechEndpoint), obs)
+                        .header("Content-Type", "application/json")
+                        // Server picks audio/mpeg or audio/wav based on response_format in body.
+                        .header("Accept", "audio/*")
+                        .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                        .build();
+                HttpResponse<InputStream> response = dispatch(httpReq, speechEndpoint, "POST", obs);
+                return new AudioStreamPublisher(response.body());
+            } catch (RuntimeException e) {
+                obs.error(e);
+                throw e;
+            }
+        }
     }
 
     // --- transcribe (STT) ------------------------------------------------------------------

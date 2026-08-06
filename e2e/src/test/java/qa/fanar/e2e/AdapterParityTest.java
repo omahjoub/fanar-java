@@ -9,11 +9,19 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import qa.fanar.core.audio.AvailableVoice;
 import qa.fanar.core.audio.SpeechToTextResponse;
+import qa.fanar.core.audio.TextToSpeechRequest;
+import qa.fanar.core.audio.TtsModel;
+import qa.fanar.core.audio.TtsResponseFormat;
+import qa.fanar.core.audio.Voice;
+import qa.fanar.core.audio.VoiceResponse;
+import qa.fanar.core.audio.VoiceType;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
+import qa.fanar.core.chat.Madhab;
 import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
@@ -68,6 +76,8 @@ class AdapterParityTest {
                 .logprobs(true)
                 .topLogprobs(3)
                 .enableThinking(true)
+                .persona("Warm, patient teacher")
+                .madhab(List.of(Madhab.HANAFI))
                 .build();
 
         Map<?, ?> shape2 = parseAsMap(encode(jackson2, request));
@@ -259,9 +269,11 @@ class AdapterParityTest {
 
     @Test
     void imageGenerationResponseDecodesIdenticallyAcrossAdapters() throws IOException {
-        // Wire shape mirrors the spec: id, created, data[].b64_json (snake-case maps to b64Json).
+        // Wire shape mirrors the spec: id, created, data[].{b64_json, revised, revised_prompt}
+        // (all three required per the 2026-08 spec).
         String wire = "{\"id\":\"req_1\",\"created\":1700000000,"
-                + "\"data\":[{\"b64_json\":\"aGVsbG8=\"}]}";
+                + "\"data\":[{\"b64_json\":\"aGVsbG8=\",\"revised\":true,"
+                + "\"revised_prompt\":\"a refined sunset\"}]}";
         ImageGenerationResponse decoded2 = jackson2.decode(bytes(wire), ImageGenerationResponse.class);
         ImageGenerationResponse decoded3 = jackson3.decode(bytes(wire), ImageGenerationResponse.class);
         assertEquals(decoded2, decoded3,
@@ -271,6 +283,8 @@ class AdapterParityTest {
         assertEquals(1, decoded3.data().size());
         ImageGenerationItem item = decoded3.data().getFirst();
         assertEquals("aGVsbG8=", item.b64Json());
+        assertTrue(item.revised());
+        assertEquals("a refined sunset", item.revisedPrompt());
     }
 
     @Test
@@ -318,6 +332,50 @@ class AdapterParityTest {
         assertEquals(1.5, json.segments().getFirst().endTime());
         assertEquals(1.5, json.segments().getFirst().duration());
         assertEquals("hello", json.segments().getFirst().text());
+    }
+
+    @Test
+    void textToSpeechRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        TextToSpeechRequest req = TextToSpeechRequest.builder()
+                .model(TtsModel.FANAR_AURA_TTS_2)
+                .input("hello")
+                .voice(Voice.RADWA)
+                .responseFormat(TtsResponseFormat.WAV)
+                .withEmotion(true)
+                .build();
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "TextToSpeechRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Aura-TTS-2", shape3.get("model"));
+        assertEquals("Radwa", shape3.get("voice"));
+        assertEquals("wav", shape3.get("response_format"));
+        assertEquals(true, shape3.get("with_emotion"));
+    }
+
+    @Test
+    void voiceResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        // Wire shape mirrors the 2026-08 spec: rich voice objects with snake-case name_ar and
+        // the public/personal type discriminator.
+        String wire = "{\"voices\":["
+                + "{\"name\":\"Amelia\",\"name_ar\":\"أميليا\",\"gender\":\"Female\","
+                + "\"accent\":\"British\",\"languages\":[\"en\"],\"type\":\"public\",\"emotion\":false},"
+                + "{\"name\":\"MyVoice\",\"languages\":[],\"type\":\"personal\",\"emotion\":false}"
+                + "]}";
+        VoiceResponse decoded2 = jackson2.decode(bytes(wire), VoiceResponse.class);
+        VoiceResponse decoded3 = jackson3.decode(bytes(wire), VoiceResponse.class);
+        assertEquals(decoded2, decoded3,
+                "VoiceResponse decoded by both adapters must be record-equal");
+        assertEquals(2, decoded3.voices().size());
+        AvailableVoice amelia = decoded3.voices().getFirst();
+        assertEquals("Amelia", amelia.name());
+        assertEquals("أميليا", amelia.nameAr());
+        assertEquals("Female", amelia.gender());
+        assertEquals("British", amelia.accent());
+        assertEquals(VoiceType.PUBLIC, amelia.type());
+        AvailableVoice personal = decoded3.voices().get(1);
+        assertEquals(VoiceType.PERSONAL, personal.type());
+        assertTrue(personal.languages().isEmpty());
     }
 
     @Test

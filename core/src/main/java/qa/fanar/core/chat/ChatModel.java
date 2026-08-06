@@ -35,12 +35,19 @@ public record ChatModel(String wireValue) {
     /** Islamic RAG model. Returns authenticated source references. Rate limit 50/min. */
     public static final ChatModel FANAR_SADIQ      = new ChatModel("Fanar-Sadiq");
 
+    /**
+     * Madhab-aware Islamic RAG model, version 2. Honours the {@code madhab} request filter;
+     * extra authorization required. Rate limit 50/min.
+     */
+    public static final ChatModel FANAR_SADIQ_2    = new ChatModel("Fanar-Sadiq-2");
+
     /** Vision-language model. Arabic-calligraphy-aware. Rate limit 20/day. */
     public static final ChatModel FANAR_ORYX_IVU_2 = new ChatModel("Fanar-Oryx-IVU-2");
 
     /** Snapshot of the SDK's bundled constants. Use for iteration, autocomplete catalogues, and tests. */
     public static final Set<ChatModel> KNOWN = Set.of(
-            FANAR, FANAR_S_1_7B, FANAR_C_1_8_7B, FANAR_C_2_27B, FANAR_SADIQ, FANAR_ORYX_IVU_2);
+            FANAR, FANAR_S_1_7B, FANAR_C_1_8_7B, FANAR_C_2_27B, FANAR_SADIQ, FANAR_SADIQ_2,
+            FANAR_ORYX_IVU_2);
 
     public ChatModel {
         Objects.requireNonNull(wireValue, "wireValue");

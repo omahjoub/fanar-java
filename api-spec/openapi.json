@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Fanar API",
-    "description": "You can interact with FanarAPI for seamless chat completion and text processing using Fanar.<br/><strong>Base URL:</strong> https://api.fanar.qa<br/><strong>Request API Access:</strong> <a href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2 class=\"sc-fujyAs kudwlS\" style=\"color: rgb(51, 51, 51);\">Rate Limits</h2>\n<p>To ensure fair usage and optimal performance for all users, our API has rate limits in place. When you exceed a rate limit, your request will typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>\n<p>The limits detailed below are our default settings for all models. We understand that your needs may vary. If your application requires higher throughput or more tailored rate limits for specific models, please contact us:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Model</th>\n            <th>Rate Limit</th>\n        </tr>\n    </thead>\n    <tbody><tr>\n            <td><strong>Fanar</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-S-1-7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-1-8.7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-2-27B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-TTS-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IVU-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-TTS-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-LF-1</strong></td>\n            <td>10 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IG-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Guard-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Diwan</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        </tbody>\n</table>\n",
+    "description": "You can interact with FanarAPI for seamless chat completion and text processing using Fanar.<br/><strong>Base URL:</strong> https://api.fanar.qa<br/><strong>Request API Access:</strong> <a href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2 class=\"sc-fujyAs kudwlS\" style=\"color: rgb(51, 51, 51);\">Rate Limits</h2>\n<p>To ensure fair usage and optimal performance for all users, our API has rate limits in place. When you exceed a rate limit, your request will typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>\n<p>The limits detailed below are our default settings for all models. We understand that your needs may vary. If your application requires higher throughput or more tailored rate limits for specific models, please contact us:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Model</th>\n            <th>Rate Limit</th>\n        </tr>\n    </thead>\n    <tbody><tr>\n            <td><strong>Fanar</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-S-1-7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-1-8.7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-2-27B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-TTS-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IVU-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-TTS-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-LF-1</strong></td>\n            <td>10 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IG-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Guard-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Diwan</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        </tbody>\n</table>\n",
     "termsOfService": "https://fanar.qa/terms-of-services",
     "contact": {
       "name": "Fanar Support",
@@ -224,6 +224,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -300,7 +317,17 @@
           {
             "lang": "Python - Fanar-Sadiq",
             "label": "Python - Fanar-Sadiq",
-            "source": "import requests\n\ndef model_api(messages, model):\n    headers = {\n        \"Authorization\": \"Bearer YOUR_API_KEY_HERE\",\n        \"Content-Type\": \"application/json\",\n    }\n\n    payload = {\n        \"model\": model,\n        \"messages\": messages,\n        \"max_tokens\": 750,\n    }\n\n    response = requests.post(\n        \"https://api.fanar.qa/v1/chat/completions\", \n        json=payload, \n        headers=headers\n    )\n    return response.json()\n\nmodel = \"Fanar-Sadiq\"\n\nprompt = \"What are the Islamic values?\"\n\nmessages = [\n    {\"role\": \"user\", \"content\": prompt}\n]\n\nresponse = model_api(messages=messages, model=model)\n\n# Extract the assistant's answer\ncontent = response[\"choices\"][0][\"message\"][\"content\"]\nprint(\"Assistant Response:\\n\")\nprint(content)\n\n# Print reference sources if present\nreferences = response[\"choices\"][0][\"message\"].get(\"references\", [])\nif references:\n    print(\"\\nReferences:\")\n    for ref in references:\n        number = ref.get(\"number\", \"-\")\n        source = ref.get(\"source\", \"Unknown source\")\n        ref_content = ref.get(\"content\", \"\")\n        print(f\"\\n[{number}] {source}\\n{ref_content}\")\nelse:\n    print(\"\\nNo references returned.\")\n    \n"
+            "source": "import requests\n\ndef model_api(messages, model):\n    headers = {\n        \"Authorization\": \"Bearer YOUR_API_KEY_HERE\",\n        \"Content-Type\": \"application/json\",\n    }\n\n    payload = {\n        \"model\": model,\n        \"messages\": messages,\n        \"max_tokens\": 750,\n    }\n\n    response = requests.post(\n        \"https://api.fanar.qa/v1/chat/completions\", \n        json=payload, \n        headers=headers\n    )\n    return response.json()\n\nmodel = \"Fanar-Sadiq\"\n\nprompt = \"What are the Islamic values?\"\n\nmessages = [\n    {\"role\": \"user\", \"content\": prompt}\n]\n\nresponse = model_api(messages=messages, model=model)\n\n# Extract the assistant's answer\ncontent = response[\"choices\"][0][\"message\"][\"content\"]\nprint(\"Assistant Response:\\n\")\nprint(content)\n\n# Print reference sources if present\nreferences = response[\"choices\"][0][\"message\"].get(\"references\", [])\nif references:\n    print(\"\\nReferences:\")\n    for ref in references:\n        number = ref.get(\"number\", \"-\")\n        source = ref.get(\"source\", \"Unknown source\")\n        ref_content = ref.get(\"content\", \"\")\n        print(f\"\\n[{number}] {source}\\n{ref_content}\")\nelse:\n    print(\"\\nNo references returned.\")\n"
+          },
+          {
+            "lang": "Python - Fanar-Sadiq with persona",
+            "label": "Python - Fanar-Sadiq with persona",
+            "source": "# The \"persona\" parameter controls the assistant's voice and identity.\n# It is only supported for the Fanar-Sadiq model.\n\nimport requests\n\ndef model_api(messages, persona=None):\n    headers = {\n        \"Authorization\": \"Bearer YOUR_API_KEY_HERE\",\n        \"Content-Type\": \"application/json\",\n    }\n\n    payload = {\n        \"model\": \"Fanar-Sadiq\",\n        \"messages\": messages,\n        \"max_tokens\": 750,\n    }\n    if persona:\n        payload[\"persona\"] = persona\n\n    response = requests.post(\n        \"https://api.fanar.qa/v1/chat/completions\",\n        json=payload,\n        headers=headers,\n    )\n    return response.json()\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"What are the Islamic values?\"}\n]\n\n# Customize the assistant's voice/identity for this call.\npersona = \"You are a warm, patient teacher who explains concepts simply for young students.\"\n\nresponse = model_api(messages=messages, persona=persona)\n\ncontent = response[\"choices\"][0][\"message\"][\"content\"]\nprint(\"Assistant Response:\\n\")\nprint(content)\n\n# Print reference sources if present\nreferences = response[\"choices\"][0][\"message\"].get(\"references\", [])\nif references:\n    print(\"\\nReferences:\")\n    for ref in references:\n        number = ref.get(\"number\", \"-\")\n        source = ref.get(\"source\", \"Unknown source\")\n        ref_content = ref.get(\"content\", \"\")\n        print(f\"\\n[{number}] {source}\\n{ref_content}\")\nelse:\n    print(\"\\nNo references returned.\")\n"
+          },
+          {
+            "lang": "Python - Fanar-Sadiq-2",
+            "label": "Python - Fanar-Sadiq-2",
+            "source": "# Fanar-Sadiq-2 requires additional authorization and is not allowed by default.\n\nimport requests\n\ndef model_api(messages, madhab=None):\n    headers = {\n        \"Authorization\": \"Bearer YOUR_API_KEY_HERE\",\n        \"Content-Type\": \"application/json\",\n    }\n\n    payload = {\n        \"model\": \"Fanar-Sadiq-2\",\n        \"messages\": messages,\n    }\n    if madhab:\n        payload[\"madhab\"] = madhab\n\n    response = requests.post(\n        \"https://api.fanar.qa/v1/chat/completions\",\n        json=payload,\n        headers=headers,\n    )\n    return response.json()\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"What are the conditions for Zakat on gold according to the Hanafi school?\"}\n]\n\nresponse = model_api(messages=messages, madhab=[\"hanafi\"])\n\ncontent = response[\"choices\"][0][\"message\"][\"content\"]\nprint(\"Assistant Response:\\n\")\nprint(content)\n\n# Print reference sources if present\nreferences = response[\"choices\"][0][\"message\"].get(\"references\", [])\nif references:\n    print(\"\\nReferences:\")\n    for ref in references:\n        number = ref.get(\"number\", \"-\")\n        source = ref.get(\"source\", \"Unknown source\")\n        ref_content = ref.get(\"content\", \"\")\n        print(f\"\\n[{number}] {source}\\n{ref_content}\")\n"
           },
           {
             "lang": "Python - Thinking mode (Fanar-C-1-8.7B)",
@@ -326,7 +353,7 @@
           "Audio"
         ],
         "summary": "Create Speech",
-        "description": "This endpoint is compatible with the OpenAI library.<br/>Generates audio from the input text.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "This endpoint is compatible with the OpenAI library.<br/>Generates audio from the input text.",
         "operationId": "create_speech_v1_audio_speech_post",
         "requestBody": {
           "content": {
@@ -529,6 +556,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -605,7 +649,22 @@
           {
             "lang": "Python - requests for Quranic text",
             "label": "Python - requests for Quranic text",
-            "source": "# Text-to-Speech requires additional authorization and is not allowed by default.\n\nimport requests\n\nurl = \"https://api.fanar.qa/v1/audio/speech\"\nheaders = {\n    \"Authorization\": \"Bearer YOUR_API_KEY\",\n    \"Content-Type\": \"application/json\"\n}\ndata = {\n    \"model\": \"Fanar-Sadiq-TTS-1\",\n    \"input\": \"Quranic text goes here\",\n    \"voice\": \"Amelia\",\n    \"quran_reciter\": \"abdul-basit\",\n    \"response_format\": \"mp3\"\n}\n\nresponse = requests.post(url, headers=headers, json=data)\n\nrevised_input = response.headers.get('X-Revised-Input')\nif revised_input:\n    from urllib.parse import unquote\n    print(\"Revised Input:\", unquote(revised_input))\n\nwith open(\"quranic_speech.mp3\", \"wb\") as f:\n    f.write(response.content)"
+            "source": "# Text-to-Speech requires additional authorization and is not allowed by default.\n\nimport requests\n\nurl = \"https://api.fanar.qa/v1/audio/speech\"\nheaders = {\n    \"Authorization\": \"Bearer YOUR_API_KEY\",\n    \"Content-Type\": \"application/json\"\n}\ndata = {\n    \"model\": \"Fanar-Sadiq-TTS-1\",\n    \"input\": \"Quranic text goes here\",\n    \"voice\": \"Amelia\",\n    \"quran_reciter\": \"abdul-basit\",\n    \"response_format\": \"mp3\"\n}\n\nresponse = requests.post(url, headers=headers, json=data)\n\nrevised_input = response.headers.get('X-Revised-Input')\nif revised_input:\n    from urllib.parse import unquote\n    print(\"Revised Input:\", unquote(revised_input))\n\nwith open(\"quranic_speech.mp3\", \"wb\") as f:\n    f.write(response.content)\n"
+          },
+          {
+            "lang": "cURL - streaming",
+            "label": "cURL - streaming",
+            "source": "# Pass \"stream\": true to receive audio bytes progressively as they are\n# synthesized. The response Content-Type is identical to the non-streaming\n# case (audio/wav or audio/mpeg) but uses chunked transfer encoding, so\n# `--output greeting.mp3` keeps working. The first byte arrives much\n# sooner for longer inputs.\n\ncurl -X POST \"https://api.fanar.qa/v1/audio/speech\" \\\n-H \"Content-Type: application/json\" \\\n-H \"Authorization: Bearer YOUR_API_KEY\" \\\n--no-buffer \\\n--output greeting.mp3 \\\n-d '{\n  \"model\": \"Fanar-Aura-TTS-2\",\n  \"input\": \"Hello! I hope you are having a wonderful day.\",\n  \"voice\": \"Amelia\",\n  \"response_format\": \"mp3\",\n  \"stream\": true\n}'\n"
+          },
+          {
+            "lang": "Python - OpenAI streaming",
+            "label": "Python - OpenAI streaming",
+            "source": "# Text-to-Speech requires additional authorization and is not allowed by default.\n# Use the OpenAI SDK's with_streaming_response helper to play audio as it\n# arrives. `stream: true` is passed via `extra_body` since it's a\n# Fanar-specific extension to the OpenAI-compatible schema.\n\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url=\"https://api.fanar.qa/v1\",\n    api_key=\"YOUR_API_KEY\"\n)\n\nwith client.audio.speech.with_streaming_response.create(\n    model=\"Fanar-Aura-TTS-2\",\n    input=\"Hello! I hope you are having a wonderful day.\",\n    voice=\"Amelia\",\n    response_format=\"wav\",\n    extra_body={\"stream\": True},\n) as response:\n    response.stream_to_file(\"greeting.wav\")\n"
+          },
+          {
+            "lang": "Python - requests streaming",
+            "label": "Python - requests streaming",
+            "source": "# Text-to-Speech requires additional authorization and is not allowed by default.\n# Pass stream=True to requests so it doesn't pre-buffer the body, then\n# iterate over chunks. The first chunk arrives within ~1 s even for long\n# inputs that would otherwise wait many seconds for the full synthesis.\n\nimport requests\n\nurl = \"https://api.fanar.qa/v1/audio/speech\"\nheaders = {\n    \"Authorization\": \"Bearer YOUR_API_KEY\",\n    \"Content-Type\": \"application/json\"\n}\ndata = {\n    \"model\": \"Fanar-Aura-TTS-2\",\n    \"input\": \"Hello! I hope you are having a wonderful day.\",\n    \"voice\": \"Amelia\",\n    \"response_format\": \"wav\",\n    \"stream\": True\n}\n\nwith requests.post(url, headers=headers, json=data, stream=True) as r:\n    r.raise_for_status()\n    with open(\"greeting.wav\", \"wb\") as f:\n        for chunk in r.iter_content(chunk_size=8192):\n            if chunk:\n                f.write(chunk)"
           }
         ]
       }
@@ -616,7 +675,7 @@
           "Audio"
         ],
         "summary": "Create Transcription",
-        "description": "This endpoint is compatible with the OpenAI library.<br/>Transcribes audio into the input language.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "This endpoint is compatible with the OpenAI library.<br/>Transcribes audio into the input language.",
         "operationId": "create_transcription_v1_audio_transcriptions_post",
         "requestBody": {
           "content": {
@@ -805,6 +864,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -892,11 +968,11 @@
           "Audio"
         ],
         "summary": "List Voices",
-        "description": "Lists the personalized voices.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "Lists all available text-to-speech voices.<br/>The list will include all built-in (public) voices by default. If your API key is authorized to <a href=\"#tag/audio/POST/v1/audio/voices\">create personalized voices</a>, they will be included in the list and labeled as <code>type: \"personal\"</code>.",
         "operationId": "list_voices_v1_audio_voices_get",
         "responses": {
           "200": {
-            "description": "A list of personalized voices.",
+            "description": "A list of available voices.",
             "content": {
               "application/json": {
                 "schema": {
@@ -904,8 +980,34 @@
                 },
                 "example": {
                   "voices": [
-                    "Jenny",
-                    "Dora"
+                    {
+                      "name": "Amelia",
+                      "name_ar": "أميليا",
+                      "gender": "Female",
+                      "accent": "British",
+                      "languages": [
+                        "en"
+                      ],
+                      "type": "public",
+                      "emotion": false
+                    },
+                    {
+                      "name": "Hamad",
+                      "name_ar": "حمد",
+                      "gender": "Male",
+                      "accent": "Gulf",
+                      "languages": [
+                        "ar"
+                      ],
+                      "type": "public",
+                      "emotion": false
+                    },
+                    {
+                      "name": "MyVoice",
+                      "languages": [],
+                      "type": "personal",
+                      "emotion": false
+                    }
                   ]
                 }
               }
@@ -1066,6 +1168,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -1141,7 +1260,7 @@
           "Audio"
         ],
         "summary": "Create Voice",
-        "description": "Create a personalized voice that can be used to generate speech.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "Creates a personalized voice that can be used to generate speech.<br/>The voice name must be unique among your own personalized voices. Names that match a built-in (public) voice are allowed — public voices and your personalized voices live in separate namespaces. When you request a voice name that exists in both, your personalized voice takes precedence at synthesis time in <a href=\"#tag/audio/POST/v1/audio/speech\"><code>POST /v1/audio/speech</code></a>.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
         "operationId": "create_voice_v1_audio_voices_post",
         "requestBody": {
           "content": {
@@ -1312,6 +1431,23 @@
                     "code": "exceeded_quota",
                     "message": "Exceeded quota",
                     "status": 429
+                  }
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
                   }
                 }
               }
@@ -1576,6 +1712,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -1648,7 +1801,7 @@
           "Images"
         ],
         "summary": "Create Image",
-        "description": "This endpoint is compatible with the OpenAI library.<br/>Creates an image given a prompt.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "This endpoint is compatible with the OpenAI library.<br/>Creates an image given a prompt.",
         "operationId": "create_image_v1_images_generations_post",
         "requestBody": {
           "content": {
@@ -1826,6 +1979,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -1908,7 +2078,7 @@
           "Translations"
         ],
         "summary": "Translate",
-        "description": "Translate the given text into the specified language.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "Translate the given text into the specified language.",
         "operationId": "translate_v1_translations_post",
         "requestBody": {
           "content": {
@@ -2086,6 +2256,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -2163,7 +2350,7 @@
           "Poems"
         ],
         "summary": "Create Poem",
-        "description": "This endpoint is compatible with the OpenAI library.<br/>Creates a poem given a prompt.<br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "This endpoint is compatible with the OpenAI library.<br/>Creates a poem given a prompt.",
         "operationId": "create_poem_v1_poems_generations_post",
         "requestBody": {
           "content": {
@@ -2336,6 +2523,23 @@
                     "code": "exceeded_quota",
                     "message": "Exceeded quota",
                     "status": 429
+                  }
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
                   }
                 }
               }
@@ -2577,6 +2781,23 @@
               }
             }
           },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -2807,6 +3028,23 @@
                     "code": "exceeded_quota",
                     "message": "Exceeded quota",
                     "status": 429
+                  }
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
                   }
                 }
               }
@@ -3052,6 +3290,23 @@
                     "code": "exceeded_quota",
                     "message": "Exceeded quota",
                     "status": 429
+                  }
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
                   }
                 }
               }
@@ -4239,6 +4494,7 @@
           "Fanar-C-1-8.7B",
           "Fanar-C-2-27B",
           "Fanar-Sadiq",
+          "Fanar-Sadiq-2",
           "Fanar-Oryx-IVU-2"
         ],
         "title": "ChatCompletionLLM"
@@ -4270,7 +4526,7 @@
           },
           "model": {
             "$ref": "#/components/schemas/ChatCompletionLLM",
-            "description": "The model to use for the completion. For the Fanar-Sadiq model, the following LLM parameters are not used. <br/><b style='color: red;'>Islamic-RAG is replaced with Fanar-Sadiq and will be removed soon. Please use Fanar-Sadiq instead.</b>"
+            "description": "The model to use for the completion. For the Fanar-Sadiq and Fanar-Sadiq-2 models, the following LLM parameters are not used."
           },
           "enable_thinking": {
             "anyOf": [
@@ -4670,6 +4926,21 @@
             "title": "Filter Sources",
             "description": "List of sources to filter from the Fanar-Sadiq model. Accepts predefined source names or values starting with 'digital_seerah'."
           },
+          "madhab": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MadhabEnum"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Madhab",
+            "description": "List of madhab (Islamic school of thought) to filter by for the Fanar-Sadiq-2 model."
+          },
           "restrict_to_islamic": {
             "anyOf": [
               {
@@ -4682,6 +4953,19 @@
             "title": "Restrict To Islamic",
             "description": "When enabled for Fanar-Sadiq model, only Islamic content prompts will be accepted. Non-Islamic content will be rejected.",
             "default": false
+          },
+          "persona": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona",
+            "description": "Custom persona that controls the assistant's voice and identity for the Fanar-Sadiq model. Free-form text; only supported for Fanar-Sadiq."
           }
         },
         "type": "object",
@@ -5229,7 +5513,8 @@
           "unprocessable",
           "conflict",
           "Not found",
-          "no_longer_supported"
+          "no_longer_supported",
+          "client_closed_request"
         ],
         "title": "ErrorCode"
       },
@@ -5257,7 +5542,8 @@
           422,
           409,
           404,
-          410
+          410,
+          499
         ],
         "title": "ErrorStatus"
       },
@@ -5274,11 +5560,13 @@
           },
           "revised": {
             "type": "boolean",
-            "title": "Revised"
+            "title": "Revised",
+            "description": "Indicates whether the prompt was revised before generation."
           },
           "revised_prompt": {
             "type": "string",
-            "title": "Revised Prompt"
+            "title": "Revised Prompt",
+            "description": "The prompt used for generation, which may be revised from the original prompt."
           }
         },
         "type": "object",
@@ -5296,11 +5584,23 @@
             "type": "string",
             "title": "B64 Json",
             "description": "The base64-encoded JSON of the generated image."
+          },
+          "revised": {
+            "type": "boolean",
+            "title": "Revised",
+            "description": "Indicates whether the prompt was revised before generation."
+          },
+          "revised_prompt": {
+            "type": "string",
+            "title": "Revised Prompt",
+            "description": "The prompt used for generation, which may be revised from the original prompt."
           }
         },
         "type": "object",
         "required": [
-          "b64_json"
+          "b64_json",
+          "revised",
+          "revised_prompt"
         ],
         "title": "ImageGenerationItem"
       },
@@ -5321,6 +5621,12 @@
             "type": "string",
             "title": "Prompt",
             "description": "A text description of the desired image."
+          },
+          "revise": {
+            "type": "boolean",
+            "title": "Revise",
+            "description": "Whether to automatically revise the prompt to enhance style, quality, and cultural alignment for improved generation results.",
+            "default": true
           }
         },
         "type": "object",
@@ -5393,6 +5699,17 @@
           "Fanar-C-2-27B"
         ],
         "title": "LLM"
+      },
+      "MadhabEnum": {
+        "type": "string",
+        "enum": [
+          "all",
+          "hanafi",
+          "maliki",
+          "shafii",
+          "hanbali"
+        ],
+        "title": "MadhabEnum"
       },
       "ModelObject": {
         "type": "string",
@@ -5769,8 +6086,9 @@
           "voice": {
             "type": "string",
             "title": "Voice",
-            "description": "The voice to use for the text-to-speech. Details are below:\n| **Voice** | Gender | Accent   | Supported Languages |\n|----------------------|--------|----------|---------------------|\n| Amelia                 | Female | British  | [English](https://chat.fanar.qa/api/sample-voices/en/Amelia) |\n| Emily                  | Female | American | [English](https://chat.fanar.qa/api/sample-voices/en/Emily) |\n| Hamad                  | Male   | Gulf     | [Arabic](https://chat.fanar.qa/api/sample-voices/ar/Hamad) |\n| Harry                  | Male   | British  | [English](https://chat.fanar.qa/api/sample-voices/en/Harry) |\n| Huda                   | Female | Standard | [Arabic](https://chat.fanar.qa/api/sample-voices/ar/Huda) |\n| Jake                   | Male   | American | [English](https://chat.fanar.qa/api/sample-voices/en/Jake) |\n| Jasim                  | Male   | Gulf     | [Arabic](https://chat.fanar.qa/api/sample-voices/ar/Jasim) |\n| Noor                   | Female | Standard | [Arabic](https://chat.fanar.qa/api/sample-voices/ar/Noor) |\n",
+            "description": "The voice to use for the text-to-speech. Details are below:\n<table style=\"min-width:600px\"><thead><tr><th nowrap width=\"160\">Voice</th><th nowrap width=\"80\">Gender</th><th nowrap width=\"180\">Supported Languages</th><th nowrap width=\"100\">Accent</th><th nowrap width=\"80\">Emotion</th></tr></thead><tbody><tr><td nowrap>Abdulrahman</td><td nowrap>Male</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/ar/Abdulrahman\">Arabic</a></td><td nowrap>Standard</td><td nowrap>✓</td></tr><tr><td nowrap>Amelia</td><td nowrap>Female</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/en/Amelia\">English</a></td><td nowrap>British</td><td nowrap>—</td></tr><tr><td nowrap>Emily</td><td nowrap>Female</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/en/Emily\">English</a></td><td nowrap>American</td><td nowrap>—</td></tr><tr><td nowrap>Hamad</td><td nowrap>Male</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/ar/Hamad\">Arabic</a></td><td nowrap>Standard</td><td nowrap>—</td></tr><tr><td nowrap>Harry</td><td nowrap>Male</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/en/Harry\">English</a></td><td nowrap>British</td><td nowrap>—</td></tr><tr><td nowrap>Huda</td><td nowrap>Female</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/ar/Huda\">Arabic</a></td><td nowrap>Standard</td><td nowrap>—</td></tr><tr><td nowrap>Jake</td><td nowrap>Male</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/en/Jake\">English</a></td><td nowrap>American</td><td nowrap>—</td></tr><tr><td nowrap>Jasim</td><td nowrap>Male</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/ar/Jasim\">Arabic</a></td><td nowrap>Standard</td><td nowrap>—</td></tr><tr><td nowrap>Noor</td><td nowrap>Female</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/ar/Noor\">Arabic</a></td><td nowrap>Standard</td><td nowrap>—</td></tr><tr><td nowrap>Radwa</td><td nowrap>Female</td><td><a href=\"https://chat.fanar.qa/api/sample-voices/ar/Radwa\">Arabic</a></td><td nowrap>Standard</td><td nowrap>✓</td></tr></tbody></table>",
             "enum": [
+              "Abdulrahman",
               "Amelia",
               "Emily",
               "Hamad",
@@ -5778,7 +6096,8 @@
               "Huda",
               "Jake",
               "Jasim",
-              "Noor"
+              "Noor",
+              "Radwa"
             ]
           },
           "response_format": {
@@ -5790,6 +6109,18 @@
             "$ref": "#/components/schemas/QuranReciters",
             "description": "The Quran reciter to use when using Fanar-Sadiq-TTS-1 model for Quranic text.",
             "default": "abdul-basit"
+          },
+          "with_emotion": {
+            "type": "boolean",
+            "title": "With Emotion",
+            "description": "Enable emotional speech synthesis. **Only applicable to `Fanar-Aura-TTS-2` and to voices where `emotion: true` in GET /v1/voices.** When the selected voice does not support emotion, or when used with `Fanar-Sadiq-TTS-1`, the request is rejected with a 422 error. Defaults to false.",
+            "default": false
+          },
+          "stream": {
+            "type": "boolean",
+            "title": "Stream",
+            "description": "Stream the audio as it is generated. Supported for both `wav` and `mp3`.",
+            "default": false
           }
         },
         "type": "object",
@@ -5995,22 +6326,162 @@
         ],
         "title": "VideoURL"
       },
-      "VoiceResponse": {
+      "Voice": {
         "properties": {
-          "voices": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "The English name of the voice. This is the identifier passed to the TTS endpoint.",
+            "examples": [
+              "Amelia"
+            ]
+          },
+          "name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Ar",
+            "description": "The Arabic display name of the voice, when available.",
+            "examples": [
+              "أميليا"
+            ]
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender",
+            "description": "Gender label of the voice (e.g., 'Male', 'Female').",
+            "examples": [
+              "Female"
+            ]
+          },
+          "accent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accent",
+            "description": "Accent label of the voice (e.g., 'British', 'Gulf', 'American', 'Standard').",
+            "examples": [
+              "British"
+            ]
+          },
+          "languages": {
             "items": {
               "type": "string"
             },
             "type": "array",
+            "title": "Languages",
+            "description": "Supported language codes (e.g., 'en', 'ar').",
+            "examples": [
+              [
+                "en"
+              ]
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "public",
+              "personal"
+            ],
+            "title": "Type",
+            "description": "Whether this is a built-in public voice or a personalized voice registered for this API key.",
+            "examples": [
+              "public"
+            ]
+          },
+          "emotion": {
+            "type": "boolean",
+            "title": "Emotion",
+            "description": "Whether this voice supports emotional speech synthesis. When true, you may set `with_emotion: true` on POST /v1/audio/speech to enable emotional rendering.",
+            "default": false,
+            "examples": [
+              true
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "Voice",
+        "example": {
+          "accent": "British",
+          "emotion": false,
+          "gender": "Female",
+          "languages": [
+            "en"
+          ],
+          "name": "Amelia",
+          "name_ar": "أميليا",
+          "type": "public"
+        }
+      },
+      "VoiceResponse": {
+        "properties": {
+          "voices": {
+            "items": {
+              "$ref": "#/components/schemas/Voice"
+            },
+            "type": "array",
             "title": "Voices",
-            "description": "A list of personalized voices."
+            "description": "Available voices. Always includes the built-in public voices. Includes personalized voices registered for this API key when voice personalization is authorized."
           }
         },
         "type": "object",
         "required": [
           "voices"
         ],
-        "title": "VoiceResponse"
+        "title": "VoiceResponse",
+        "example": {
+          "voices": [
+            {
+              "accent": "British",
+              "emotion": false,
+              "gender": "Female",
+              "languages": [
+                "en"
+              ],
+              "name": "Amelia",
+              "name_ar": "أميليا",
+              "type": "public"
+            },
+            {
+              "accent": "Gulf",
+              "emotion": false,
+              "gender": "Male",
+              "languages": [
+                "ar"
+              ],
+              "name": "Hamad",
+              "name_ar": "حمد",
+              "type": "public"
+            },
+            {
+              "emotion": false,
+              "languages": [],
+              "name": "MyVoice",
+              "type": "personal"
+            }
+          ]
+        }
       },
       "TokenChunk": {
         "properties": {

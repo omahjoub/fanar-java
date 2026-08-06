@@ -16,8 +16,9 @@ import java.util.Objects;
  * <p>Collections are defensively copied on construction and returned as unmodifiable views.
  * Validation follows ADR-015: required-field non-null, well-defined range checks on numeric
  * fields, and size limits where the wire spec documents them. Model-specific rules — for
- * example, {@code enableThinking} only applying to {@code Fanar-C-2-27B} — are Fanar's
- * responsibility; the SDK surfaces the server's rejection via the typed exception hierarchy.</p>
+ * example, {@code enableThinking} only applying to {@code Fanar-C-2-27B}, {@code persona} to
+ * {@code Fanar-Sadiq}, or {@code madhab} to {@code Fanar-Sadiq-2} — are Fanar's responsibility;
+ * the SDK surfaces the server's rejection via the typed exception hierarchy.</p>
  *
  * <p>The wire field {@code stream} is <em>not</em> modelled here. Streaming vs. non-streaming is
  * a call-site choice on the domain facade (for example {@code client.chat().stream(request)}),
@@ -65,7 +66,9 @@ public record ChatRequest(
         List<Source> preferredSources,
         List<Source> excludeSources,
         List<Source> filterSources,
-        Boolean restrictToIslamic
+        Boolean restrictToIslamic,
+        String persona,
+        List<Madhab> madhab
 ) {
 
     public ChatRequest {
@@ -98,6 +101,7 @@ public record ChatRequest(
         requireStrictlyPositive("repetitionPenalty", repetitionPenalty);
         requireMinInclusive("truncatePromptTokens", truncatePromptTokens, 1);
         requireMinInclusive("promptLogprobs", promptLogprobs, 0);
+        requireMaxLength("persona", persona, 2000);
 
         // stop: max 4 entries per the Fanar spec
         if (stop != null) {
@@ -115,6 +119,7 @@ public record ChatRequest(
         preferredSources = preferredSources == null ? null : List.copyOf(preferredSources);
         excludeSources = excludeSources == null ? null : List.copyOf(excludeSources);
         filterSources = filterSources == null ? null : List.copyOf(filterSources);
+        madhab = madhab == null ? null : List.copyOf(madhab);
     }
 
     private static void requireInRange(String name, Double value, double min, double max) {
@@ -142,6 +147,13 @@ public record ChatRequest(
         if (value != null && value <= 0.0) {
             throw new IllegalArgumentException(
                     name + " must be > 0, got " + value);
+        }
+    }
+
+    private static void requireMaxLength(String name, String value, int max) {
+        if (value != null && value.length() > max) {
+            throw new IllegalArgumentException(
+                    name + " must be at most " + max + " characters, got " + value.length());
         }
     }
 
@@ -189,6 +201,8 @@ public record ChatRequest(
         private List<Source> excludeSources;
         private List<Source> filterSources;
         private Boolean restrictToIslamic;
+        private String persona;
+        private List<Madhab> madhab;
 
         private Builder() {
             // use ChatRequest.builder()
@@ -246,6 +260,8 @@ public record ChatRequest(
         public Builder excludeSources(List<Source> excludeSources) { this.excludeSources = excludeSources; return this; }
         public Builder filterSources(List<Source> filterSources) { this.filterSources = filterSources; return this; }
         public Builder restrictToIslamic(Boolean restrictToIslamic) { this.restrictToIslamic = restrictToIslamic; return this; }
+        public Builder persona(String persona) { this.persona = persona; return this; }
+        public Builder madhab(List<Madhab> madhab) { this.madhab = madhab; return this; }
 
         /**
          * Validate and build the {@link ChatRequest}.
@@ -262,7 +278,8 @@ public record ChatRequest(
                     topK, minP, repetitionPenalty, bestOf, lengthPenalty, earlyStopping,
                     stopTokenIds, ignoreEos, minTokens, skipSpecialTokens,
                     spacesBetweenSpecialTokens, truncatePromptTokens, promptLogprobs,
-                    bookNames, preferredSources, excludeSources, filterSources, restrictToIslamic);
+                    bookNames, preferredSources, excludeSources, filterSources, restrictToIslamic,
+                    persona, madhab);
         }
     }
 }

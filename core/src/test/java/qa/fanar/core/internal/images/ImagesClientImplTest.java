@@ -297,7 +297,7 @@ class ImagesClientImplTest {
 
     private static ImageGenerationResponse response() {
         return new ImageGenerationResponse(
-                "req_1", 1_700_000_000L, List.of(new ImageGenerationItem("aGVsbG8=")));
+                "req_1", 1_700_000_000L, List.of(new ImageGenerationItem("aGVsbG8=", true, "a refined prompt")));
     }
 
     private static FanarJsonCodec cannedCodec(ImageGenerationResponse canned) {

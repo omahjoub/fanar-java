@@ -1,21 +1,21 @@
 package qa.fanar.core.audio;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 
 /**
  * Domain facade for the {@code /v1/audio/*} endpoints. Returned by {@code FanarClient.audio()}.
  *
  * <p>The audio domain has multiple concerns surfaced as flat methods on this single client:</p>
  * <ul>
- *   <li>{@link #listVoices()} — list user-created voices (built-in voices are
- *       {@link Voice#KNOWN}; this returns only personalized ones).</li>
- *   <li>{@link #createVoice(CreateVoiceRequest)} — upload a WAV sample to create a personalized
- *       voice. Sent as {@code multipart/form-data}.</li>
- *   <li>{@link #deleteVoice(String)} — remove a personalized voice by name.</li>
+ *   <li>{@link #listVoices()} — the voice catalogue: built-in public voices plus the
+ *       personalized voices registered for the API key.</li>
+ *   <li>{@link #createVoice(CreateVoiceRequest)} / {@link #deleteVoice(String)} — personalized
+ *       voice management. Creation is sent as {@code multipart/form-data}.</li>
+ *   <li>{@link #speech(TextToSpeechRequest)} / {@link #speechStream(TextToSpeechRequest)} —
+ *       TTS, buffered or chunk-streamed binary audio out.</li>
+ *   <li>{@link #transcribe(TranscriptionRequest)} — STT, multipart audio in.</li>
  * </ul>
- *
- * <p>Subsequent sub-milestones add {@code speech(...)} (TTS — binary audio out) and
- * {@code transcribe(...)} (STT — multipart audio in) to this same interface.</p>
  *
  * <p>Implementations must be thread-safe — one {@code AudioClient} instance backs every call on
  * a given {@code FanarClient}.</p>
@@ -24,7 +24,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface AudioClient {
 
-    /** List the user-created (personalized) voices for the current API key. */
+    /**
+     * List the available voices: always the built-in public voices, plus the personalized
+     * voices registered for the current API key when voice personalization is authorized.
+     */
     VoiceResponse listVoices();
 
     /** Async variant of {@link #listVoices()}. */
@@ -52,6 +55,19 @@ public interface AudioClient {
 
     /** Async variant of {@link #speech(TextToSpeechRequest)}. */
     CompletableFuture<byte[]> speechAsync(TextToSpeechRequest request);
+
+    /**
+     * Synthesize speech from text, streaming the audio bytes as the server generates them
+     * (the wire {@code stream:true} mode; supported for both mp3 and wav).
+     *
+     * <p>The returned publisher supports a single subscriber, honours back-pressure, and emits
+     * opaque {@code byte[]} chunks whose boundaries follow transport reads — concatenate them in
+     * emission order to reconstruct the full clip. Cancelling the subscription closes the
+     * underlying connection. The initial request (headers, interceptors, error mapping) behaves
+     * exactly like {@link #speech(TextToSpeechRequest)}; mid-stream failures surface via
+     * {@code Subscriber.onError}.</p>
+     */
+    Flow.Publisher<byte[]> speechStream(TextToSpeechRequest request);
 
     /**
      * Transcribe an audio file. The returned {@link SpeechToTextResponse} is one of three

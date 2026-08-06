@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatModel;
+import qa.fanar.core.chat.Madhab;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.Source;
 import qa.fanar.core.chat.SystemMessage;
@@ -125,6 +126,22 @@ class ChatRequestKnobsTest {
                 () -> assertTrue(json.contains("\"filter_sources\":[\"" + Source.TAFSIR.wireValue() + "\"]"), json));
     }
 
+
+    @Test
+    void sadiq2PersonaAndMadhabKnobsSerialize() throws IOException {
+        ChatRequest req = base()
+                .model(ChatModel.FANAR_SADIQ_2)
+                .persona("Warm, patient teacher")
+                .madhab(List.of(Madhab.HANAFI, Madhab.ALL))
+                .build();
+        String json = encode(req);
+        assertAll(
+                () -> assertTrue(json.contains("\"model\":\"" + ChatModel.FANAR_SADIQ_2.wireValue() + "\""), json),
+                () -> assertTrue(json.contains("\"persona\":\"Warm, patient teacher\""), json),
+                () -> assertTrue(json.contains("\"madhab\":[\"" + Madhab.HANAFI.wireValue()
+                        + "\",\"" + Madhab.ALL.wireValue() + "\"]"), json));
+    }
+
     @Test
     void enableThinkingAndModelWireValueSerialize() throws IOException {
         ChatRequest req = base()
@@ -169,6 +186,8 @@ class ChatRequestKnobsTest {
                 () -> assertFalse(json.contains("logit_bias"), json),
                 () -> assertFalse(json.contains("restrict_to_islamic"), json),
                 () -> assertFalse(json.contains("enable_thinking"), json),
+                () -> assertFalse(json.contains("persona"), json),
+                () -> assertFalse(json.contains("madhab"), json),
                 () -> assertFalse(json.contains("stop"), json));
     }
 

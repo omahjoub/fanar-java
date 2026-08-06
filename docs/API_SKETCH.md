@@ -216,23 +216,52 @@ for (Reference ref : message.references()) {
 
 The `references()` list is Fanar-exclusive; no OpenAI-compatible client surfaces it.
 
+### Persona and madhab (2026-08 spec)
+
+```java
+// Custom assistant persona — Fanar-Sadiq only.
+ChatRequest withPersona = ChatRequest.builder()
+    .model(ChatModel.FANAR_SADIQ)
+    .addMessage(UserMessage.of("What are the Islamic values?"))
+    .persona("You are a warm, patient teacher who explains concepts simply for young students.")
+    .build();
+
+// Madhab-aware retrieval — Fanar-Sadiq-2 (extra authorization required).
+ChatRequest withMadhab = ChatRequest.builder()
+    .model(ChatModel.FANAR_SADIQ_2)
+    .addMessage(UserMessage.of("What are the conditions for Zakat on gold?"))
+    .madhab(List.of(Madhab.HANAFI))
+    .build();
+```
+
 ---
 
 ## 6. Other domains
 
 ```java
-// Text-to-speech (including Quranic TTS with validated reciters)
+// Text-to-speech (including Quranic TTS with validated reciters and emotional synthesis)
 client.audio().speech(TextToSpeechRequest.builder()
     .model(TtsModel.FANAR_AURA_TTS_2)
-    .voice(Voice.AMELIA)
+    .voice(Voice.RADWA)               // Radwa + Abdulrahman support with_emotion
     .input("Hello from Fanar")
+    .withEmotion(true)
     .build());
+
+// Streamed TTS — chunks arrive as the server generates them (ADR-023)
+Flow.Publisher<byte[]> audio = client.audio().speechStream(
+    TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "Hello from Fanar", Voice.HAMAD));
+
+// Voice catalogue — rich objects; always includes the built-in public voices
+client.audio().listVoices().voices().forEach(v ->
+    System.out.printf("%s (%s, %s) emotion=%b%n", v.name(), v.gender(), v.accent(), v.emotion()));
 
 // Speech-to-text
 client.audio().transcribe(TranscriptionRequest.of(audioFile, SttModel.FANAR_AURA_STT_1));
 
-// Image generation
-client.images().generate(ImageGenerationRequest.of(ImageModel.FANAR_ORYX_IG_2, "A futuristic Doha skyline"));
+// Image generation — the server revises prompts by default (revise=true); each item reports
+// revised() + revisedPrompt(). Pass revise=false to keep the prompt verbatim.
+client.images().generate(new ImageGenerationRequest(
+    ImageModel.FANAR_ORYX_IG_2, "A futuristic Doha skyline", false));
 
 // Translation
 client.translations().send(TranslationRequest.of(TranslationModel.FANAR_SHAHEEN_MT_1,
@@ -402,7 +431,7 @@ Any `Interceptor` or `ObservabilityPlugin` beans on the application context get 
 <dependency>
     <groupId>org.springframework.ai</groupId>
     <artifactId>spring-ai-client-chat</artifactId>
-    <!-- 2.0.0-Mx; the starter pins the version we test against -->
+    <!-- 2.0.0; the starter pins the version we test against -->
 </dependency>
 ```
 
@@ -432,6 +461,19 @@ String chat(@PathVariable("conversationId") String id, @RequestBody Prompt p) {
 
 Memory + RAG advisors + prompt templates + structured-output converters all attach via Spring
 AI's standard machinery — we provide only the model SPIs.
+
+Fanar-only knobs travel through the vendor options classes (ADR-024):
+
+```java
+chatClient.prompt()
+        .user("What are the conditions for Zakat on gold?")
+        .options(FanarChatOptions.builder()
+                .model("Fanar-Sadiq-2")
+                .madhab(List.of(Madhab.HANAFI))
+                .build())
+        .call()
+        .content();
+```
 
 ---
 

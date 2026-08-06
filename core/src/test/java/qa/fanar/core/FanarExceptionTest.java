@@ -52,7 +52,9 @@ class FanarExceptionTest {
                 Arguments.of("FanarRateLimitException",
                         new FanarRateLimitException("msg"), ErrorCode.RATE_LIMIT_REACHED, 429),
                 Arguments.of("FanarContentFilterException",
-                        new FanarContentFilterException("msg"), ErrorCode.CONTENT_FILTER, 400)
+                        new FanarContentFilterException("msg"), ErrorCode.CONTENT_FILTER, 400),
+                Arguments.of("FanarClientClosedRequestException",
+                        new FanarClientClosedRequestException("msg"), ErrorCode.CLIENT_CLOSED_REQUEST, 499)
         );
     }
 
@@ -153,7 +155,9 @@ class FanarExceptionTest {
                 Arguments.of("FanarRateLimitException",
                         (Function<Throwable, FanarException>) c -> new FanarRateLimitException("msg-with-cause", Duration.ofSeconds(1), c)),
                 Arguments.of("FanarContentFilterException",
-                        (Function<Throwable, FanarException>) c -> new FanarContentFilterException("msg-with-cause", ContentFilterType.SAFETY, c))
+                        (Function<Throwable, FanarException>) c -> new FanarContentFilterException("msg-with-cause", ContentFilterType.SAFETY, c)),
+                Arguments.of("FanarClientClosedRequestException",
+                        (Function<Throwable, FanarException>) c -> new FanarClientClosedRequestException("msg-with-cause", c))
         );
     }
 }

@@ -1,6 +1,7 @@
 package qa.fanar.core.internal.audio;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.RetryPolicy;
+import qa.fanar.core.audio.AvailableVoice;
 import qa.fanar.core.audio.CreateVoiceRequest;
 import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.audio.SttFormat;
@@ -39,6 +41,7 @@ import qa.fanar.core.audio.TtsModel;
 import qa.fanar.core.audio.TtsResponseFormat;
 import qa.fanar.core.audio.Voice;
 import qa.fanar.core.audio.VoiceResponse;
+import qa.fanar.core.audio.VoiceType;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.Interceptor;
@@ -61,7 +64,7 @@ class AudioClientImplTest {
 
     @Test
     void listVoicesHappyPathDecodesResponse() {
-        VoiceResponse canned = new VoiceResponse(List.of("alice"));
+        VoiceResponse canned = new VoiceResponse(List.of(publicVoice("alice")));
         HttpTransport transport = req -> httpResponse(200, "{}", Map.of());
         AudioClientImpl client = build(transport, cannedListCodec(canned), List.of());
         assertSame(canned, client.listVoices());
@@ -143,7 +146,7 @@ class AudioClientImplTest {
 
     @Test
     void listVoicesAsyncCompletesSuccessfully() throws Exception {
-        VoiceResponse canned = new VoiceResponse(List.of("alice"));
+        VoiceResponse canned = new VoiceResponse(List.of(publicVoice("alice")));
         HttpTransport transport = req -> httpResponse(200, "{}", Map.of());
         AudioClientImpl client = build(transport, cannedListCodec(canned), List.of());
         CompletableFuture<VoiceResponse> f = client.listVoicesAsync();
@@ -485,6 +488,75 @@ class AudioClientImplTest {
         assertInstanceOf(FanarAuthenticationException.class, ex.getCause());
     }
 
+    // --- speechStream (streamed TTS) -------------------------------------------------------
+
+    @Test
+    void speechStreamSplicesStreamFlagAndKeepsAudioAccept() throws Exception {
+        AtomicReference<HttpRequest> captured = new AtomicReference<>();
+        HttpTransport transport = req -> { captured.set(req); return binaryResponse(200, new byte[]{1}); };
+        FanarJsonCodec markerCodec = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) {
+                throw new AssertionError("decode should not be called for binary response");
+            }
+            public void encode(OutputStream s, Object v) throws IOException {
+                s.write("{\"marker\":true}".getBytes(StandardCharsets.UTF_8));
+            }
+        };
+        build(transport, markerCodec, List.of()).speechStream(
+                TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "hello", Voice.HARRY));
+
+        HttpRequest sent = captured.get();
+        assertEquals("POST", sent.method());
+        assertEquals("/v1/audio/speech", sent.uri().getPath());
+        assertEquals(Optional.of("application/json"), sent.headers().firstValue("Content-Type"));
+        assertEquals(Optional.of("audio/*"), sent.headers().firstValue("Accept"));
+        assertEquals("{\"stream\":true,\"marker\":true}", bodyOf(sent));
+    }
+
+    @Test
+    void speechStreamDeliversChunksThatConcatenateToTheResponseBody() throws Exception {
+        byte[] audioBytes = new byte[]{(byte) 0xff, (byte) 0xfb, 0x10, 0x00, 42};
+        HttpTransport transport = req -> binaryResponse(200, audioBytes);
+        Flow.Publisher<byte[]> publisher = build(transport, encodingCodec(), List.of())
+                .speechStream(TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "hi", Voice.HARRY));
+
+        ByteArrayOutputStream collected = new ByteArrayOutputStream();
+        CountDownLatch done = new CountDownLatch(1);
+        publisher.subscribe(new Flow.Subscriber<byte[]>() {
+            public void onSubscribe(Flow.Subscription s) { s.request(Long.MAX_VALUE); }
+            public void onNext(byte[] item) { collected.writeBytes(item); }
+            public void onError(Throwable t) { done.countDown(); }
+            public void onComplete() { done.countDown(); }
+        });
+        assertTrue(done.await(5, TimeUnit.SECONDS));
+        assertArrayEquals(audioBytes, collected.toByteArray());
+    }
+
+    @Test
+    void speechStreamMapsErrorStatusBeforeStreaming() {
+        // The 422 surfaces synchronously from speechStream — no publisher is created for an
+        // error response (e.g. with_emotion on a non-capable voice).
+        HttpTransport transport = req -> httpResponse(422, "", Map.of());
+        AudioClientImpl client = build(transport, encodingCodec(), List.of());
+        assertThrows(qa.fanar.core.FanarUnprocessableException.class, () -> client.speechStream(
+                TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "hi", Voice.HARRY)));
+    }
+
+    @Test
+    void speechStreamOpensSpeechObservation() {
+        AtomicReference<String> opened = new AtomicReference<>();
+        ObservabilityPlugin plugin = name -> {
+            opened.set(name);
+            return errorObs(new AtomicInteger());
+        };
+        HttpTransport transport = req -> binaryResponse(200, new byte[]{0});
+        AudioClientImpl client = new AudioClientImpl(
+                BASE, encodingCodec(), () -> "t", List.of(), transport,
+                plugin, RetryPolicy.disabled(), Map.of(), null);
+        client.speechStream(TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "hi", Voice.HARRY));
+        assertEquals("fanar.audio.speech", opened.get());
+    }
+
     @Test
     void speechObservationOpensAndAttributesIncludeModel() {
         AtomicReference<String> opened = new AtomicReference<>();
@@ -533,7 +605,7 @@ class AudioClientImplTest {
         HttpTransport transport = req -> { captured.set(req); return binaryResponse(200, new byte[]{0}); };
         AudioClientImpl client = build(transport, encodingCodec(), List.of());
         client.speech(new TextToSpeechRequest(
-                TtsModel.FANAR_AURA_TTS_2, "hi", Voice.HARRY, TtsResponseFormat.WAV, null));
+                TtsModel.FANAR_AURA_TTS_2, "hi", Voice.HARRY, TtsResponseFormat.WAV, null, null));
         assertEquals(Optional.of("audio/*"), captured.get().headers().firstValue("Accept"));
     }
 
@@ -669,6 +741,7 @@ class AudioClientImplTest {
         assertThrows(NullPointerException.class, () -> client.deleteVoiceAsync(null));
         assertThrows(NullPointerException.class, () -> client.speech(null));
         assertThrows(NullPointerException.class, () -> client.speechAsync(null));
+        assertThrows(NullPointerException.class, () -> client.speechStream(null));
         assertThrows(NullPointerException.class, () -> client.transcribe(null));
         assertThrows(NullPointerException.class, () -> client.transcribeAsync(null));
     }
@@ -713,6 +786,10 @@ class AudioClientImplTest {
 
     private static VoiceResponse empty() {
         return new VoiceResponse(List.of());
+    }
+
+    private static AvailableVoice publicVoice(String name) {
+        return new AvailableVoice(name, null, null, null, List.of(), VoiceType.PUBLIC, false);
     }
 
     /** Codec used by listVoices tests — decodes whatever is read into the canned response. */

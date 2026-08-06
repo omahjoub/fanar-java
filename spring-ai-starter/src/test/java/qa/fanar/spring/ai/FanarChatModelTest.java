@@ -24,8 +24,13 @@ import reactor.core.publisher.Flux;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.RetryPolicy;
+import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatModel;
+import qa.fanar.core.chat.Madhab;
+import qa.fanar.core.chat.Source;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -113,6 +118,100 @@ class FanarChatModelTest {
                 .contains("you are concise")
                 .contains("\"role\":\"assistant\"")
                 .contains("hi back");
+    }
+
+    @Test
+    void fanarChatOptionsForwardEveryVendorKnob() {
+        server.createContext("/v1/chat/completions", exchange -> {
+            capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            byte[] body = okResponse("ok");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream out = exchange.getResponseBody()) { out.write(body); }
+        });
+        server.start();
+        client = clientFor(server);
+
+        BookName book = BookName.KNOWN.iterator().next();
+        FanarChatModel model = new FanarChatModel(client, ChatModel.FANAR);
+        FanarChatOptions options = FanarChatOptions.builder()
+                .model("Fanar-Sadiq-2")
+                .temperature(0.3)
+                .persona("Warm, patient teacher")
+                .madhab(List.of(Madhab.HANAFI, Madhab.ALL))
+                .enableThinking(true)
+                .restrictToIslamic(true)
+                .bookNames(List.of(book))
+                .preferredSources(List.of(Source.QURAN))
+                .excludeSources(List.of(Source.DORAR))
+                .filterSources(List.of(Source.TAFSIR))
+                .logitBias(Map.of("50256", -100.0))
+                .logprobs(true)
+                .topLogprobs(5)
+                .n(2)
+                .minP(0.05)
+                .repetitionPenalty(1.1)
+                .bestOf(3)
+                .lengthPenalty(1.2)
+                .earlyStopping(true)
+                .stopTokenIds(List.of(50256))
+                .ignoreEos(false)
+                .minTokens(4)
+                .skipSpecialTokens(true)
+                .spacesBetweenSpecialTokens(false)
+                .truncatePromptTokens(2048)
+                .promptLogprobs(1)
+                .build();
+        model.call(new Prompt(List.of(new UserMessage("x")), options));
+
+        assertThat(capturedRequestBody)
+                .contains("\"model\":\"Fanar-Sadiq-2\"")
+                .contains("\"temperature\":0.3")
+                .contains("\"persona\":\"Warm, patient teacher\"")
+                .contains("\"madhab\":[\"hanafi\",\"all\"]")
+                .contains("\"enable_thinking\":true")
+                .contains("\"restrict_to_islamic\":true")
+                .contains("\"book_names\":[\"" + book.wireValue() + "\"]")
+                .contains("\"preferred_sources\":[\"quran\"]")
+                .contains("\"exclude_sources\":[\"dorar\"]")
+                .contains("\"filter_sources\":[\"tafsir\"]")
+                .contains("\"logit_bias\":{\"50256\":-100.0}")
+                .contains("\"logprobs\":true")
+                .contains("\"top_logprobs\":5")
+                .contains("\"n\":2")
+                .contains("\"min_p\":0.05")
+                .contains("\"repetition_penalty\":1.1")
+                .contains("\"best_of\":3")
+                .contains("\"length_penalty\":1.2")
+                .contains("\"early_stopping\":true")
+                .contains("\"stop_token_ids\":[50256]")
+                .contains("\"ignore_eos\":false")
+                .contains("\"min_tokens\":4")
+                .contains("\"skip_special_tokens\":true")
+                .contains("\"spaces_between_special_tokens\":false")
+                .contains("\"truncate_prompt_tokens\":2048")
+                .contains("\"prompt_logprobs\":1");
+    }
+
+    @Test
+    void emptyFanarChatOptionsBehavesLikePortableDefaults() {
+        server.createContext("/v1/chat/completions", exchange -> {
+            capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            byte[] body = okResponse("ok");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream out = exchange.getResponseBody()) { out.write(body); }
+        });
+        server.start();
+        client = clientFor(server);
+
+        FanarChatModel model = new FanarChatModel(client, ChatModel.FANAR);
+        model.call(new Prompt(List.of(new UserMessage("x")), FanarChatOptions.builder().build()));
+
+        assertThat(capturedRequestBody)
+                .contains("\"model\":\"Fanar\"")
+                .doesNotContain("persona")
+                .doesNotContain("madhab")
+                .doesNotContain("enable_thinking")
+                .doesNotContain("restrict_to_islamic");
     }
 
     @Test

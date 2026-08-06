@@ -1,6 +1,6 @@
 # ADR-006 — Unchecked exception hierarchy
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-08-05 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -8,8 +8,9 @@
 
 The Fanar API returns a typed `ErrorCode` enumeration (`content_filter`, `invalid_authentication`, `rate_limit_reached`,
 `exceeded_quota`, `internal_server_error`, `overloaded`, `timeout`, `too_large`, `unprocessable`, `conflict`,
-`Not found`, `no_longer_supported`). Transport failures (`IOException`, `InterruptedException`) from JDK `HttpClient`
-are a separate category. We must decide how these errors surface to Java callers.
+`Not found`, `no_longer_supported`, `client_closed_request`). Transport failures (`IOException`,
+`InterruptedException`) from JDK `HttpClient` are a separate category. We must decide how these errors surface to
+Java callers.
 
 The choice interacts with our async (`CompletableFuture<T>`) and streaming (`Flow.Publisher<T>`) surfaces — both of
 which have well-defined error channels that compose cleanly with `RuntimeException` subtypes but fight checked
@@ -26,7 +27,7 @@ public abstract sealed class FanarException extends RuntimeException
 public sealed class FanarClientException extends FanarException
         permits FanarAuthenticationException, FanarAuthorizationException, FanarQuotaExceededException,
                 FanarNotFoundException, FanarConflictException, FanarTooLargeException,
-                FanarUnprocessableException, FanarGoneException { … }
+                FanarUnprocessableException, FanarGoneException, FanarClientClosedRequestException { … }
 
 public sealed class FanarServerException extends FanarException
         permits FanarRateLimitException, FanarOverloadedException, FanarTimeoutException, FanarInternalServerException { … }
@@ -82,10 +83,30 @@ at the transport boundary; callers never see JDK checked exceptions on the publi
 - Fanar-specific metadata (retry-after seconds, filter type, rate-limit window) lives as fields on the relevant
   subtype, retrievable via typed accessors.
 
+## Amendments
+
+### 2026-08-05 — `client_closed_request` and envelope-code routing (0.2.0)
+
+The Fanar spec added a fourteenth error code, `client_closed_request` (HTTP 499, declared on every
+endpoint). Following this ADR's one-subtype-per-`ErrorCode` rule, 0.2.0 adds
+`FanarClientClosedRequestException` as a leaf under `FanarClientException` — deliberately *not* a
+new top-level branch, so retry classification (`RetryPolicy.isDefaultRetryable`) and consumer
+switches over the four top-level categories keep compiling, and the new code is correctly
+non-retryable. Adding a permit to a sealed class is a breaking change under JLBP-10; ADR-019's
+pre-1.0 policy allows it in a minor release with a changelog callout, which 0.2.0 carries.
+
+The same release implements the routing this ADR always implied: `ExceptionMapper` now parses the
+Fanar error envelope (`{"error":{"code":…,"message":…,"status":…}}`) and routes by the typed
+`ErrorCode` first, falling back to HTTP status when the body is not a well-formed envelope or
+carries an unknown code. This makes `FanarQuotaExceededException` reachable (both quota exhaustion
+and throttling wire as HTTP 429) and stops non-filter 400s from surfacing as
+`FanarContentFilterException`.
+
 ## References
 
 - ADR-004 Sync-primary API with async sugar
 - ADR-005 Streaming via `Flow.Publisher`
 - ADR-007 JDK `HttpClient` as the default transport
 - ADR-014 Retry policy defaults (consumes the typed hierarchy)
+- ADR-019 Pre-1.0 stability policy (permits the 0.2.0 sealed-hierarchy addition)
 - OpenAPI spec § `ErrorCode`, `ErrorStatus`

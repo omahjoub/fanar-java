@@ -32,8 +32,9 @@ class ChatModelTest {
 
     @Test
     void knownContainsAllConstants() {
-        assertEquals(6, ChatModel.KNOWN.size());
+        assertEquals(7, ChatModel.KNOWN.size());
         assertTrue(ChatModel.KNOWN.contains(ChatModel.FANAR));
+        assertTrue(ChatModel.KNOWN.contains(ChatModel.FANAR_SADIQ_2));
         assertTrue(ChatModel.KNOWN.contains(ChatModel.FANAR_ORYX_IVU_2));
     }
 

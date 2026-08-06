@@ -59,7 +59,8 @@ class FanarImageModelTest {
             capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             byte[] body = """
                     {"id":"img-1","created":1700000000,
-                     "data":[{"b64_json":"AAAA"}]}
+                     "data":[{"b64_json":"AAAA","revised":true,
+                              "revised_prompt":"a refined calligraphy mosque"}]}
                     """.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
@@ -74,9 +75,32 @@ class FanarImageModelTest {
         assertThat(response.getResults()).hasSize(1);
         assertThat(response.getResult().getOutput().getB64Json()).isEqualTo("AAAA");
         assertThat(response.getResult().getOutput().getUrl()).isNull();
+        assertThat(response.getResult().getMetadata())
+                .isEqualTo(new FanarImageGenerationMetadata(true, "a refined calligraphy mosque"));
+        assertThat(response.getMetadata().getCreated()).isEqualTo(1_700_000_000L);
         assertThat(capturedRequestBody)
                 .contains("\"prompt\":\"a calligraphy mosque\"")
                 .contains("\"model\":\"Fanar-Oryx-IG-2\"");
+    }
+
+    @Test
+    void fanarImageOptionsForwardReviseFlag() {
+        server.createContext("/v1/images/generations", exchange -> {
+            capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            byte[] body = """
+                    {"id":"img","created":1,"data":[{"b64_json":"x","revised":false,"revised_prompt":"p"}]}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream out = exchange.getResponseBody()) { out.write(body); }
+        });
+        server.start();
+        client = clientFor(server);
+
+        FanarImageModel model = new FanarImageModel(client, ImageModel.FANAR_ORYX_IG_2);
+        model.call(new ImagePrompt("a mosque",
+                FanarImageOptions.builder().revise(false).build()));
+
+        assertThat(capturedRequestBody).contains("\"revise\":false");
     }
 
     @Test
@@ -84,7 +108,7 @@ class FanarImageModelTest {
         server.createContext("/v1/images/generations", exchange -> {
             capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             byte[] body = """
-                    {"id":"img","created":1,"data":[{"b64_json":"x"}]}
+                    {"id":"img","created":1,"data":[{"b64_json":"x","revised":false,"revised_prompt":"p"}]}
                     """.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream out = exchange.getResponseBody()) { out.write(body); }
@@ -106,7 +130,7 @@ class FanarImageModelTest {
         server.createContext("/v1/images/generations", exchange -> {
             capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             byte[] body = """
-                    {"id":"img","created":1,"data":[{"b64_json":"x"}]}
+                    {"id":"img","created":1,"data":[{"b64_json":"x","revised":false,"revised_prompt":"p"}]}
                     """.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream out = exchange.getResponseBody()) { out.write(body); }
@@ -129,7 +153,7 @@ class FanarImageModelTest {
         server.createContext("/v1/images/generations", exchange -> {
             capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             byte[] body = """
-                    {"id":"img","created":1,"data":[{"b64_json":"x"}]}
+                    {"id":"img","created":1,"data":[{"b64_json":"x","revised":false,"revised_prompt":"p"}]}
                     """.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream out = exchange.getResponseBody()) { out.write(body); }

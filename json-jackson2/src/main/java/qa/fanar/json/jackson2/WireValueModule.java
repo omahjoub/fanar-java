@@ -17,9 +17,11 @@ import qa.fanar.core.audio.SttModel;
 import qa.fanar.core.audio.TtsModel;
 import qa.fanar.core.audio.TtsResponseFormat;
 import qa.fanar.core.audio.Voice;
+import qa.fanar.core.audio.VoiceType;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.FinishReason;
 import qa.fanar.core.chat.ImageDetail;
+import qa.fanar.core.chat.Madhab;
 import qa.fanar.core.chat.Source;
 import qa.fanar.core.images.ImageModel;
 import qa.fanar.core.moderations.ModerationModel;
@@ -50,6 +52,7 @@ final class WireValueModule {
         register(module, ChatModel.class, ChatModel::wireValue, ChatModel::of);
         register(module, FinishReason.class, FinishReason::wireValue, FinishReason::of);
         register(module, ImageDetail.class, ImageDetail::wireValue, ImageDetail::of);
+        register(module, Madhab.class, Madhab::wireValue, Madhab::of);
         register(module, Source.class, Source::wireValue, Source::of);
         register(module, ModerationModel.class, ModerationModel::wireValue, ModerationModel::of);
         register(module, TranslationModel.class, TranslationModel::wireValue, TranslationModel::of);
@@ -62,6 +65,7 @@ final class WireValueModule {
         register(module, TtsResponseFormat.class, TtsResponseFormat::wireValue, TtsResponseFormat::of);
         register(module, QuranReciter.class, QuranReciter::wireValue, QuranReciter::of);
         register(module, Voice.class, Voice::wireValue, Voice::of);
+        register(module, VoiceType.class, VoiceType::wireValue, VoiceType::of);
         register(module, SttModel.class, SttModel::wireValue, SttModel::of);
         register(module, SttFormat.class, SttFormat::wireValue, SttFormat::of);
         return module;

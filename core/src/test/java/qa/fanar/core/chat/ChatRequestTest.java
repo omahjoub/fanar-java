@@ -26,11 +26,13 @@ class ChatRequestTest {
                 null,
                 null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null, null);
         assertEquals(1, r.messages().size());
         assertEquals(ChatModel.FANAR, r.model());
         assertNull(r.temperature());
         assertNull(r.restrictToIslamic());
+        assertNull(r.persona());
+        assertNull(r.madhab());
     }
 
     @Test
@@ -166,6 +168,13 @@ class ChatRequestTest {
                 base().stop(List.of("a", "b", "c", "d", "e")).build());
     }
 
+    @Test
+    void personaMaxLengthBoundaries() {
+        base().persona("a".repeat(2000)).build();
+        assertThrows(IllegalArgumentException.class, () ->
+                base().persona("a".repeat(2001)).build());
+    }
+
     // --- defensive copies + unmodifiable accessors -----------------------------------------
 
     @Test
@@ -253,6 +262,15 @@ class ChatRequestTest {
     }
 
     @Test
+    void madhabIsDefensivelyCopiedAndUnmodifiable() {
+        List<Madhab> src = new ArrayList<>(List.of(Madhab.HANAFI));
+        ChatRequest r = base().madhab(src).build();
+        src.add(Madhab.MALIKI);
+        assertEquals(1, r.madhab().size());
+        assertThrows(UnsupportedOperationException.class, () -> r.madhab().add(Madhab.SHAFII));
+    }
+
+    @Test
     void defensiveCopyReplacesReferenceForMessages() {
         List<Message> src = new ArrayList<>();
         src.add(UserMessage.of("x"));
@@ -262,7 +280,7 @@ class ChatRequestTest {
                 null, null, null, null, null, null,
                 null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null, null);
         assertNotSame(src, r.messages());
     }
 
@@ -278,6 +296,7 @@ class ChatRequestTest {
         assertNull(r.preferredSources());
         assertNull(r.excludeSources());
         assertNull(r.filterSources());
+        assertNull(r.madhab());
     }
 
     // --- Builder -------------------------------------------------------------------------
@@ -364,6 +383,8 @@ class ChatRequestTest {
                 .excludeSources(List.of(Source.DORAR))
                 .filterSources(List.of(Source.ISLAMWEB))
                 .restrictToIslamic(true)
+                .persona("You are a warm, patient teacher.")
+                .madhab(List.of(Madhab.HANAFI, Madhab.MALIKI))
                 .build();
 
         assertEquals(2, r.messages().size());
@@ -397,6 +418,8 @@ class ChatRequestTest {
         assertEquals(List.of(Source.DORAR), r.excludeSources());
         assertEquals(List.of(Source.ISLAMWEB), r.filterSources());
         assertEquals(true, r.restrictToIslamic());
+        assertEquals("You are a warm, patient teacher.", r.persona());
+        assertEquals(List.of(Madhab.HANAFI, Madhab.MALIKI), r.madhab());
     }
 
     @Test
@@ -421,6 +444,6 @@ class ChatRequestTest {
                 null, null, null, null, null, null,
                 null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 }

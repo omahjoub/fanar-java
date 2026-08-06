@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 import io.micrometer.observation.ObservationRegistry;
@@ -28,6 +29,7 @@ import qa.fanar.core.audio.VoiceResponse;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
+import qa.fanar.core.chat.Madhab;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.images.ImageGenerationRequest;
 import qa.fanar.core.images.ImageGenerationResponse;
@@ -183,17 +185,24 @@ public final class Main {
 
     private static void decodeImages(FanarJsonCodec codec) throws IOException {
         String wire = "{\"id\":\"req_1\",\"created\":1700000000,"
-                + "\"data\":[{\"b64_json\":\"aGVsbG8=\"}]}";
+                + "\"data\":[{\"b64_json\":\"aGVsbG8=\",\"revised\":true,"
+                + "\"revised_prompt\":\"a refined sunset\"}]}";
         ImageGenerationResponse r = codec.decode(bytes(wire), ImageGenerationResponse.class);
         require(r.data().size() == 1, "image data size");
         require("aGVsbG8=".equals(r.data().getFirst().b64Json()), "image b64");
+        require(r.data().getFirst().revised(), "image revised flag");
     }
 
     private static void decodeAudioVoices(FanarJsonCodec codec) throws IOException {
         VoiceResponse r = codec.decode(
-                bytes("{\"voices\":[\"alice\",\"bob\"]}"),
+                bytes("{\"voices\":[{\"name\":\"Amelia\",\"name_ar\":\"\\u0623\\u0645\\u064a\\u0644\\u064a\\u0627\","
+                        + "\"gender\":\"Female\",\"accent\":\"British\",\"languages\":[\"en\"],"
+                        + "\"type\":\"public\",\"emotion\":false},"
+                        + "{\"name\":\"MyVoice\",\"languages\":[],\"type\":\"personal\",\"emotion\":false}]}"),
                 VoiceResponse.class);
         require(r.voices().size() == 2, "voices size");
+        require("Amelia".equals(r.voices().getFirst().name()), "voice name");
+        require(qa.fanar.core.audio.VoiceType.PERSONAL.equals(r.voices().get(1).type()), "voice type");
     }
 
     private static void decodeAudioStt(FanarJsonCodec codec) throws IOException {
@@ -220,6 +229,8 @@ public final class Main {
                 .addMessage(UserMessage.of("hi"))
                 .maxTokens(8)
                 .temperature(0.0)
+                .persona("teacher")
+                .madhab(List.of(Madhab.HANAFI))
                 .build();
         byte[] body = encode(codec, req);
         require(body.length > 0, "chat encode");
@@ -249,14 +260,18 @@ public final class Main {
     }
 
     private static void encodeImageGenerationRequest(FanarJsonCodec codec) throws IOException {
-        byte[] body = encode(codec, ImageGenerationRequest.of(
-                ImageModel.FANAR_ORYX_IG_2, "a sunset"));
+        byte[] body = encode(codec, new ImageGenerationRequest(
+                ImageModel.FANAR_ORYX_IG_2, "a sunset", Boolean.TRUE));
         require(body.length > 0, "images encode");
     }
 
     private static void encodeTextToSpeechRequest(FanarJsonCodec codec) throws IOException {
-        byte[] body = encode(codec, TextToSpeechRequest.of(
-                TtsModel.FANAR_AURA_TTS_2, "hello", Voice.HARRY));
+        byte[] body = encode(codec, TextToSpeechRequest.builder()
+                .model(TtsModel.FANAR_AURA_TTS_2)
+                .input("hello")
+                .voice(Voice.RADWA)
+                .withEmotion(true)
+                .build());
         require(body.length > 0, "tts encode");
     }
 
@@ -447,7 +462,7 @@ public final class Main {
         // Probes the binary-response path — `BodyHandlers.ofInputStream` + `byte[]` return.
         byte[] wav = client.audio().speech(new TextToSpeechRequest(
                 TtsModel.FANAR_AURA_TTS_2, "hello", Voice.HARRY,
-                qa.fanar.core.audio.TtsResponseFormat.WAV, null));
+                qa.fanar.core.audio.TtsResponseFormat.WAV, null, null));
         System.out.println("  audio.speech: bytes=" + wav.length);
         return wav;
     }

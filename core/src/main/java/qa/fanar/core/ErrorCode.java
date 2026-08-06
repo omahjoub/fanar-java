@@ -55,7 +55,10 @@ public enum ErrorCode {
     NOT_FOUND("Not found"),
 
     /** Feature, model, or endpoint no longer supported. */
-    NO_LONGER_SUPPORTED("no_longer_supported");
+    NO_LONGER_SUPPORTED("no_longer_supported"),
+
+    /** The client closed the connection before the server finished responding (HTTP 499). */
+    CLIENT_CLOSED_REQUEST("client_closed_request");
 
     private final String wireValue;
 
