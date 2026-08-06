@@ -9,6 +9,14 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-06
+
+Full parity with the 2026-08 Fanar spec: madhab-aware `Fanar-Sadiq-2`, custom personas,
+streamed + emotional TTS, a rich voice catalogue, culturally-aligned image prompt revision,
+and typed envelope-code error routing. Pre-1.0 ([ADR-019](docs/adr/019-pre-10-stability-policy.md)):
+this release contains three breaking changes, marked below. Not yet on Maven Central — install
+via `./mvnw install` from a clone, or download the artifacts attached to this release.
+
 ### Added
 
 - **`fanar-core`** — streaming TTS: `AudioClient.speechStream(request)` returns
@@ -123,5 +131,6 @@ from a clone, or download the artifacts attached to this release.
   end-to-end since they shape the prompt text.
 - **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
 
-[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.2.0
 [0.1.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.1.0

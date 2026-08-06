@@ -72,6 +72,7 @@ jobs:
               docs/GRAALVM.md \
               docs/JAVA_LIBRARY_BEST_PRACTICES.md \
               docs/PROJECT_STATE.md \
+              docs/RELEASING.md \
               docs/adr/INDEX.md \
               docs/adr/019-pre-10-stability-policy.md \
               docs/adr/020-spring-boot-4-starter.md \
