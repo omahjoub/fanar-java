@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +27,7 @@ import qa.fanar.core.internal.transport.BearerTokenInterceptor;
 import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
+import qa.fanar.core.internal.transport.StreamFlag;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
@@ -194,32 +194,7 @@ public final class ChatClientImpl implements ChatClient {
         if (!streaming) {
             return serialized;
         }
-        return injectStreamFlag(serialized);
-    }
-
-    /**
-     * Inject {@code "stream":true} as the first property of the serialized {@link ChatRequest}
-     * JSON object. Handles both {@code {}} (no comma needed) and {@code {"k":v,...}} (comma
-     * between the injected flag and the existing first key).
-     */
-    private static byte[] injectStreamFlag(byte[] src) {
-        if (src.length < 2 || src[0] != '{') {
-            throw new FanarTransportException(
-                    "JSON codec produced an unexpected body shape (non-object or empty)");
-        }
-        byte[] prefix = "{\"stream\":true".getBytes(StandardCharsets.UTF_8);
-        boolean emptyObject = src.length == 2; // "{}"
-        int rest = src.length - 1; // everything after the opening '{'
-        int resultLen = prefix.length + (emptyObject ? 0 : 1) + rest;
-        byte[] result = new byte[resultLen];
-        int pos = 0;
-        System.arraycopy(prefix, 0, result, pos, prefix.length);
-        pos += prefix.length;
-        if (!emptyObject) {
-            result[pos++] = ',';
-        }
-        System.arraycopy(src, 1, result, pos, rest);
-        return result;
+        return StreamFlag.inject(serialized);
     }
 
     private ChatResponse decodeResponse(HttpResponse<InputStream> response) {

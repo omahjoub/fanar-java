@@ -33,6 +33,7 @@ Every ADR follows an extended Michael Nygard template:
 - [006 — Unchecked exception hierarchy](006-unchecked-exception-hierarchy.md)
 - [015 — Hand-written DTO conventions](015-dto-conventions.md)
 - [016 — FanarClient builder and domain facades](016-fanarclient-builder-domain-facades.md)
+- [023 — Streaming TTS via Flow.Publisher&lt;byte[]&gt;](023-streaming-tts-via-flow-publisher.md)
 
 ### Transport and serialization
 
@@ -57,3 +58,4 @@ Every ADR follows an extended Michael Nygard template:
 - [020 — Spring Boot 4 starter shape](020-spring-boot-4-starter.md)
 - [021 — Spring AI 2.0 adapter](021-spring-ai-2-adapter.md)
 - [022 — Observability composition via `compose(...)` factory](022-observability-compose-factory.md)
+- [024 — Spring AI vendor options (FanarChatOptions family)](024-spring-ai-vendor-options.md)

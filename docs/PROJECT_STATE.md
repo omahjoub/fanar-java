@@ -1,32 +1,35 @@
 # Project state
 
-> **Snapshot — 2026-04-28.** Updated on every milestone. If this looks wrong or stale, that is
+> **Snapshot — 2026-08-06.** Updated on every milestone. If this looks wrong or stale, that is
 > the signal — update it in the same PR as whatever moved.
 
 ## Phase
 
-**Implementation phase — framework adapters shipping.** The core SDK and all Fanar domains
-are feature-complete with 100 % JaCoCo coverage and live e2e tests against the real API. Spring
-Boot 4 + Spring AI 2.0 starters are merged with sample apps. Pre-1.0; no Maven Central
-artifacts yet.
+**0.2.0 in flight — 2026-08 spec absorbed on `main`.** The refreshed Fanar OpenAPI spec
+(downloaded 2026-08-05; `openapi.json` normative + new `openapi.yaml` twin) is fully modelled:
+`Fanar-Sadiq-2` + `persona` + `madhab`, streamed + emotional TTS, rich voice catalogue, image
+prompt revision, the 499 `client_closed_request` error, envelope-code error routing, and Spring
+AI vendor options. All shipping modules hold the 100 % JaCoCo gate. Pre-1.0; no Maven Central
+artifacts yet (0.1.0 shipped 2026-04-28 as a GitHub Release).
 
 ## Shipped
 
 | Layer | Module(s) | Highlights |
 |---|---|---|
-| Core SDK | `fanar-core` | `FanarClient` + 8 typed domain facades (chat / models / tokens / moderations / translations / poems / images / audio). Sealed `FanarException` hierarchy. SSE streaming via `Flow.Publisher<StreamEvent>`. Sync + async + streaming. 100 % JaCoCo. |
-| JSON codecs | `fanar-json-jackson2`, `fanar-json-jackson3` | Snake-case wire format, NON_NULL inclusion, six flattening deserializers, generic wire-value module, `ServiceLoader` discovery, GraalVM reachability metadata. |
+| Core SDK | `fanar-core` | `FanarClient` + 8 typed domain facades (chat / models / tokens / moderations / translations / poems / images / audio). Sealed `FanarException` hierarchy (14 subtypes; mapper routes by envelope `error.code` with HTTP-status fallback). SSE streaming via `Flow.Publisher<StreamEvent>` + streamed TTS via `Flow.Publisher<byte[]>` (ADR-023). Sync + async + streaming. 2026-08 spec parity: `Fanar-Sadiq-2`, `persona`, `madhab`, `with_emotion`, rich `AvailableVoice` catalogue, image `revise`/`revised_prompt`. 100 % JaCoCo. |
+| JSON codecs | `fanar-json-jackson2`, `fanar-json-jackson3` | Snake-case wire format, NON_NULL inclusion, six flattening deserializers, generic wire-value module (18 value classes incl. `Madhab`, `VoiceType`), `ServiceLoader` discovery, GraalVM reachability metadata. |
 | Observability | `fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer` | One adapter per backend; opt-in (no `ServiceLoader`). `ObservabilityPlugin.compose(...)` factory wires multiple adapters into a single slot. |
 | Interceptors | `fanar-interceptor-logging` | OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`), SLF4J sink at `fanar.wire`, redaction, body cap, streaming-aware. |
-| Live tests | `fanar-java-e2e` | Parameterized over both codecs. 19 chat-completion shapes × 2 codecs + every other domain (audio TTS+STT, voices, images, translations, moderations, tokens, models, poems). Gated on `FANAR_API_KEY`. |
+| Live tests | `fanar-java-e2e` | Parameterized over both codecs. 21 chat-completion shapes × 2 codecs (incl. persona + gated Sadiq-2 madhab) + every other domain (audio TTS incl. streaming + emotion, STT on one shared clip, voices, images incl. revision, translations, moderations, tokens, models, poems). Gated on `FANAR_API_KEY`. |
 | GraalVM | `fanar-java-e2e-graalvm` | Fat-jar + `native-image` profile. Self-test mode (offline: 9 decode + 9 encode probes + obs plugins + interceptor) and live mode covering every domain. CI: PR-time native-smoke + workflow-dispatch metadata bootstrap. |
 | Spring Boot 4 | `fanar-spring-boot-4-starter`, `fanar-spring-boot-4-sample` | `@AutoConfiguration` + typed `FanarProperties` record + auto-wired `Interceptor` / `ObservabilityPlugin` beans + `FanarHealthIndicator` (Actuator). Sample app exercises the wiring end-to-end. |
-| Spring AI 2.0 | `fanar-spring-ai-starter`, `fanar-spring-ai-sample` | `ChatModel` (with streaming) + `ImageModel` + `TextToSpeechModel` + `TranscriptionModel` adapters, depending on the SB4 starter. Sample uses `ChatClient` with `MessageChatMemoryAdvisor` for multi-turn. Pinned to Spring AI `2.0.0-M4`. |
+| Spring AI 2.0 | `fanar-spring-ai-starter`, `fanar-spring-ai-sample` | `ChatModel` (real token streaming) + `ImageModel` (revision metadata + `created`) + `TextToSpeechModel` (real chunk streaming) + `TranscriptionModel` adapters, plus vendor options `FanarChatOptions` / `FanarTextToSpeechOptions` / `FanarImageOptions` (ADR-024). Sample uses `ChatClient` with `MessageChatMemoryAdvisor` for multi-turn. Spring AI `2.0.0`. |
 | Build / CI | parent POM, `.github/workflows/ci.yml` | Java 21 + 25 matrix, JaCoCo 100 % gate on every shipping module, `dependency:analyze` strict mode, doclint at javac time, JaCoCo report uploaded as artifact on failure for flake diagnosis, `-parameters` flag enabled globally. |
 
 ## Planned
 
-- **Maven Central publication** — Sonatype account, GPG signing, release workflow, version-bump policy. Gates v0.1.0.
+- **0.2.0 release** — Pattern B release-and-bump flow once the spec-parity PRs land on `main`.
+- **Maven Central publication** — Sonatype account, GPG signing, release workflow, version-bump policy. (Intro email to the Fanar team sent 2026-05-01; awaiting Sonatype-path pointer.)
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.

@@ -31,6 +31,14 @@
   "fields":[{"name":"value"}]
 },
 {
+  "name":"qa.fanar.core.audio.AvailableVoice",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.util.List","qa.fanar.core.audio.VoiceType","boolean"] }]
+},
+{
   "name":"qa.fanar.core.audio.CreateVoiceRequest",
   "allDeclaredFields":true,
   "allRecordComponents":true,
@@ -44,7 +52,7 @@
   "allRecordComponents":true,
   "queryAllDeclaredMethods":true,
   "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"input","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"quranReciter","parameterTypes":[] }, {"name":"responseFormat","parameterTypes":[] }, {"name":"voice","parameterTypes":[] }]
+  "methods":[{"name":"input","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"quranReciter","parameterTypes":[] }, {"name":"responseFormat","parameterTypes":[] }, {"name":"voice","parameterTypes":[] }, {"name":"withEmotion","parameterTypes":[] }]
 },
 {
   "name":"qa.fanar.core.audio.TranscriptionRequest",
@@ -84,7 +92,7 @@
   "allRecordComponents":true,
   "queryAllDeclaredMethods":true,
   "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"bestOf","parameterTypes":[] }, {"name":"bookNames","parameterTypes":[] }, {"name":"earlyStopping","parameterTypes":[] }, {"name":"enableThinking","parameterTypes":[] }, {"name":"excludeSources","parameterTypes":[] }, {"name":"filterSources","parameterTypes":[] }, {"name":"frequencyPenalty","parameterTypes":[] }, {"name":"ignoreEos","parameterTypes":[] }, {"name":"lengthPenalty","parameterTypes":[] }, {"name":"logitBias","parameterTypes":[] }, {"name":"logprobs","parameterTypes":[] }, {"name":"maxTokens","parameterTypes":[] }, {"name":"messages","parameterTypes":[] }, {"name":"minP","parameterTypes":[] }, {"name":"minTokens","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"n","parameterTypes":[] }, {"name":"preferredSources","parameterTypes":[] }, {"name":"presencePenalty","parameterTypes":[] }, {"name":"promptLogprobs","parameterTypes":[] }, {"name":"repetitionPenalty","parameterTypes":[] }, {"name":"restrictToIslamic","parameterTypes":[] }, {"name":"skipSpecialTokens","parameterTypes":[] }, {"name":"spacesBetweenSpecialTokens","parameterTypes":[] }, {"name":"stop","parameterTypes":[] }, {"name":"stopTokenIds","parameterTypes":[] }, {"name":"temperature","parameterTypes":[] }, {"name":"topK","parameterTypes":[] }, {"name":"topLogprobs","parameterTypes":[] }, {"name":"topP","parameterTypes":[] }, {"name":"truncatePromptTokens","parameterTypes":[] }]
+  "methods":[{"name":"bestOf","parameterTypes":[] }, {"name":"bookNames","parameterTypes":[] }, {"name":"earlyStopping","parameterTypes":[] }, {"name":"enableThinking","parameterTypes":[] }, {"name":"excludeSources","parameterTypes":[] }, {"name":"filterSources","parameterTypes":[] }, {"name":"frequencyPenalty","parameterTypes":[] }, {"name":"ignoreEos","parameterTypes":[] }, {"name":"lengthPenalty","parameterTypes":[] }, {"name":"logitBias","parameterTypes":[] }, {"name":"logprobs","parameterTypes":[] }, {"name":"madhab","parameterTypes":[] }, {"name":"maxTokens","parameterTypes":[] }, {"name":"messages","parameterTypes":[] }, {"name":"minP","parameterTypes":[] }, {"name":"minTokens","parameterTypes":[] }, {"name":"model","parameterTypes":[] }, {"name":"n","parameterTypes":[] }, {"name":"persona","parameterTypes":[] }, {"name":"preferredSources","parameterTypes":[] }, {"name":"presencePenalty","parameterTypes":[] }, {"name":"promptLogprobs","parameterTypes":[] }, {"name":"repetitionPenalty","parameterTypes":[] }, {"name":"restrictToIslamic","parameterTypes":[] }, {"name":"skipSpecialTokens","parameterTypes":[] }, {"name":"spacesBetweenSpecialTokens","parameterTypes":[] }, {"name":"stop","parameterTypes":[] }, {"name":"stopTokenIds","parameterTypes":[] }, {"name":"temperature","parameterTypes":[] }, {"name":"topK","parameterTypes":[] }, {"name":"topLogprobs","parameterTypes":[] }, {"name":"topP","parameterTypes":[] }, {"name":"truncatePromptTokens","parameterTypes":[] }]
 },
 {
   "name":"qa.fanar.core.chat.ChatResponse",
@@ -169,7 +177,7 @@
   "allRecordComponents":true,
   "queryAllDeclaredMethods":true,
   "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String"] }]
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","boolean","java.lang.String"] }]
 },
 {
   "name":"qa.fanar.core.images.ImageGenerationRequest",
@@ -177,7 +185,7 @@
   "allRecordComponents":true,
   "queryAllDeclaredMethods":true,
   "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"model","parameterTypes":[] }, {"name":"prompt","parameterTypes":[] }]
+  "methods":[{"name":"model","parameterTypes":[] }, {"name":"prompt","parameterTypes":[] }, {"name":"revise","parameterTypes":[] }]
 },
 {
   "name":"qa.fanar.core.images.ImageGenerationResponse",

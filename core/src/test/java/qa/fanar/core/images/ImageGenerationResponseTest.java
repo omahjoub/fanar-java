@@ -13,7 +13,7 @@ class ImageGenerationResponseTest {
 
     @Test
     void holdsAllFields() {
-        ImageGenerationItem item = new ImageGenerationItem("aGVsbG8=");
+        ImageGenerationItem item = new ImageGenerationItem("aGVsbG8=", false, "p");
         ImageGenerationResponse r = new ImageGenerationResponse(
                 "req_1", 1_700_000_000L, List.of(item));
         assertEquals("req_1", r.id());
@@ -37,12 +37,12 @@ class ImageGenerationResponseTest {
     @Test
     void dataListIsDefensivelyCopiedAndUnmodifiable() {
         List<ImageGenerationItem> src = new ArrayList<>();
-        src.add(new ImageGenerationItem("a"));
+        src.add(new ImageGenerationItem("a", false, "p"));
         ImageGenerationResponse r = new ImageGenerationResponse("req", 0L, src);
-        src.add(new ImageGenerationItem("b"));
+        src.add(new ImageGenerationItem("b", false, "p"));
         assertEquals(1, r.data().size());
         assertNotSame(src, r.data());
         assertThrows(UnsupportedOperationException.class,
-                () -> r.data().add(new ImageGenerationItem("c")));
+                () -> r.data().add(new ImageGenerationItem("c", false, "p")));
     }
 }

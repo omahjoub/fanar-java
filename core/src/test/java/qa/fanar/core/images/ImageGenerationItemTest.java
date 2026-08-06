@@ -9,12 +9,17 @@ class ImageGenerationItemTest {
 
     @Test
     void holdsBase64Field() {
-        ImageGenerationItem item = new ImageGenerationItem("aGVsbG8=");
+        ImageGenerationItem item = new ImageGenerationItem("aGVsbG8=", true, "a refined sunset");
         assertEquals("aGVsbG8=", item.b64Json());
     }
 
     @Test
     void rejectsNullBase64() {
-        assertThrows(NullPointerException.class, () -> new ImageGenerationItem(null));
+        assertThrows(NullPointerException.class, () -> new ImageGenerationItem(null, false, "p"));
+    }
+
+    @Test
+    void rejectsNullRevisedPrompt() {
+        assertThrows(NullPointerException.class, () -> new ImageGenerationItem("aGVsbG8=", false, null));
     }
 }

@@ -18,6 +18,9 @@ import java.util.Set;
  */
 public record Voice(String wireValue) {
 
+    /** Male, Standard — Arabic. Supports emotional synthesis ({@code with_emotion}). */
+    public static final Voice ABDULRAHMAN = new Voice("Abdulrahman");
+
     /** Female, British accent — English. */
     public static final Voice AMELIA = new Voice("Amelia");
 
@@ -42,10 +45,13 @@ public record Voice(String wireValue) {
     /** Female, Standard — Arabic. */
     public static final Voice NOOR   = new Voice("Noor");
 
+    /** Female, Standard — Arabic. Supports emotional synthesis ({@code with_emotion}). */
+    public static final Voice RADWA  = new Voice("Radwa");
+
     /** Snapshot of the SDK's bundled built-in voices. Custom voices created via the API are
      *  outside this set but still valid via {@link #of(String)}. */
     public static final Set<Voice> KNOWN = Set.of(
-            AMELIA, EMILY, HAMAD, HARRY, HUDA, JAKE, JASIM, NOOR);
+            ABDULRAHMAN, AMELIA, EMILY, HAMAD, HARRY, HUDA, JAKE, JASIM, NOOR, RADWA);
 
     public Voice {
         Objects.requireNonNull(wireValue, "wireValue");

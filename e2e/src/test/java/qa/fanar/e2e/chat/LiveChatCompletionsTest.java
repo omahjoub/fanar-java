@@ -143,6 +143,35 @@ class LiveChatCompletionsTest {
         }
     }
 
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§2.5 Sadiq with a custom persona lands on the wire and replies")
+    void conversation_sadiqWithPersona(FanarJsonCodec codec) {
+        try (FanarClient client = liveClient(codec)) {
+            ChatResponse r = client.chat().send(Probes.sadiqWithPersona());
+            assertNotNull(r.id(), "response id must be present");
+            assertNotNull(textOf(r), "persona-flavoured Sadiq must still return text");
+        }
+    }
+
+    /**
+     * {@code Fanar-Sadiq-2} requires additional authorization (spec-documented). Observed
+     * 2026-08-06: the model gate answers <strong>HTTP 422</strong> {@code unprocessable} /
+     * "Model not authorized" — not 403 — so an un-upgraded key surfaces
+     * {@code FanarUnprocessableException} and fails loudly. That is the desired diagnostic
+     * signal, not a flake; the request itself (typed madhab wire format) is accepted up to the
+     * authorization check. See {@link Probes#sadiq2WithMadhab()}.
+     */
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§2.6 Sadiq-2 with a typed madhab filter (gated — 422 'Model not authorized' until key upgraded)")
+    void conversation_sadiq2WithMadhab(FanarJsonCodec codec) {
+        try (FanarClient client = liveClient(codec)) {
+            ChatResponse r = client.chat().send(Probes.sadiq2WithMadhab());
+            assertNotNull(r.id(), "response id must be present");
+        }
+    }
+
     // =====================================================================================
     // §3 — Sampling determinism.
     // =====================================================================================

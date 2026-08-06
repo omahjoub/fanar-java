@@ -39,6 +39,10 @@ import qa.fanar.core.chat.UserMessage;
  * {@code Flow.Publisher<StreamEvent>} to Reactor {@code Flux<ChatResponse>} with one
  * {@code ChatResponse} per Fanar token chunk — Spring AI's {@code ChatClient} accumulates them.</p>
  *
+ * <p>Portable {@link ChatOptions} map to their Fanar equivalents; pass a
+ * {@link FanarChatOptions} to additionally reach the Fanar-only knobs (persona, madhab,
+ * thinking mode, Islamic-RAG scoping, vLLM sampling) — see ADR-024.</p>
+ *
  * <p>What the adapter does <em>not</em> do:</p>
  * <ul>
  *   <li><b>Tool calls.</b> Fanar's API rejects user-supplied tools (it returns server-internal
@@ -141,6 +145,85 @@ public final class FanarChatModel implements ChatModel {
         }
         if (options.getStopSequences() != null && !options.getStopSequences().isEmpty()) {
             builder.stop(options.getStopSequences());
+        }
+        if (options instanceof FanarChatOptions fanarOptions) {
+            applyFanarOptions(builder, fanarOptions);
+        }
+    }
+
+    /** Fanar extras beyond the portable {@link ChatOptions} surface (ADR-024). */
+    private static void applyFanarOptions(ChatRequest.Builder builder, FanarChatOptions o) {
+        if (o.getPersona() != null) {
+            builder.persona(o.getPersona());
+        }
+        if (o.getMadhab() != null) {
+            builder.madhab(o.getMadhab());
+        }
+        if (o.getEnableThinking() != null) {
+            builder.enableThinking(o.getEnableThinking());
+        }
+        if (o.getRestrictToIslamic() != null) {
+            builder.restrictToIslamic(o.getRestrictToIslamic());
+        }
+        if (o.getBookNames() != null) {
+            builder.bookNames(o.getBookNames());
+        }
+        if (o.getPreferredSources() != null) {
+            builder.preferredSources(o.getPreferredSources());
+        }
+        if (o.getExcludeSources() != null) {
+            builder.excludeSources(o.getExcludeSources());
+        }
+        if (o.getFilterSources() != null) {
+            builder.filterSources(o.getFilterSources());
+        }
+        if (o.getLogitBias() != null) {
+            builder.logitBias(o.getLogitBias());
+        }
+        if (o.getLogprobs() != null) {
+            builder.logprobs(o.getLogprobs());
+        }
+        if (o.getTopLogprobs() != null) {
+            builder.topLogprobs(o.getTopLogprobs());
+        }
+        if (o.getN() != null) {
+            builder.n(o.getN());
+        }
+        if (o.getMinP() != null) {
+            builder.minP(o.getMinP());
+        }
+        if (o.getRepetitionPenalty() != null) {
+            builder.repetitionPenalty(o.getRepetitionPenalty());
+        }
+        if (o.getBestOf() != null) {
+            builder.bestOf(o.getBestOf());
+        }
+        if (o.getLengthPenalty() != null) {
+            builder.lengthPenalty(o.getLengthPenalty());
+        }
+        if (o.getEarlyStopping() != null) {
+            builder.earlyStopping(o.getEarlyStopping());
+        }
+        if (o.getStopTokenIds() != null) {
+            builder.stopTokenIds(o.getStopTokenIds());
+        }
+        if (o.getIgnoreEos() != null) {
+            builder.ignoreEos(o.getIgnoreEos());
+        }
+        if (o.getMinTokens() != null) {
+            builder.minTokens(o.getMinTokens());
+        }
+        if (o.getSkipSpecialTokens() != null) {
+            builder.skipSpecialTokens(o.getSkipSpecialTokens());
+        }
+        if (o.getSpacesBetweenSpecialTokens() != null) {
+            builder.spacesBetweenSpecialTokens(o.getSpacesBetweenSpecialTokens());
+        }
+        if (o.getTruncatePromptTokens() != null) {
+            builder.truncatePromptTokens(o.getTruncatePromptTokens());
+        }
+        if (o.getPromptLogprobs() != null) {
+            builder.promptLogprobs(o.getPromptLogprobs());
         }
     }
 

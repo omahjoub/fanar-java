@@ -6,8 +6,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
+import qa.fanar.core.ErrorCode;
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarAuthorizationException;
+import qa.fanar.core.FanarClientClosedRequestException;
 import qa.fanar.core.FanarConflictException;
 import qa.fanar.core.FanarContentFilterException;
 import qa.fanar.core.FanarException;
@@ -15,6 +17,7 @@ import qa.fanar.core.FanarGoneException;
 import qa.fanar.core.FanarInternalServerException;
 import qa.fanar.core.FanarNotFoundException;
 import qa.fanar.core.FanarOverloadedException;
+import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
@@ -24,15 +27,16 @@ import qa.fanar.core.FanarUnprocessableException;
  * Maps an error {@link HttpResponse} (status code ≥ 400) to the matching
  * {@link FanarException} subtype per ADR-006 and the Fanar OpenAPI spec.
  *
- * <p>This first pass distinguishes exceptions by HTTP status only. A later PR will parse the
- * typed {@code ErrorCode} from the response body so we can, for example, distinguish
- * {@link FanarRateLimitException} (transient) from {@code FanarQuotaExceededException}
- * (permanent) — both HTTP 429. For now HTTP 429 always maps to rate-limit, which is the safe
- * default (the retry interceptor will give up after the configured attempt count regardless).</p>
+ * <p>Routing is two-stage. When the body is a well-formed Fanar error envelope
+ * ({@code {"error":{"code":…,"message":…,"status":…}}}), the typed {@link ErrorCode} decides the
+ * subtype — this is what distinguishes {@link FanarQuotaExceededException} (permanent) from
+ * {@link FanarRateLimitException} (transient), both HTTP 429, and keeps a non-filter 400 from
+ * masquerading as a {@link FanarContentFilterException}. When the body is anything else (blank,
+ * HTML from an intermediary, truncated JSON) or carries an unknown code, the HTTP status decides.</p>
  *
- * <p>Reads and closes the response body. The error message is the body text when non-blank,
- * falling back to a canonical status description otherwise. The {@code Retry-After} header is
- * honoured for HTTP 429.</p>
+ * <p>Reads and closes the response body. The exception message is the envelope's {@code message}
+ * when present, the raw body text otherwise, falling back to a canonical status description when
+ * both are blank. The {@code Retry-After} header is honoured for rate-limit errors.</p>
  *
  * <p>Internal (ADR-018).</p>
  *
@@ -47,8 +51,34 @@ public final class ExceptionMapper {
     public static FanarException map(HttpResponse<InputStream> response) {
         int status = response.statusCode();
         String body = readBody(response);
-        String detail = body.isBlank() ? defaultReason(status) : body;
+        ErrorEnvelope envelope = ErrorEnvelope.tryParse(body);
+        String detail = detail(envelope, body, status);
 
+        ErrorCode code = envelope == null ? null : tryFromWireValue(envelope.code());
+        return code != null ? byCode(code, detail, response) : byStatus(status, detail, response);
+    }
+
+    /** One subtype per {@link ErrorCode} (ADR-006); the server's typed code is authoritative. */
+    private static FanarException byCode(ErrorCode code, String detail, HttpResponse<InputStream> response) {
+        return switch (code) {
+            case CONTENT_FILTER         -> new FanarContentFilterException(detail);
+            case INVALID_AUTHENTICATION -> new FanarAuthenticationException(detail);
+            case INVALID_AUTHORIZATION  -> new FanarAuthorizationException(detail);
+            case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, parseRetryAfter(response));
+            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail);
+            case INTERNAL_SERVER_ERROR  -> new FanarInternalServerException(detail);
+            case OVERLOADED             -> new FanarOverloadedException(detail);
+            case TIMEOUT                -> new FanarTimeoutException(detail);
+            case TOO_LARGE              -> new FanarTooLargeException(detail);
+            case UNPROCESSABLE          -> new FanarUnprocessableException(detail);
+            case CONFLICT               -> new FanarConflictException(detail);
+            case NOT_FOUND              -> new FanarNotFoundException(detail);
+            case NO_LONGER_SUPPORTED    -> new FanarGoneException(detail);
+            case CLIENT_CLOSED_REQUEST  -> new FanarClientClosedRequestException(detail);
+        };
+    }
+
+    private static FanarException byStatus(int status, String detail, HttpResponse<InputStream> response) {
         return switch (status) {
             case 400 -> new FanarContentFilterException(detail);
             case 401 -> new FanarAuthenticationException(detail);
@@ -59,11 +89,28 @@ public final class ExceptionMapper {
             case 413 -> new FanarTooLargeException(detail);
             case 422 -> new FanarUnprocessableException(detail);
             case 429 -> new FanarRateLimitException(detail, parseRetryAfter(response));
+            case 499 -> new FanarClientClosedRequestException(detail);
             case 500 -> new FanarInternalServerException(detail);
             case 503 -> new FanarOverloadedException(detail);
             case 504 -> new FanarTimeoutException(detail);
             default -> new FanarInternalServerException("HTTP " + status + ": " + detail);
         };
+    }
+
+    private static String detail(ErrorEnvelope envelope, String body, int status) {
+        if (envelope != null && envelope.message() != null && !envelope.message().isBlank()) {
+            return envelope.message();
+        }
+        return body.isBlank() ? defaultReason(status) : body;
+    }
+
+    private static ErrorCode tryFromWireValue(String wireValue) {
+        try {
+            return ErrorCode.fromWireValue(wireValue);
+        } catch (IllegalArgumentException e) {
+            // A code this SDK version doesn't know (newer server) — fall back to status routing.
+            return null;
+        }
     }
 
     private static String readBody(HttpResponse<InputStream> response) {
@@ -100,6 +147,7 @@ public final class ExceptionMapper {
             case 413 -> "Request entity too large";
             case 422 -> "Unprocessable entity";
             case 429 -> "Rate limit reached";
+            case 499 -> "Client closed request";
             case 500 -> "Internal server error";
             case 503 -> "Service overloaded";
             case 504 -> "Upstream timeout";

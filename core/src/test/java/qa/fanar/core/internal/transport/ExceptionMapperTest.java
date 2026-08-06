@@ -17,9 +17,13 @@ import java.util.Optional;
 import javax.net.ssl.SSLSession;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarAuthorizationException;
+import qa.fanar.core.FanarClientClosedRequestException;
 import qa.fanar.core.FanarConflictException;
 import qa.fanar.core.FanarContentFilterException;
 import qa.fanar.core.FanarException;
@@ -27,10 +31,12 @@ import qa.fanar.core.FanarGoneException;
 import qa.fanar.core.FanarInternalServerException;
 import qa.fanar.core.FanarNotFoundException;
 import qa.fanar.core.FanarOverloadedException;
+import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
 import qa.fanar.core.FanarUnprocessableException;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -114,8 +120,95 @@ class ExceptionMapperTest {
     }
 
     @Test
+    void status499MapsToClientClosedRequest() {
+        assertInstanceOf(FanarClientClosedRequestException.class, ExceptionMapper.map(response(499, "", Map.of())));
+    }
+
+    @Test
     void status504MapsToTimeout() {
         assertInstanceOf(FanarTimeoutException.class, ExceptionMapper.map(response(504, "", Map.of())));
+    }
+
+    // --- envelope-code routing (the typed code is authoritative; status is the fallback)
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("envelopeCodes")
+    void envelopeCodeDecidesTheSubtype(String wireCode, Class<? extends FanarException> expected) {
+        // Status deliberately unknown (418) to prove the typed code wins over status routing.
+        String body = "{\"error\":{\"code\":\"" + wireCode + "\",\"message\":\"m\",\"status\":418}}";
+        FanarException ex = ExceptionMapper.map(response(418, body, Map.of()));
+        assertInstanceOf(expected, ex);
+        assertEquals("m", ex.getMessage());
+    }
+
+    static Stream<Arguments> envelopeCodes() {
+        return Stream.of(
+                Arguments.of("content_filter", FanarContentFilterException.class),
+                Arguments.of("invalid_authentication", FanarAuthenticationException.class),
+                Arguments.of("invalid_authorization", FanarAuthorizationException.class),
+                Arguments.of("rate_limit_reached", FanarRateLimitException.class),
+                Arguments.of("exceeded_quota", FanarQuotaExceededException.class),
+                Arguments.of("internal_server_error", FanarInternalServerException.class),
+                Arguments.of("overloaded", FanarOverloadedException.class),
+                Arguments.of("timeout", FanarTimeoutException.class),
+                Arguments.of("too_large", FanarTooLargeException.class),
+                Arguments.of("unprocessable", FanarUnprocessableException.class),
+                Arguments.of("conflict", FanarConflictException.class),
+                Arguments.of("Not found", FanarNotFoundException.class),
+                Arguments.of("no_longer_supported", FanarGoneException.class),
+                Arguments.of("client_closed_request", FanarClientClosedRequestException.class));
+    }
+
+    @Test
+    void quotaEnvelopeOn429IsNotRateLimit() {
+        // Both wire as HTTP 429; only the typed code can distinguish permanent quota exhaustion
+        // from transient throttling. Pure status routing used to collapse both to rate-limit.
+        String body = "{\"error\":{\"code\":\"exceeded_quota\",\"message\":\"quota exhausted\",\"status\":429}}";
+        FanarException ex = ExceptionMapper.map(response(429, body, Map.of()));
+        assertInstanceOf(FanarQuotaExceededException.class, ex);
+        assertEquals("quota exhausted", ex.getMessage());
+    }
+
+    @Test
+    void nonFilterEnvelopeOn400IsNotContentFilter() {
+        String body = "{\"error\":{\"code\":\"unprocessable\",\"message\":\"bad shape\",\"status\":400}}";
+        assertInstanceOf(FanarUnprocessableException.class, ExceptionMapper.map(response(400, body, Map.of())));
+    }
+
+    @Test
+    void rateLimitEnvelopeStillHonorsRetryAfter() {
+        String body = "{\"error\":{\"code\":\"rate_limit_reached\",\"message\":\"slow down\",\"status\":429}}";
+        FanarException ex = ExceptionMapper.map(response(429, body, Map.of("Retry-After", List.of("7"))));
+        assertEquals(Duration.ofSeconds(7), ((FanarRateLimitException) ex).retryAfter());
+    }
+
+    @Test
+    void unknownEnvelopeCodeFallsBackToStatusRoutingButKeepsTheMessage() {
+        String body = "{\"error\":{\"code\":\"flux_capacitor\",\"message\":\"m\",\"status\":503}}";
+        FanarException ex = ExceptionMapper.map(response(503, body, Map.of()));
+        assertInstanceOf(FanarOverloadedException.class, ex);
+        assertEquals("m", ex.getMessage());
+    }
+
+    @Test
+    void malformedEnvelopeFallsBackToStatusRoutingWithRawBody() {
+        FanarException ex = ExceptionMapper.map(response(409, "{\"error\":{\"code\":", Map.of()));
+        assertInstanceOf(FanarConflictException.class, ex);
+        assertEquals("{\"error\":{\"code\":", ex.getMessage());
+    }
+
+    @Test
+    void envelopeWithoutMessageFallsBackToRawBody() {
+        String body = "{\"error\":{\"code\":\"conflict\",\"status\":409}}";
+        FanarException ex = ExceptionMapper.map(response(409, body, Map.of()));
+        assertInstanceOf(FanarConflictException.class, ex);
+        assertEquals(body, ex.getMessage());
+    }
+
+    @Test
+    void envelopeWithBlankMessageFallsBackToRawBody() {
+        String body = "{\"error\":{\"code\":\"conflict\",\"message\":\"\",\"status\":409}}";
+        assertEquals(body, ExceptionMapper.map(response(409, body, Map.of())).getMessage());
     }
 
     @Test
@@ -142,6 +235,7 @@ class ExceptionMapperTest {
         assertEquals("Request entity too large", ExceptionMapper.map(response(413, "", Map.of())).getMessage());
         assertEquals("Unprocessable entity", ExceptionMapper.map(response(422, "", Map.of())).getMessage());
         assertEquals("Rate limit reached", ExceptionMapper.map(response(429, "", Map.of())).getMessage());
+        assertEquals("Client closed request", ExceptionMapper.map(response(499, "", Map.of())).getMessage());
         assertEquals("Internal server error", ExceptionMapper.map(response(500, "", Map.of())).getMessage());
         assertEquals("Service overloaded", ExceptionMapper.map(response(503, "", Map.of())).getMessage());
         assertEquals("Upstream timeout", ExceptionMapper.map(response(504, "", Map.of())).getMessage());

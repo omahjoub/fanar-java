@@ -4,7 +4,9 @@ Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI 
 
 > **Status:** pre-1.0. The core SDK and every Fanar domain (chat, audio, images, translations,
 > moderations, tokens, models, poems) are implemented with 100 % JaCoCo coverage and battle-tested
-> against the live API. Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
+> against the live API, tracking the 2026-08 Fanar spec: madhab-aware `Fanar-Sadiq-2`, custom
+> personas, streamed + emotional TTS, rich voice catalogue, and culturally-aligned image prompt
+> revision. Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
 > Not yet on Maven Central — install via `./mvnw install` for now.
 
 ## Why this SDK?
@@ -36,12 +38,12 @@ Three install paths depending on your stack.
     <dependency>
         <groupId>qa.fanar</groupId>
         <artifactId>fanar-core</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.2.0-SNAPSHOT</version>
     </dependency>
     <dependency>
         <groupId>qa.fanar</groupId>
         <artifactId>fanar-json-jackson3</artifactId>     <!-- or fanar-json-jackson2 -->
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.2.0-SNAPSHOT</version>
     </dependency>
 </dependencies>
 ```
@@ -62,7 +64,7 @@ try (FanarClient client = FanarClient.builder().apiKey(System.getenv("FANAR_API_
 <dependency>
     <groupId>qa.fanar</groupId>
     <artifactId>fanar-spring-boot-4-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -86,7 +88,7 @@ class MyController {
 <dependency>
     <groupId>qa.fanar</groupId>
     <artifactId>fanar-spring-ai-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -131,4 +133,4 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 - [ADRs](docs/adr/INDEX.md) — non-obvious design decisions.
 - [Library best practices](docs/JAVA_LIBRARY_BEST_PRACTICES.md) — internal hygiene rules.
 - [Contributing](docs/CONTRIBUTING.md) — workflow, conventions.
-- [Fanar OpenAPI spec](api-spec/openapi.json) — the wire contract we model.
+- [Fanar OpenAPI spec](api-spec/openapi.json) — the wire contract we model (normative; [YAML twin](api-spec/openapi.yaml) provided for convenience).

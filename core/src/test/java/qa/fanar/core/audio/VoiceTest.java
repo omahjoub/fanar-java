@@ -31,7 +31,8 @@ class VoiceTest {
 
     @Test
     void knownContainsBundledConstants() {
-        assertEquals(8, Voice.KNOWN.size());
+        assertEquals(10, Voice.KNOWN.size());
+        assertTrue(Voice.KNOWN.contains(Voice.ABDULRAHMAN));
         assertTrue(Voice.KNOWN.contains(Voice.AMELIA));
         assertTrue(Voice.KNOWN.contains(Voice.EMILY));
         assertTrue(Voice.KNOWN.contains(Voice.HAMAD));
@@ -40,5 +41,6 @@ class VoiceTest {
         assertTrue(Voice.KNOWN.contains(Voice.JAKE));
         assertTrue(Voice.KNOWN.contains(Voice.JASIM));
         assertTrue(Voice.KNOWN.contains(Voice.NOOR));
+        assertTrue(Voice.KNOWN.contains(Voice.RADWA));
     }
 }

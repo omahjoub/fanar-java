@@ -8,6 +8,7 @@ import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.audio.tts.TextToSpeechOptions;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.audio.tts.TextToSpeechResponse;
+import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
 
 import qa.fanar.core.FanarClient;
@@ -22,13 +23,16 @@ import qa.fanar.core.audio.Voice;
  * <p>Maps Spring AI's {@link TextToSpeechPrompt} + {@link TextToSpeechOptions} onto a Fanar
  * {@link TextToSpeechRequest} and returns the raw audio bytes wrapped as a {@link Speech}.</p>
  *
- * <p>Streaming: Fanar's TTS endpoint returns the entire synthesized audio in one HTTP response —
- * it does not chunk-stream. {@link #stream(TextToSpeechPrompt)} consequently emits exactly one
- * {@link TextToSpeechResponse} containing the full audio, which is functionally equivalent to
- * {@link #call(TextToSpeechPrompt)} but satisfies the {@code StreamingTextToSpeechModel} SPI.</p>
+ * <p>Streaming: {@link #stream(TextToSpeechPrompt)} uses Fanar's chunked delivery
+ * ({@code stream:true} on the wire) via {@code AudioClient.speechStream(...)} and emits one
+ * {@link TextToSpeechResponse} per audio chunk as the server generates it. Chunk boundaries
+ * follow transport reads — concatenate the chunks' bytes in emission order to reconstruct the
+ * full clip.</p>
  *
  * <p>Spring AI's {@link TextToSpeechOptions#getSpeed()} is silently dropped — Fanar's wire format
- * has no playback-speed parameter. Callers can resample client-side after receiving the bytes.</p>
+ * has no playback-speed parameter. Callers can resample client-side after receiving the bytes.
+ * Pass a {@link FanarTextToSpeechOptions} to reach the Fanar-only knobs (emotional synthesis,
+ * Quranic reciter) — see ADR-024.</p>
  *
  * @author Oussama Mahjoub
  */
@@ -62,18 +66,25 @@ public final class FanarTextToSpeechModel implements TextToSpeechModel {
 
     @Override
     public Flux<TextToSpeechResponse> stream(TextToSpeechPrompt prompt) {
-        // Fanar's TTS returns the full audio in one HTTP body — no incremental streaming. Wrap
-        // the sync result into a single-element Flux so consumers using ChatClient's reactive
-        // path get a uniform shape regardless of provider.
-        return Flux.defer(() -> Flux.just(call(prompt)));
+        Objects.requireNonNull(prompt, "prompt");
+        return Flux.defer(() -> JdkFlowAdapter.flowPublisherToFlux(
+                        fanar.audio().speechStream(toFanarRequest(prompt)))
+                .map(chunk -> new TextToSpeechResponse(List.of(new Speech(chunk)))));
     }
 
     private TextToSpeechRequest toFanarRequest(TextToSpeechPrompt prompt) {
         TextToSpeechOptions options = prompt.getOptions();
-        TtsModel model = resolveModel(options);
-        Voice voice = resolveVoice(options);
-        TtsResponseFormat format = resolveFormat(options);
-        return new TextToSpeechRequest(model, prompt.getInstructions().getText(), voice, format, null);
+        TextToSpeechRequest.Builder builder = TextToSpeechRequest.builder()
+                .model(resolveModel(options))
+                .input(prompt.getInstructions().getText())
+                .voice(resolveVoice(options))
+                .responseFormat(resolveFormat(options));
+        if (options instanceof FanarTextToSpeechOptions fanarOptions) {
+            // Fanar extras beyond the portable TextToSpeechOptions surface (ADR-024).
+            builder.withEmotion(fanarOptions.getWithEmotion());
+            builder.quranReciter(fanarOptions.getQuranReciter());
+        }
+        return builder.build();
     }
 
     private TtsModel resolveModel(TextToSpeechOptions options) {

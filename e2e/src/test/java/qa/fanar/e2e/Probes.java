@@ -6,6 +6,7 @@ import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.BookName;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
+import qa.fanar.core.chat.Madhab;
 import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.UserMessage;
 
@@ -125,6 +126,43 @@ public final class Probes {
                 .addMessage(UserMessage.of("Briefly summarise the meaning of Surah Al-Fatihah."))
                 .restrictToIslamic(true)
                 .bookNames(List.of(firstKnown))
+                .maxTokens(96)
+                .temperature(0.0)
+                .build();
+    }
+
+    /**
+     * Persona probe — sets a custom assistant persona on {@code Fanar-Sadiq}, the only model the
+     * spec documents as honouring {@code persona}. The companion test asserts wire acceptance
+     * (HTTP 200) and a text reply; whether the voice actually shifts is subjective and not
+     * asserted.
+     */
+    public static ChatRequest sadiqWithPersona() {
+        return ChatRequest.builder()
+                .model(ChatModel.FANAR_SADIQ)
+                .addMessage(UserMessage.of("Briefly summarise the meaning of Surah Al-Fatihah."))
+                .restrictToIslamic(true)
+                .persona("You are a warm, patient teacher who explains concepts simply for young students.")
+                .maxTokens(96)
+                .temperature(0.0)
+                .build();
+    }
+
+    /**
+     * Madhab-filtered probe for the madhab-aware Islamic RAG model.
+     *
+     * <p><strong>Gating caveat:</strong> per the Fanar spec, {@code Fanar-Sadiq-2} requires
+     * additional authorization and is not allowed by default. Observed 2026-08-06: the model
+     * gate answers HTTP 422 {@code unprocessable} / "Model not authorized" (not 403), so until
+     * our key is upgraded the companion test surfaces {@code FanarUnprocessableException} and
+     * fails loudly — the desired diagnostic signal, not a flake. Share the wire log when it
+     * happens.</p>
+     */
+    public static ChatRequest sadiq2WithMadhab() {
+        return ChatRequest.builder()
+                .model(ChatModel.FANAR_SADIQ_2)
+                .addMessage(UserMessage.of("What are the conditions for Zakat on gold?"))
+                .madhab(List.of(Madhab.HANAFI))
                 .maxTokens(96)
                 .temperature(0.0)
                 .build();

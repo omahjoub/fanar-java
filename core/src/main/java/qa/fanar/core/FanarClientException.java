@@ -15,7 +15,8 @@ public abstract sealed class FanarClientException extends FanarException
         permits FanarAuthenticationException, FanarAuthorizationException,
                 FanarQuotaExceededException, FanarNotFoundException,
                 FanarConflictException, FanarTooLargeException,
-                FanarUnprocessableException, FanarGoneException {
+                FanarUnprocessableException, FanarGoneException,
+                FanarClientClosedRequestException {
 
     protected FanarClientException(String message, ErrorCode code, int httpStatus) {
         super(message, code, httpStatus);

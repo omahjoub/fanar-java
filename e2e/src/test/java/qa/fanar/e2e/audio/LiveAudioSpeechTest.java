@@ -1,6 +1,10 @@
 package qa.fanar.e2e.audio;
 
+import java.io.ByteArrayOutputStream;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +27,7 @@ import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -72,7 +77,7 @@ class LiveAudioSpeechTest {
         try (FanarClient client = TestClients.liveWithLogging(codec)) {
             byte[] audio = client.audio().speech(new TextToSpeechRequest(
                     TtsModel.FANAR_AURA_TTS_2, "نحن بنات طارق نمشي على النمارق",
-                    Voice.HUDA, TtsResponseFormat.WAV, null));
+                    Voice.HUDA, TtsResponseFormat.WAV, null, null));
 
             assertNotNull(audio);
             assertTrue(audio.length > 12, "WAV minimum header is 12 bytes, got " + audio.length);
@@ -83,6 +88,63 @@ class LiveAudioSpeechTest {
                     "expected WAVE marker at byte 8");
 
             LiveOutputs.write("audio-output", "speech-harry-wav", "wav", audio);
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.7b speechStream (wav) delivers chunks that concatenate to a RIFF/WAVE clip")
+    void speechStream_deliversWavChunks(FanarJsonCodec codec) throws Exception {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            Flow.Publisher<byte[]> publisher = client.audio().speechStream(TextToSpeechRequest.builder()
+                    .model(TtsModel.FANAR_AURA_TTS_2)
+                    .input("مرحبا بكم في فنار")
+                    .voice(Voice.HAMAD)
+                    .responseFormat(TtsResponseFormat.WAV)
+                    .build());
+
+            ByteArrayOutputStream collected = new ByteArrayOutputStream();
+            CountDownLatch done = new CountDownLatch(1);
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            publisher.subscribe(new Flow.Subscriber<byte[]>() {
+                public void onSubscribe(Flow.Subscription s) { s.request(Long.MAX_VALUE); }
+                public void onNext(byte[] chunk) { collected.writeBytes(chunk); }
+                public void onError(Throwable t) { failure.set(t); done.countDown(); }
+                public void onComplete() { done.countDown(); }
+            });
+
+            assertTrue(done.await(60, TimeUnit.SECONDS), "stream must terminate within 60s");
+            assertNull(failure.get(), () -> "stream errored: " + failure.get());
+            byte[] audio = collected.toByteArray();
+            assertTrue(audio.length > 12, "WAV minimum header is 12 bytes, got " + audio.length);
+            assertTrue(audio[0] == 'R' && audio[1] == 'I' && audio[2] == 'F' && audio[3] == 'F',
+                    "expected RIFF prefix on the concatenated stream");
+
+            LiveOutputs.write("audio-output", "speech-stream-wav", "wav", audio);
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.7b speech with with_emotion=true on an emotion-capable voice (Radwa) returns audio")
+    void speech_withEmotionOnCapableVoice(FanarJsonCodec codec) {
+        // Radwa and Abdulrahman are the two emotion-capable built-ins per the 2026-08 spec.
+        // An emotion-incapable voice or Fanar-Sadiq-TTS-1 would be rejected with HTTP 422.
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            byte[] audio = client.audio().speech(TextToSpeechRequest.builder()
+                    .model(TtsModel.FANAR_AURA_TTS_2)
+                    .input("يا لها من ليلة جميلة!")
+                    .voice(Voice.RADWA)
+                    .responseFormat(TtsResponseFormat.WAV)
+                    .withEmotion(true)
+                    .build());
+
+            assertNotNull(audio, "audio bytes must be present");
+            assertTrue(audio.length > 12, "WAV minimum header is 12 bytes, got " + audio.length);
+            assertTrue(audio[0] == 'R' && audio[1] == 'I' && audio[2] == 'F' && audio[3] == 'F',
+                    "expected RIFF prefix for emotional synthesis output");
+
+            LiveOutputs.write("audio-output", "speech-radwa-emotion-wav", "wav", audio);
         }
     }
 

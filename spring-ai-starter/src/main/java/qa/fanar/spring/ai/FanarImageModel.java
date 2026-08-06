@@ -10,6 +10,7 @@ import org.springframework.ai.image.ImageModel;
 import org.springframework.ai.image.ImageOptions;
 import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.image.ImageResponse;
+import org.springframework.ai.image.ImageResponseMetadata;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.images.ImageGenerationRequest;
@@ -35,6 +36,10 @@ import qa.fanar.core.images.ImageGenerationResponse;
  *   <li><b>URL response format.</b> Fanar always returns {@code b64Json}; we expose only that.</li>
  * </ul>
  *
+ * <p>Pass a {@link FanarImageOptions} to reach Fanar's {@code revise} flag (automatic prompt
+ * revision, server default {@code true}) — see ADR-024. Each result carries a
+ * {@link FanarImageGenerationMetadata} with the revision outcome.</p>
+ *
  * @author Oussama Mahjoub
  */
 public final class FanarImageModel implements ImageModel {
@@ -57,9 +62,17 @@ public final class FanarImageModel implements ImageModel {
     @Override
     public ImageResponse call(ImagePrompt prompt) {
         Objects.requireNonNull(prompt, "prompt");
-        ImageGenerationRequest request = new ImageGenerationRequest(resolveModel(prompt), promptText(prompt));
+        ImageGenerationRequest request = new ImageGenerationRequest(
+                resolveModel(prompt), promptText(prompt), resolveRevise(prompt));
         ImageGenerationResponse fanarResponse = fanar.images().generate(request);
         return toSpringAiResponse(fanarResponse);
+    }
+
+    private static Boolean resolveRevise(ImagePrompt prompt) {
+        // Fanar extra beyond the portable ImageOptions surface (ADR-024); null → server default.
+        return prompt.getOptions() instanceof FanarImageOptions fanarOptions
+                ? fanarOptions.getRevise()
+                : null;
     }
 
     private qa.fanar.core.images.ImageModel resolveModel(ImagePrompt prompt) {
@@ -90,8 +103,10 @@ public final class FanarImageModel implements ImageModel {
 
     private static ImageResponse toSpringAiResponse(ImageGenerationResponse fanarResponse) {
         List<ImageGeneration> generations = fanarResponse.data().stream()
-                .map(item -> new ImageGeneration(new Image(null, item.b64Json())))
+                .map(item -> new ImageGeneration(
+                        new Image(null, item.b64Json()),
+                        new FanarImageGenerationMetadata(item.revised(), item.revisedPrompt())))
                 .toList();
-        return new ImageResponse(generations);
+        return new ImageResponse(generations, new ImageResponseMetadata(fanarResponse.created()));
     }
 }

@@ -9,6 +9,66 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Added
+
+- **`fanar-core`** — streaming TTS: `AudioClient.speechStream(request)` returns
+  `Flow.Publisher<byte[]>` and delivers the audio chunked as the server generates it
+  (the wire `stream:true` mode, mp3 + wav). Single-subscriber, back-pressured, cancel closes
+  the connection — the same contract as chat streaming.
+  ([ADR-023](docs/adr/023-streaming-tts-via-flow-publisher.md))
+- **`fanar-spring-ai-starter`** — `FanarTextToSpeechModel.stream(...)` now streams for real:
+  one `TextToSpeechResponse` per audio chunk via `speechStream`, replacing the previous
+  single-element-Flux emulation.
+- **`fanar-core`** — audio: `Voice.ABDULRAHMAN` and `Voice.RADWA` (the two emotion-capable
+  built-ins), `TextToSpeechRequest.withEmotion` (emotional synthesis — `Fanar-Aura-TTS-2` +
+  emotion-capable voices only, otherwise HTTP 422) plus a fluent
+  `TextToSpeechRequest.builder()`, and the rich voice catalogue types `AvailableVoice` /
+  `VoiceType` returned by `listVoices()`.
+- **`fanar-core`** — `ChatModel.FANAR_SADIQ_2` (madhab-aware Islamic RAG, extra authorization
+  required) plus two new `ChatRequest` fields: `persona` (custom assistant voice/identity,
+  `Fanar-Sadiq` only, ≤ 2000 chars) and `madhab` (list of the new open value class `Madhab`:
+  `ALL` / `HANAFI` / `MALIKI` / `SHAFII` / `HANBALI`, honoured by `Fanar-Sadiq-2`).
+  Both codecs serialize `Madhab` via their wire-value modules.
+- **`fanar-core`** — images: `ImageGenerationRequest.revise` (server default **true** — automatic
+  prompt revision for style/quality/cultural alignment; pass `false` to keep the prompt verbatim).
+- **`fanar-spring-ai-starter`** — `FanarImageGenerationMetadata(revised, revisedPrompt)` attached
+  to every `ImageGeneration`, and the previously-dropped `created` timestamp now fills
+  `ImageResponseMetadata`.
+- **`fanar-spring-ai-starter`** — vendor options
+  ([ADR-024](docs/adr/024-spring-ai-vendor-options.md)): `FanarChatOptions` (persona, madhab,
+  thinking mode, Islamic-RAG scoping, logit bias, and the vLLM sampling knobs — all previously
+  unreachable through portable `ChatOptions`), `FanarTextToSpeechOptions` (`withEmotion`,
+  `quranReciter`), and `FanarImageOptions` (`revise`). `FanarChatOptions.Builder` extends
+  Spring AI's `DefaultChatOptionsBuilder`, so the extras survive the `ChatClient`
+  `mutate()`/`combineWith()` pipeline.
+- **`fanar-core`** — `ErrorCode.CLIENT_CLOSED_REQUEST` and `FanarClientClosedRequestException`
+  (HTTP 499, `client_closed_request`), which the 2026-08 Fanar spec declares on every endpoint.
+  Correctly classified as non-retryable; previously a 499 fell into the generic 5xx fallback and
+  was retried.
+
+### Changed
+
+- **`fanar-core`** — `ExceptionMapper` now parses the Fanar error envelope and routes by the typed
+  `error.code` first, falling back to HTTP status for non-envelope bodies. `FanarQuotaExceededException`
+  is now reachable (previously every HTTP 429 surfaced as `FanarRateLimitException`), and a
+  non-filter 400 no longer surfaces as `FanarContentFilterException`. Exception messages now carry
+  the envelope's `message` instead of the raw JSON body when available.
+  ([ADR-006 amendment](docs/adr/006-unchecked-exception-hierarchy.md))
+- **Breaking** — `ImageGenerationItem` is now
+  `(String b64Json, boolean revised, String revisedPrompt)` (was single-component), matching the
+  spec's now-required response fields.
+- **Breaking** — `VoiceResponse.voices()` is now `List<AvailableVoice>` (was `List<String>`),
+  matching the 2026-08 spec's rich voice objects; the listing now always includes the built-in
+  public voices, not only personalized ones. Use `AvailableVoice.name()` where the raw string
+  was used before.
+- **Breaking** — `FanarClientException` gained a ninth permitted subtype
+  (`FanarClientClosedRequestException`). Exhaustive `switch` expressions over the leaves of
+  `FanarClientException` no longer compile until the new case is added; switches over the four
+  top-level `FanarException` branches are unaffected. Allowed pre-1.0 per
+  [ADR-019](docs/adr/019-pre-10-stability-policy.md).
+- **Spec** — `api-spec/openapi.json` refreshed to the 2026-08-05 Fanar spec; added
+  `api-spec/openapi.yaml`, its YAML twin (JSON remains normative).
+
 ## [0.1.0] - 2026-04-28
 
 Initial public release. Pre-1.0; not yet on Maven Central — install via `./mvnw install`

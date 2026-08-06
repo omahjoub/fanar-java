@@ -9,7 +9,7 @@ the links for depth.
 ## Fanar — the platform
 
 - **Fanar** — Qatar's Arabic-centric multimodal AI platform. Hosts all the models below. Base URL `https://api.fanar.qa`.
-- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json): 12 endpoints, 14 models.
+- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 12 endpoints, 15 models.
 - **OpenAI-compatible** — Fanar's chat endpoint accepts OpenAI-style request shapes. This SDK still exists because Fanar offers capabilities OpenAI does not (see [Compatibility matrix](COMPATIBILITY.md)).
 
 ## Fanar models
@@ -22,7 +22,8 @@ Exact model IDs as accepted by the API.
 - **`Fanar-S-1-7B`** — "Star" chat model, 7 B parameters.
 - **`Fanar-C-1-8.7B`** — "Commander" chat model with thinking support, version 1.
 - **`Fanar-C-2-27B`** — "Commander" chat model with thinking support, version 2. Required for `enable_thinking=true` (with extra authorization).
-- **`Fanar-Sadiq`** — Islamic RAG model. Returns authenticated source references.
+- **`Fanar-Sadiq`** — Islamic RAG model. Returns authenticated source references. Accepts a custom `persona`.
+- **`Fanar-Sadiq-2`** — madhab-aware Islamic RAG model, version 2. Honours the `madhab` filter; requires additional authorization.
 
 ### Vision
 
@@ -34,7 +35,7 @@ Exact model IDs as accepted by the API.
 
 ### Speech
 
-- **`Fanar-Aura-TTS-2`** — general text-to-speech.
+- **`Fanar-Aura-TTS-2`** — general text-to-speech; supports chunked streaming and emotional synthesis on capable voices.
 - **`Fanar-Sadiq-TTS-1`** — Quranic text-to-speech with validated reciters.
 - **`Fanar-Aura-STT-1`** — speech-to-text for short clips (≤ 20–30 s).
 - **`Fanar-Aura-STT-LF-1`** — speech-to-text for long-form audio with speaker-diarized segments.
@@ -58,7 +59,11 @@ Exact model IDs as accepted by the API.
 - **Quranic reciter** — one of `abdul-basit`, `maher-al-muaiqly`, `mahmoud-al-husary`. Selectable on `Fanar-Sadiq-TTS-1`.
 - **Voice cloning** — creating a named personalized voice from a WAV sample plus transcript. Endpoints under `/v1/audio/voices`.
 - **`restrict_to_islamic`** — a `Fanar-Sadiq` request flag that server-side rejects non-Islamic prompts.
-- **Source scoping** (`preferred_sources`, `exclude_sources`, `filter_sources`, `book_names`) — `Fanar-Sadiq` controls that narrow retrieval to specific corpora.
+- **Madhab** — Islamic school of jurisprudence (`hanafi`, `maliki`, `shafii`, `hanbali`, or `all`). The `madhab` request filter narrows `Fanar-Sadiq-2` retrieval to the chosen school(s).
+- **Persona** — free-form request text (≤ 2000 chars) controlling the assistant's voice and identity; only `Fanar-Sadiq` honours it.
+- **Emotional TTS** — `with_emotion` speech synthesis, available on `Fanar-Aura-TTS-2` with the emotion-capable voices (`Abdulrahman`, `Radwa`); other combinations are rejected with HTTP 422.
+- **Prompt revision** — image generation's `revise` flag (server default on): Fanar rewrites the prompt for style, quality, and cultural alignment and reports `revised` / `revised_prompt` per image.
+- **Source scoping** (`preferred_sources`, `exclude_sources`, `filter_sources`, `book_names`, `madhab`) — Sadiq-family controls that narrow retrieval to specific corpora or schools.
 
 ## Java / JVM terms
 
@@ -99,6 +104,7 @@ Some words are overloaded — the Spring AI **`ChatModel`** type is unrelated to
 - **Advisor** — Spring AI's interceptor for the `ChatClient` chain. Runs `before()` to mutate the outbound prompt and `after()` to mutate the response. Memory and RAG are advisors.
 - **`ChatMemory`** — Spring AI's chat-history SPI. We use `MessageWindowChatMemory` (sliding window, in-memory) in the sample; production apps swap for the JDBC / Redis variants Spring AI ships.
 - **`MessageChatMemoryAdvisor`** — Spring AI's memory advisor. Loads prior messages into the prompt by `conversationId`, persists the response on the way out.
+- **`FanarChatOptions` / `FanarTextToSpeechOptions` / `FanarImageOptions`** — Fanar-specific options classes (ADR-024) implementing Spring AI's portable options interfaces; the way to reach Fanar-only knobs (persona, madhab, thinking, RAG scoping, emotional TTS, prompt revision) from the Spring AI surface.
 
 ## Build / tooling terms
 

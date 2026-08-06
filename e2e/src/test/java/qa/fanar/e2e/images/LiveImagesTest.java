@@ -69,6 +69,9 @@ class LiveImagesTest {
                 ImageGenerationItem item = r.data().getFirst();
                 assertNotNull(item.b64Json(), "b64Json must be present");
                 assertFalse(item.b64Json().isBlank(), "b64Json must not be blank");
+                // Spec (2026-08): revised + revised_prompt are required response fields; the
+                // server default revise=true means the revised prompt should be present either way.
+                assertNotNull(item.revisedPrompt(), "revised_prompt must be present");
 
                 // Soft validation: the body should round-trip through the JDK Base64 decoder.
                 byte[] decoded = Base64.getDecoder().decode(item.b64Json());
