@@ -5,12 +5,14 @@
 
 ## Phase
 
-**0.2.0 in flight — 2026-08 spec absorbed on `main`.** The refreshed Fanar OpenAPI spec
-(downloaded 2026-08-05; `openapi.json` normative + new `openapi.yaml` twin) is fully modelled:
-`Fanar-Sadiq-2` + `persona` + `madhab`, streamed + emotional TTS, rich voice catalogue, image
-prompt revision, the 499 `client_closed_request` error, envelope-code error routing, and Spring
-AI vendor options. All shipping modules hold the 100 % JaCoCo gate. Pre-1.0; no Maven Central
-artifacts yet (0.1.0 shipped 2026-04-28 as a GitHub Release).
+**0.2.0 released 2026-08-06** ([v0.2.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.2.0),
+GitHub Release, 10 artifacts); `main` is at `0.3.0-SNAPSHOT`. The release delivers full parity
+with the 2026-08 Fanar spec (`openapi.json` normative + `openapi.yaml` twin): `Fanar-Sadiq-2` +
+`persona` + `madhab`, streamed + emotional TTS, rich voice catalogue, image prompt revision,
+the 499 `client_closed_request` error, envelope-code error routing, and Spring AI vendor
+options — three documented breaking changes under ADR-019. All shipping modules hold the
+100 % JaCoCo gate. Pre-1.0; no Maven Central artifacts yet. Release process:
+[docs/RELEASING.md](RELEASING.md).
 
 ## Shipped
 
@@ -28,7 +30,6 @@ artifacts yet (0.1.0 shipped 2026-04-28 as a GitHub Release).
 
 ## Planned
 
-- **0.2.0 release** — Pattern B release-and-bump flow once the spec-parity PRs land on `main`.
 - **Maven Central publication** — Sonatype account, GPG signing, release workflow, version-bump policy. (Intro email to the Fanar team sent 2026-05-01; awaiting Sonatype-path pointer.)
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
