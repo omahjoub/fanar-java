@@ -133,4 +133,5 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 - [ADRs](docs/adr/INDEX.md) — non-obvious design decisions.
 - [Library best practices](docs/JAVA_LIBRARY_BEST_PRACTICES.md) — internal hygiene rules.
 - [Contributing](docs/CONTRIBUTING.md) — workflow, conventions.
+- [Releasing](docs/RELEASING.md) — maintainer runbook for cutting a release.
 - [Fanar OpenAPI spec](api-spec/openapi.json) — the wire contract we model (normative; [YAML twin](api-spec/openapi.yaml) provided for convenience).
