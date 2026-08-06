@@ -115,7 +115,9 @@ git push -u origin bump/$NEXT
 ### 7 — Post-release
 
 - [ ] Update `docs/PROJECT_STATE.md` (move the release from *Planned*, refresh the snapshot
-      date) — can ride in the bump-back PR.
+      date and phase) — can ride in the bump-back PR.
+- [ ] Bump the README quick-start version snippets to `$NEXT` (they track `main`'s snapshot
+      version; they went stale after both 0.1.0 and 0.2.0 — hence this line).
 - [ ] Delete the `release/$VERSION` branch (the tag preserves the commit).
 - [ ] Optional smoke: clone at the tag and `./mvnw install`, or resolve an attached jar into a
       scratch project.

@@ -38,12 +38,12 @@ Three install paths depending on your stack.
     <dependency>
         <groupId>qa.fanar</groupId>
         <artifactId>fanar-core</artifactId>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.3.0-SNAPSHOT</version>
     </dependency>
     <dependency>
         <groupId>qa.fanar</groupId>
         <artifactId>fanar-json-jackson3</artifactId>     <!-- or fanar-json-jackson2 -->
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.3.0-SNAPSHOT</version>
     </dependency>
 </dependencies>
 ```
@@ -64,7 +64,7 @@ try (FanarClient client = FanarClient.builder().apiKey(System.getenv("FANAR_API_
 <dependency>
     <groupId>qa.fanar</groupId>
     <artifactId>fanar-spring-boot-4-starter</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -88,7 +88,7 @@ class MyController {
 <dependency>
     <groupId>qa.fanar</groupId>
     <artifactId>fanar-spring-ai-starter</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
 </dependency>
 ```
 
