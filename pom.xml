@@ -52,7 +52,7 @@
         <jackson3-bom.version>3.2.1</jackson3-bom.version>
         <jackson2-bom.version>2.22.1</jackson2-bom.version>
         <slf4j.version>2.0.18</slf4j.version>
-        <opentelemetry.version>1.64.0</opentelemetry.version>
+        <opentelemetry.version>1.65.0</opentelemetry.version>
         <micrometer.version>1.17.0</micrometer.version>
         <spring-boot.version>4.0.6</spring-boot.version>
         <spring-ai.version>2.0.0</spring-ai.version>
