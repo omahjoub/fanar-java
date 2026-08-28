@@ -17,7 +17,6 @@ import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
-import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -32,8 +31,9 @@ import qa.fanar.core.translations.TranslationsClient;
 /**
  * Production implementation of {@link TranslationsClient}. Same plumbing as the other domain
  * clients: retry → bearer-token → user interceptors → transport. POSTs the
- * {@link TranslationRequest} to {@code /v1/translations}, decodes the {@link TranslationResponse}
- * on success, maps 4xx/5xx through {@link ExceptionMapper}.
+ * {@link TranslationRequest} to {@code /v1/translations} and decodes the
+ * {@link TranslationResponse}; 4xx/5xx become typed exceptions inside the chain (retry
+ * interceptor) before reaching this class.
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
  *
@@ -113,14 +113,7 @@ public final class TranslationsClientImpl implements TranslationsClient {
 
         HttpRequest httpReq = buildHttpRequest(request, obs);
         InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        HttpResponse<InputStream> response = chain.proceed(httpReq);
-
-        obs.attribute(FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
-
-        if (response.statusCode() >= 400) {
-            throw ExceptionMapper.map(response);
-        }
-        return response;
+        return chain.proceed(httpReq);
     }
 
     private HttpRequest buildHttpRequest(TranslationRequest request, ObservationHandle obs) {

@@ -40,6 +40,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,10 +98,30 @@ class ExceptionMapperTest {
     }
 
     @Test
-    void status429HandlesUnparseableRetryAfter() {
-        // The HTTP-date form is unsupported for now; the mapper should return null rather than throw.
+    void status429TreatsPastHttpDateAsAbsent() {
+        // RFC 9110 allows an HTTP-date; one already in the past carries no wait to honour.
         FanarException ex = ExceptionMapper.map(response(429, "", Map.of("Retry-After", List.of("Wed, 21 Oct 2015 07:28:00 GMT"))));
         assertNull(((FanarRateLimitException) ex).retryAfter());
+    }
+
+    @Test
+    void retryAfterHttpDateInTheFutureBecomesTheRemainingWait() {
+        Duration wait = ExceptionMapper.parseRetryAfterValue("Fri, 01 Jan 2100 00:00:00 GMT");
+        assertNotNull(wait);
+        assertTrue(wait.compareTo(Duration.ofDays(365)) > 0);
+    }
+
+    @Test
+    void retryAfterNonPositiveSecondsAreAbsent() {
+        // A zero or negative delay would turn the retry loop into an immediate re-request storm.
+        assertNull(ExceptionMapper.parseRetryAfterValue("0"));
+        assertNull(ExceptionMapper.parseRetryAfterValue("-5"));
+        assertEquals(Duration.ofSeconds(7), ExceptionMapper.parseRetryAfterValue(" 7 "));
+    }
+
+    @Test
+    void retryAfterGarbageIsAbsent() {
+        assertNull(ExceptionMapper.parseRetryAfterValue("soon"));
     }
 
     @Test
@@ -167,6 +188,14 @@ class ExceptionMapperTest {
         FanarException ex = ExceptionMapper.map(response(429, body, Map.of()));
         assertInstanceOf(FanarQuotaExceededException.class, ex);
         assertEquals("quota exhausted", ex.getMessage());
+    }
+
+    @Test
+    void quotaEnvelopeOn429CarriesRetryAfter() {
+        // The countdown to the next free slot is exactly what a quota-exhausted caller needs.
+        String body = "{\"error\":{\"code\":\"exceeded_quota\",\"message\":\"quota exhausted\",\"status\":429}}";
+        FanarException ex = ExceptionMapper.map(response(429, body, Map.of("Retry-After", List.of("86400"))));
+        assertEquals(Duration.ofHours(24), ((FanarQuotaExceededException) ex).retryAfter());
     }
 
     @Test

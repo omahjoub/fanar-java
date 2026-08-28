@@ -21,9 +21,11 @@ import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
  *
  * <p>Activates when {@link FanarClient} is on the classpath and {@code fanar.api-key} is set in
  * the application's environment. Produces a single {@link FanarClient} bean, configured from
- * {@link FanarProperties}, that the application can {@code @Autowire}. User-defined
- * {@code FanarJsonCodec}, {@code ObservabilityPlugin}, and {@code Interceptor} beans are picked
- * up automatically via {@link ObjectProvider} resolution — no extra wiring needed.</p>
+ * {@link FanarProperties}, that the application can {@code @Autowire}. Two of its inputs are
+ * replaceable beans — a user-defined {@code FanarJsonCodec} or {@code RetryPolicy} bean takes
+ * the place of the default one — and user-defined {@code ObservabilityPlugin} and
+ * {@code Interceptor} beans are contributed automatically via {@link ObjectProvider}
+ * resolution. No extra wiring needed.</p>
  *
  * <p>If the user supplies their own {@code FanarClient} bean, this auto-configuration is skipped
  * (via {@link ConditionalOnMissingBean}).</p>
@@ -48,11 +50,33 @@ public class FanarAutoConfiguration {
         return new Jackson3FanarJsonCodec();
     }
 
+    /**
+     * Retry policy from the {@code fanar.retry.*} knobs on top of {@link RetryPolicy#defaults()}.
+     * Replaced if the user declares their own {@link RetryPolicy} bean — the route to a custom
+     * {@code retryable} predicate, jitter strategy or multiplier without re-wiring the client.
+     * Built through the canonical constructor so the three knobs are validated together (a
+     * raised {@code initial-backoff} needs a {@code max-delay} at least as large).
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    RetryPolicy fanarRetryPolicy(FanarProperties props) {
+        FanarProperties.Retry retry = props.retry();
+        RetryPolicy defaults = RetryPolicy.defaults();
+        return new RetryPolicy(
+                retry.maxAttempts(),
+                retry.initialBackoff(),
+                retry.maxDelay(),
+                defaults.backoffMultiplier(),
+                defaults.jitter(),
+                defaults.retryable());
+    }
+
     @Bean
     @ConditionalOnMissingBean
     FanarClient fanarClient(
             FanarProperties props,
             FanarJsonCodec codec,
+            RetryPolicy retryPolicy,
             ObjectProvider<ObservabilityPlugin> observability,
             ObjectProvider<Interceptor> interceptors) {
 
@@ -61,7 +85,7 @@ public class FanarAutoConfiguration {
                 .baseUrl(props.baseUrl())
                 .connectTimeout(props.connectTimeout())
                 .requestTimeout(props.requestTimeout())
-                .retryPolicy(toRetryPolicy(props.retry()))
+                .retryPolicy(retryPolicy)
                 .jsonCodec(codec);
 
         observability.ifAvailable(builder::observability);
@@ -73,11 +97,5 @@ public class FanarAutoConfiguration {
                     .build());
         }
         return builder.build();
-    }
-
-    private static RetryPolicy toRetryPolicy(FanarProperties.Retry retry) {
-        return RetryPolicy.defaults()
-                .withMaxAttempts(retry.maxAttempts())
-                .withBaseDelay(retry.initialBackoff());
     }
 }

@@ -27,7 +27,6 @@ import qa.fanar.core.audio.TranscriptionRequest;
 import qa.fanar.core.audio.VoiceResponse;
 import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
-import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.internal.transport.MultipartBuilder;
@@ -281,14 +280,7 @@ public final class AudioClientImpl implements AudioClient {
         obs.attribute(FanarObservationAttributes.HTTP_URL, endpoint.toString());
 
         InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        HttpResponse<InputStream> response = chain.proceed(httpReq);
-
-        obs.attribute(FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
-
-        if (response.statusCode() >= 400) {
-            throw ExceptionMapper.map(response);
-        }
-        return response;
+        return chain.proceed(httpReq);
     }
 
     private HttpRequest buildGet(URI endpoint, ObservationHandle obs) {

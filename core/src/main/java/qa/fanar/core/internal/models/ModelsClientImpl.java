@@ -16,7 +16,6 @@ import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
-import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.models.ModelsClient;
@@ -37,8 +36,8 @@ import qa.fanar.core.spi.ObservationHandle;
  *       and observation-supplied headers, plus {@code User-Agent} when configured.</li>
  *   <li>Run the interceptor chain (retry first, bearer-token second, then user interceptors)
  *       terminating at the {@link HttpTransport}.</li>
- *   <li>On 4xx/5xx, map to a {@code FanarException} via {@link ExceptionMapper}; otherwise
- *       decode into a {@link ModelsResponse}.</li>
+ *   <li>Decode into a {@link ModelsResponse}. 4xx/5xx never reach this step — the retry
+ *       interceptor maps them to typed exceptions inside the chain.</li>
  * </ol>
  *
  * <p>{@link #listAsync} spawns one virtual thread per call.</p>
@@ -119,14 +118,7 @@ public final class ModelsClientImpl implements ModelsClient {
 
         HttpRequest httpReq = buildHttpRequest(obs);
         InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        HttpResponse<InputStream> response = chain.proceed(httpReq);
-
-        obs.attribute(FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
-
-        if (response.statusCode() >= 400) {
-            throw ExceptionMapper.map(response);
-        }
-        return response;
+        return chain.proceed(httpReq);
     }
 
     private HttpRequest buildHttpRequest(ObservationHandle obs) {

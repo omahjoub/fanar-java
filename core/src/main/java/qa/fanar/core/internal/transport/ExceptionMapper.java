@@ -5,6 +5,10 @@ import java.io.InputStream;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import qa.fanar.core.ErrorCode;
 import qa.fanar.core.FanarAuthenticationException;
@@ -36,7 +40,9 @@ import qa.fanar.core.FanarUnprocessableException;
  *
  * <p>Reads and closes the response body. The exception message is the envelope's {@code message}
  * when present, the raw body text otherwise, falling back to a canonical status description when
- * both are blank. The {@code Retry-After} header is honoured for rate-limit errors.</p>
+ * both are blank. The {@code Retry-After} header is carried on both HTTP 429 subtypes
+ * ({@link FanarRateLimitException}, {@link FanarQuotaExceededException}) after the
+ * normalisation described on {@link #parseRetryAfterValue}.</p>
  *
  * <p>Internal (ADR-018).</p>
  *
@@ -65,7 +71,7 @@ public final class ExceptionMapper {
             case INVALID_AUTHENTICATION -> new FanarAuthenticationException(detail);
             case INVALID_AUTHORIZATION  -> new FanarAuthorizationException(detail);
             case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, parseRetryAfter(response));
-            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail);
+            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail, parseRetryAfter(response));
             case INTERNAL_SERVER_ERROR  -> new FanarInternalServerException(detail);
             case OVERLOADED             -> new FanarOverloadedException(detail);
             case TIMEOUT                -> new FanarTimeoutException(detail);
@@ -123,15 +129,35 @@ public final class ExceptionMapper {
 
     private static Duration parseRetryAfter(HttpResponse<InputStream> response) {
         return response.headers().firstValue("Retry-After")
-                .map(ExceptionMapper::tryParseSeconds)
+                .map(ExceptionMapper::parseRetryAfterValue)
                 .orElse(null);
     }
 
-    private static Duration tryParseSeconds(String value) {
+    /**
+     * Normalise a {@code Retry-After} value (RFC 9110 §10.2.3: {@code delay-seconds} or an
+     * HTTP-date) into a wait duration. A non-positive delay, a date already past, or anything
+     * unparseable carries no scheduling information and yields {@code null} — the retry loop
+     * then falls back to its computed backoff instead of re-requesting immediately (ADR-025).
+     *
+     * @param value the raw header value
+     * @return the positive wait the server asked for, or {@code null}
+     */
+    static Duration parseRetryAfterValue(String value) {
+        String trimmed = value.trim();
         try {
-            return Duration.ofSeconds(Long.parseLong(value.trim()));
-        } catch (NumberFormatException e) {
-            // The HTTP spec also permits an HTTP-date here; unsupported for now — fall through.
+            long seconds = Long.parseLong(trimmed);
+            return seconds > 0 ? Duration.ofSeconds(seconds) : null;
+        } catch (NumberFormatException notSeconds) {
+            return parseHttpDate(trimmed);
+        }
+    }
+
+    private static Duration parseHttpDate(String value) {
+        try {
+            Instant at = ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+            Duration until = Duration.between(Instant.now(), at);
+            return until.isPositive() ? until : null;
+        } catch (DateTimeParseException notADate) {
             return null;
         }
     }

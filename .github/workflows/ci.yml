@@ -58,38 +58,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Verify all referenced docs exist
+      - name: Verify every relative Markdown link resolves
         run: |
-          missing=0
-          for file in \
-              CHANGELOG.md \
-              LICENSE \
-              docs/API_SKETCH.md \
-              docs/ARCHITECTURE.md \
-              docs/COMPATIBILITY.md \
-              docs/CONTRIBUTING.md \
-              docs/GLOSSARY.md \
-              docs/GRAALVM.md \
-              docs/JAVA_LIBRARY_BEST_PRACTICES.md \
-              docs/PROJECT_STATE.md \
-              docs/RELEASING.md \
-              docs/adr/INDEX.md \
-              docs/adr/019-pre-10-stability-policy.md \
-              docs/adr/020-spring-boot-4-starter.md \
-              docs/adr/021-spring-ai-2-adapter.md \
-              docs/adr/022-observability-compose-factory.md \
-              docs/adr/023-streaming-tts-via-flow-publisher.md \
-              docs/adr/024-spring-ai-vendor-options.md \
-              api-spec/openapi.json \
-              api-spec/openapi.yaml \
-              .github/pull_request_template.md \
-              .github/SECURITY.md; do
-            if [ ! -f "$file" ]; then
-              echo "ERROR: $file referenced but does not exist"
-              missing=1
-            fi
+          errors=$(mktemp)
+          for file in LICENSE api-spec/openapi.json api-spec/openapi.yaml \
+              .github/pull_request_template.md .github/SECURITY.md; do
+            [ -f "$file" ] || echo "ERROR: $file must exist" | tee -a "$errors"
           done
-          if [ $missing -ne 0 ]; then
+          find . -type d -name target -prune -o -name '*.md' -print | sort | while IFS= read -r source; do
+            dir=$(dirname "$source")
+            { grep -oE '\]\([^)[:space:]]+\.md(#[^)]*)?\)' "$source" || true; } \
+              | sed -E 's/^\]\(//; s/\)$//; s/#.*$//' | sort -u | while IFS= read -r target; do
+                case "$target" in http://*|https://*) continue ;; esac
+                [ -f "$dir/$target" ] || echo "ERROR: $source links to $target, which does not exist" | tee -a "$errors"
+              done
+          done
+          if [ -s "$errors" ]; then
             exit 1
           fi
           echo "All documentation links valid"

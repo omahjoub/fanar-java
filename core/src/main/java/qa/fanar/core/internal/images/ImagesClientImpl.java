@@ -20,7 +20,6 @@ import qa.fanar.core.images.ImageGenerationResponse;
 import qa.fanar.core.images.ImagesClient;
 import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
-import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -32,8 +31,8 @@ import qa.fanar.core.spi.ObservationHandle;
 /**
  * Production implementation of {@link ImagesClient}. Same plumbing as the other domain clients:
  * retry → bearer-token → user interceptors → transport. POSTs the {@link ImageGenerationRequest}
- * to {@code /v1/images/generations}, decodes the {@link ImageGenerationResponse} on success,
- * maps 4xx/5xx through {@link ExceptionMapper}.
+ * to {@code /v1/images/generations} and decodes the {@link ImageGenerationResponse}; 4xx/5xx
+ * become typed exceptions inside the chain (retry interceptor) before reaching this class.
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
  *
@@ -113,14 +112,7 @@ public final class ImagesClientImpl implements ImagesClient {
 
         HttpRequest httpReq = buildHttpRequest(request, obs);
         InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        HttpResponse<InputStream> response = chain.proceed(httpReq);
-
-        obs.attribute(FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
-
-        if (response.statusCode() >= 400) {
-            throw ExceptionMapper.map(response);
-        }
-        return response;
+        return chain.proceed(httpReq);
     }
 
     private HttpRequest buildHttpRequest(ImageGenerationRequest request, ObservationHandle obs) {

@@ -290,12 +290,13 @@ import qa.fanar.core.*;
 try {
     ChatResponse response = client.chat().send(request);
 } catch (FanarRateLimitException e) {
-    // Retry-After honored automatically by the built-in RetryInterceptor
+    // Retried automatically with Retry-After honoured up to maxDelay; a longer hint lands
+    // here immediately with retryAfter() populated — null when the server sent none (ADR-025)
     log.warn("Rate limited, retry in {}", e.retryAfter());
 } catch (FanarContentFilterException e) {
     showRefusalUi(e.filterType());
 } catch (FanarQuotaExceededException e) {
-    billing.notifyOutOfQuota();
+    billing.notifyOutOfQuota(e.retryAfter());   // countdown to the next free slot, or null
 } catch (FanarException e) {
     log.error("Fanar call failed", e);
 }
@@ -305,7 +306,7 @@ The hierarchy is sealed per ADR-006 — every subtype is documented, and pattern
 
 ```java
 switch (exception) {
-    case FanarRateLimitException e      -> Thread.sleep(e.retryAfter().toMillis());
+    case FanarRateLimitException e      -> reschedule(e.retryAfter());   // nullable; never sleep the caller
     case FanarContentFilterException e  -> showRefusalUi(e.filterType());
     case FanarException e               -> log.error("Fanar call failed", e);
 }
@@ -366,7 +367,10 @@ import java.time.Duration;
 RetryPolicy aggressive = RetryPolicy.defaults()
     .withMaxAttempts(5)
     .withBaseDelay(Duration.ofMillis(200))
-    .withMaxDelay(Duration.ofSeconds(10));
+    .withMaxDelay(Duration.ofSeconds(10));   // also caps honoured Retry-After hints (ADR-025)
+
+// Bridge a full per-minute window instead of failing fast above 30 s:
+RetryPolicy patient = RetryPolicy.defaults().withMaxDelay(Duration.ofSeconds(60));
 
 FanarClient client = FanarClient.builder()
     .apiKey(System.getenv("FANAR_API_KEY"))
@@ -399,7 +403,8 @@ fanar:
   request-timeout: 60s
   retry:
     max-attempts: 3
-    initial-backoff: 100ms
+    initial-backoff: 500ms
+    max-delay: 30s                    # also the ceiling on honoured Retry-After hints (ADR-025)
   wire-logging:
     level: BASIC                      # NONE | BASIC | HEADERS | BODY
 ```
@@ -414,7 +419,8 @@ class MyController {
 ```
 
 Any `Interceptor` or `ObservabilityPlugin` beans on the application context get picked up via
-`ObjectProvider` and added to the client. With `spring-boot-starter-actuator` on the classpath,
+`ObjectProvider` and added to the client; a `RetryPolicy` bean replaces the one built from
+`fanar.retry.*` (the route to a custom `retryable` predicate or jitter). With `spring-boot-starter-actuator` on the classpath,
 `/actuator/health` includes a `fanar` contributor that calls `models().list()` — disable with
 `management.health.fanar.enabled=false`.
 

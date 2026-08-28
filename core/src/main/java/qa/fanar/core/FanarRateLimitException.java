@@ -5,13 +5,14 @@ import java.time.Duration;
 /**
  * Request rate limit exceeded. Maps to {@link ErrorCode#RATE_LIMIT_REACHED} and HTTP 429.
  *
- * <p>Transient — the built-in retry interceptor handles this automatically when configured
- * (default policy: retry with exponential backoff plus full jitter, respecting any
- * {@code Retry-After} hint returned by the server).</p>
+ * <p>Transient — the built-in retry interceptor retries it under the default policy, honouring
+ * a server {@code Retry-After} hint up to {@link RetryPolicy#maxDelay()}; a hint above that
+ * ceiling ends retrying and the exception surfaces immediately with the hint preserved
+ * (ADR-025).</p>
  *
- * <p>When the server provides a {@code Retry-After} header, its value is exposed via
- * {@link #retryAfter()} so custom retry logic can honor it. Distinct from
- * {@link FanarQuotaExceededException}, which is a permanent condition at the same HTTP status.</p>
+ * <p>The hint, when the server sent one, is exposed via {@link #retryAfter()} so callers can
+ * schedule around it. Distinct from {@link FanarQuotaExceededException}, which is a permanent
+ * condition at the same HTTP status.</p>
  *
  * @author Oussama Mahjoub
  */

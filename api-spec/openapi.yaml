@@ -5,17 +5,20 @@ info:
     You can interact with FanarAPI for seamless chat completion and text
     processing using Fanar.<br/><strong>Base URL:</strong>
     https://api.fanar.qa<br/><strong>Request API Access:</strong> <a
-    href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2
-    class="sc-fujyAs kudwlS" style="color: rgb(51, 51, 51);">Rate Limits</h2>
+    href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2>Rate
+    Limits</h2>
 
     <p>To ensure fair usage and optimal performance for all users, our API has
     rate limits in place. When you exceed a rate limit, your request will
     typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>
 
-    <p>The limits detailed below are our default settings for all models. We
-    understand that your needs may vary. If your application requires higher
-    throughput or more tailored rate limits for specific models, please contact
-    us:</p>
+    <details class="fnr-section" open>
+
+    <summary class="fnr-summary">Limits by model</summary>
+
+    <p>These are our default settings for all models. We understand that your
+    needs may vary. If your application requires higher throughput or more
+    tailored rate limits for specific models, please contact us:</p>
 
     <table>
         <thead>
@@ -86,6 +89,38 @@ info:
             </tr>
             </tbody>
     </table>
+
+    </details>
+
+    <details class="fnr-section fnr-section-headers">
+
+    <summary class="fnr-summary">Response headers</summary>
+
+    <p>Every rate-limited response reports your current quota, so you can back
+    off before being throttled:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Header</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>x-ratelimit-limit</code></td><td>Requests allowed per window.</td></tr>
+            <tr><td><code>x-ratelimit-remaining</code></td><td>Requests still available in the current window.</td></tr>
+            <tr><td><code>x-ratelimit-reset</code></td><td>Seconds until a request slot frees up.</td></tr>
+            <tr><td><code>ratelimit-policy</code></td><td>The quota and its window in seconds, as <code>limit;w=seconds</code> &mdash; so <code>100;w=86400</code> means 100 requests per day.</td></tr>
+            <tr><td><code>retry-after</code></td><td>Seconds to wait before retrying, sent only on a <code>429</code>. When your own quota ran out it counts down to a free slot; when an upstream service throttled the request it carries that service's own hint instead.</td></tr>
+        </tbody>
+    </table>
+
+    <p class="fnr-note">Because <code>x-ratelimit-limit</code> alone cannot tell
+    <code>3</code> per minute from <code>3</code> per day, read
+    <code>ratelimit-policy</code> when you need the window. These headers are
+    omitted for API keys with unlimited quota.</p>
+
+    </details>
   termsOfService: https://fanar.qa/terms-of-services
   contact:
     name: Fanar Support
@@ -341,11 +376,11 @@ paths:
             async for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta:
                     delta = chunk.choices[0].delta
-
+                    
                     # Capture references from the first chunk
                     if hasattr(delta, 'references') and delta.references:
                         references = delta.references
-
+                    
                     # Stream content as it arrives
                     if delta.content:
                         content += delta.content
@@ -379,8 +414,8 @@ paths:
                 }
 
                 response = requests.post(
-                    "https://api.fanar.qa/v1/chat/completions",
-                    json=payload,
+                    "https://api.fanar.qa/v1/chat/completions", 
+                    json=payload, 
                     headers=headers
                 )
                 return response.json()
@@ -557,8 +592,8 @@ paths:
                 }
 
                 response = requests.post(
-                    "https://api.fanar.qa/v1/chat/completions",
-                    json=payload,
+                    "https://api.fanar.qa/v1/chat/completions", 
+                    json=payload, 
                     headers=headers
                 )
                 return response.json()
@@ -643,8 +678,8 @@ paths:
                 }
 
                 response = requests.post(
-                    "https://api.fanar.qa/v1/chat/completions",
-                    json=payload,
+                    "https://api.fanar.qa/v1/chat/completions", 
+                    json=payload, 
                     headers=headers
                 )
                 return response.json()

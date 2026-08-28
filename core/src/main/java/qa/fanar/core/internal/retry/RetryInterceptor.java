@@ -8,19 +8,26 @@ import java.util.Objects;
 import java.util.random.RandomGenerator;
 
 import qa.fanar.core.FanarException;
+import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.JitterStrategy;
 import qa.fanar.core.RetryPolicy;
+import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
 
 /**
- * Retries the HTTP exchange according to the caller's {@link RetryPolicy}.
+ * The SDK's error boundary and retry loop, driven by the caller's {@link RetryPolicy}.
  *
  * <p>Placed at the head of the interceptor chain so it wraps every later interceptor and the
  * transport. Each retry re-runs the whole chain — rotating bearer tokens, tracing propagation
  * headers, and any user-added cross-cutting logic all re-execute on every attempt.</p>
+ *
+ * <p>Error responses (HTTP status ≥ 400) become typed {@link FanarException}s here, once the rest
+ * of the chain has returned (ADR-006, ADR-012). User interceptors therefore observe raw error
+ * responses — status, headers, body — while the retry decision and the domain facades above it
+ * only ever see typed exceptions or successful responses.</p>
  *
  * <h2>Behaviour</h2>
  * <ul>
@@ -29,12 +36,15 @@ import qa.fanar.core.spi.Interceptor;
  *   <li>Only retries exceptions accepted by {@link RetryPolicy#retryable()}. The default predicate
  *       retries transient server-side and transport errors; never client-side or content-filter
  *       rejections (ADR-014).</li>
- *   <li>Honours the {@code Retry-After} hint on {@link FanarRateLimitException}: if set, the next
- *       sleep uses that duration instead of the computed back-off curve.</li>
+ *   <li>Honours a server {@code Retry-After} hint up to {@link RetryPolicy#maxDelay()}: the next
+ *       sleep uses the hint instead of the computed back-off curve. A hint above {@code maxDelay}
+ *       ends retrying immediately — no sleep, no burned attempt — and the exception surfaces with
+ *       the hint preserved (ADR-025).</li>
  *   <li>Otherwise sleeps for {@code baseDelay * multiplier^(attempt-1)} capped at {@code maxDelay},
  *       with {@link JitterStrategy} applied (none / full / equal).</li>
- *   <li>Emits one {@code retry_attempt} event on the observation per retry, and sets
- *       {@link FanarObservationAttributes#FANAR_RETRY_COUNT} on exit when any retry happened.</li>
+ *   <li>Records {@link FanarObservationAttributes#HTTP_STATUS_CODE} for every response received
+ *       (the last attempt's status wins) and {@link FanarObservationAttributes#FANAR_RETRY_COUNT}
+ *       on every exit, {@code 0} included; emits one {@code retry_attempt} event per retry.</li>
  *   <li>If {@link Thread#interrupt()} cuts the sleep short, restores the interrupt flag and
  *       surfaces a {@link FanarTransportException}.</li>
  * </ul>
@@ -67,24 +77,40 @@ public final class RetryInterceptor implements Interceptor {
             attempt++;
             try {
                 HttpResponse<InputStream> response = chain.proceed(request);
+                chain.observation().attribute(
+                        FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
+                if (response.statusCode() >= 400) {
+                    throw ExceptionMapper.map(response);
+                }
                 recordRetryCount(chain, attempt - 1);
                 return response;
             } catch (FanarException e) {
-                if (attempt >= policy.maxAttempts() || !policy.retryable().test(e)) {
+                Duration hint = retryAfterOf(e);
+                if (attempt >= policy.maxAttempts()
+                        || !policy.retryable().test(e)
+                        || (hint != null && hint.compareTo(policy.maxDelay()) > 0)) {
                     recordRetryCount(chain, attempt - 1);
                     throw e;
                 }
-                Duration delay = nextDelay(attempt, e);
                 chain.observation().event("retry_attempt");
-                sleepOrAbort(delay);
+                sleepOrAbort(hint != null ? hint : backoff(attempt));
             }
         }
     }
 
-    private Duration nextDelay(int attempt, FanarException e) {
-        if (e instanceof FanarRateLimitException rl && rl.retryAfter() != null) {
-            return rl.retryAfter();
-        }
+    /**
+     * The server's {@code Retry-After} hint, carried by both HTTP 429 subtypes (ADR-006);
+     * {@code null} when the server sent none or the exception has no such concept.
+     */
+    private static Duration retryAfterOf(FanarException e) {
+        return switch (e) {
+            case FanarRateLimitException rateLimited -> rateLimited.retryAfter();
+            case FanarQuotaExceededException quotaExceeded -> quotaExceeded.retryAfter();
+            default -> null;
+        };
+    }
+
+    private Duration backoff(int attempt) {
         long baseMs = policy.baseDelay().toMillis();
         long maxMs = policy.maxDelay().toMillis();
         double expanded = baseMs * Math.pow(policy.backoffMultiplier(), attempt - 1);
@@ -114,8 +140,6 @@ public final class RetryInterceptor implements Interceptor {
     }
 
     private static void recordRetryCount(Chain chain, int retries) {
-        if (retries > 0) {
-            chain.observation().attribute(FanarObservationAttributes.FANAR_RETRY_COUNT, retries);
-        }
+        chain.observation().attribute(FanarObservationAttributes.FANAR_RETRY_COUNT, retries);
     }
 }

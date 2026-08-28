@@ -1,6 +1,6 @@
 # ADR-006 — Unchecked exception hierarchy
 
-- **Status**: Accepted (amended 2026-08-05 — see [Amendments](#amendments))
+- **Status**: Accepted (amended 2026-08-05 and 2026-08-28 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -80,8 +80,9 @@ at the transport boundary; callers never see JDK checked exceptions on the publi
   `RuntimeException` in Java.
 
 ### Neutral
-- Fanar-specific metadata (retry-after seconds, filter type, rate-limit window) lives as fields on the relevant
-  subtype, retrievable via typed accessors.
+- Fanar-specific metadata (the `Retry-After` hint on both HTTP 429 subtypes, the content-filter type) lives as
+  fields on the relevant subtype, retrievable via typed accessors. The rate-limit *window* headers are not
+  surfaced — deferred, see [PROJECT_STATE](../PROJECT_STATE.md).
 
 ## Amendments
 
@@ -101,6 +102,20 @@ Fanar error envelope (`{"error":{"code":…,"message":…,"status":…}}`) and r
 carries an unknown code. This makes `FanarQuotaExceededException` reachable (both quota exhaustion
 and throttling wire as HTTP 429) and stops non-filter 400s from surfacing as
 `FanarContentFilterException`.
+
+### 2026-08-28 — Mapping at the retry boundary; `Retry-After` on both 429 subtypes (0.3.0)
+
+The mapper now runs inside the interceptor chain, in `RetryInterceptor`, rather than in each
+domain facade after the chain returns — the only way the retry policy can act on the typed
+hierarchy this ADR defines (ADR-012 amendment). Routing is unchanged: envelope `code` first,
+HTTP status as fallback.
+
+`FanarQuotaExceededException` gains `retryAfter()` alongside `FanarRateLimitException`: the spec's
+`retry-after` "counts down to a free slot" on either 429 code, and the exhausted-daily-window case
+is exactly where a caller needs it (ADR-025). The mapper normalises the header — non-positive
+seconds, past HTTP-dates and unparseable values become `null`; a future HTTP-date becomes the
+remaining wait. Additive under ADR-019. The "rate-limit window" metadata this ADR originally
+listed was never implemented and is now explicitly deferred (PROJECT_STATE).
 
 ## References
 

@@ -18,7 +18,9 @@ import java.util.function.Predicate;
  * <p>{@link #defaults()} returns 3 attempts, exponential backoff with
  * {@link JitterStrategy#FULL full jitter}, base 500&nbsp;ms, cap 30&nbsp;s, multiplier 2.0, and
  * the {@link #isDefaultRetryable default retryable predicate} (transient server-side errors and
- * transport failures — never client-side or content-filter errors).</p>
+ * transport failures — never client-side or content-filter errors). The cap also bounds
+ * honoured server {@code Retry-After} hints: a hint above it ends retrying and the exception
+ * surfaces immediately with the hint preserved (ADR-025).</p>
  *
  * <h2>Validation</h2>
  * <p>The canonical constructor validates all invariants at construction time. {@code with*}
@@ -28,10 +30,16 @@ import java.util.function.Predicate;
  * @param maxAttempts       total attempts including the first; must be ≥ 1. A value of 1
  *                          disables retries.
  * @param baseDelay         initial backoff delay; must be positive
- * @param maxDelay          cap on the computed backoff; must be positive and ≥ {@code baseDelay}
+ * @param maxDelay          cap on the computed backoff, and ceiling on honoured server
+ *                          {@code Retry-After} hints — a hint above it ends retrying and the
+ *                          exception surfaces with the hint preserved (ADR-025); must be
+ *                          positive, ≥ {@code baseDelay}, and representable in milliseconds
  * @param backoffMultiplier factor applied to the backoff on each retry; must be ≥ 1.0
  * @param jitter            jitter policy applied to the computed backoff
- * @param retryable         predicate deciding whether a given exception is worth retrying
+ * @param retryable         predicate deciding whether a given exception is worth retrying.
+ *                          Consulted only while the policy can still honour a retry: the
+ *                          attempt budget ({@code maxAttempts}) and the delay ceiling
+ *                          ({@code maxDelay}) end retrying regardless of its answer
  *
  * @author Oussama Mahjoub
  */
@@ -43,6 +51,12 @@ public record RetryPolicy(
         JitterStrategy jitter,
         Predicate<FanarException> retryable
 ) {
+
+    /**
+     * Largest {@code maxDelay} the retry loop's millisecond arithmetic can represent; the
+     * {@code - 1} keeps the full-jitter draw's {@code bound = delay + 1} inside {@code long} range.
+     */
+    private static final Duration MAX_REPRESENTABLE_DELAY = Duration.ofMillis(Long.MAX_VALUE - 1);
 
     public RetryPolicy {
         if (maxAttempts < 1) {
@@ -59,6 +73,10 @@ public record RetryPolicy(
         if (maxDelay.compareTo(baseDelay) < 0) {
             throw new IllegalArgumentException(
                     "maxDelay (" + maxDelay + ") must be >= baseDelay (" + baseDelay + ")");
+        }
+        if (maxDelay.compareTo(MAX_REPRESENTABLE_DELAY) > 0) {
+            throw new IllegalArgumentException(
+                    "maxDelay must be representable in milliseconds, got " + maxDelay);
         }
         if (backoffMultiplier < 1.0) {
             throw new IllegalArgumentException(
@@ -147,7 +165,10 @@ public record RetryPolicy(
         return new RetryPolicy(maxAttempts, baseDelay, maxDelay, backoffMultiplier, jitter, retryable);
     }
 
-    /** @return a new policy with the given {@code retryable} predicate, all other fields unchanged */
+    /**
+     * @return a new policy with the given {@code retryable} predicate, all other fields unchanged;
+     *         the attempt budget and the delay ceiling still apply regardless of its answer
+     */
     public RetryPolicy withRetryable(Predicate<FanarException> retryable) {
         return new RetryPolicy(maxAttempts, baseDelay, maxDelay, backoffMultiplier, jitter, retryable);
     }

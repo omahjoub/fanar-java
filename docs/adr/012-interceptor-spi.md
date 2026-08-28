@@ -1,6 +1,6 @@
 # ADR-012 — Interceptor SPI
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-08-28 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -46,7 +46,9 @@ Rules:
   means it wraps retry means it wraps logging — so retries re-run the auth-wrapped path (fresh tokens on each attempt),
   and each attempt is individually logged.
 - **Exceptions are unchecked** per ADR-006. `Chain.proceed` wraps any `IOException` / `InterruptedException` from the
-  transport into a `FanarTransportException` so interceptors never have to declare checked exceptions.
+  transport into a `FanarTransportException` so interceptors never have to declare checked exceptions. Error
+  *responses* (status ≥ 400) travel back through user interceptors as-is and become typed exceptions at the
+  retry boundary — see [Amendments](#amendments).
 - **`Chain.observation()`** exposes the current observation handle (ADR-013) so interceptors can attach events
   (retry attempts, cache hits) without smuggling context through `ThreadLocal` or the preview `ScopedValue`.
 
@@ -95,6 +97,30 @@ are user-supplied or downstream-module concerns.
 - Every interceptor must be thread-safe — executed potentially from multiple threads concurrently against the same
   `FanarClient` instance.
 
+## Amendments
+
+### 2026-08-28 — Error mapping at the retry boundary (0.3.0)
+
+Where an HTTP error response becomes a typed exception was never stated here, and the
+implementation put it in the wrong place: each domain facade called the mapper *after*
+`Chain.proceed` returned, so the built-in `RetryInterceptor` — first in the chain, deciding on
+typed exceptions — never saw a 429 or 5xx and retried transport failures only (ADR-014's
+retryable set was dead end-to-end through 0.2.0).
+
+0.3.0 fixes the seam: `RetryInterceptor` maps any response with status ≥ 400 to the
+`FanarException` hierarchy (ADR-006) as soon as the rest of the chain returns it, then applies the
+policy. Consequences for the SPI contract:
+
+- **User interceptors observe raw error responses** — status, headers, body — exactly as before.
+  Logging, capture and caching interceptors keep working on 4xx/5xx; nothing about `intercept`
+  or `Chain` changes.
+- **Domain facades only ever see typed exceptions or successful responses.** The eight post-chain
+  status checks are gone; `http.status_code` is recorded at the boundary, per attempt.
+- **Still two built-ins.** The mapping is a responsibility of the retry interceptor (as in OkHttp,
+  where the retry layer classifies raw status itself), not a third built-in.
+- A user interceptor that *throws* a `FanarException` is treated the same as a mapped one: the
+  policy decides whether to retry it.
+
 ## References
 
 - ADR-003 Framework-agnostic public API
@@ -103,3 +129,4 @@ are user-supplied or downstream-module concerns.
 - ADR-013 Observability SPI
 - ADR-014 Retry policy defaults
 - ADR-018 Internals are not a contract
+- ADR-025 Retry-After handling
