@@ -22,6 +22,7 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -149,7 +150,42 @@ class ChatClientImplTest {
                 Map.of("Retry-After", List.of("5")));
         ChatClientImpl client = build(transport, cannedCodec(chatResponse()), List.of());
         FanarRateLimitException ex = assertThrows(FanarRateLimitException.class, () -> client.send(sampleRequest()));
-        assertEquals(java.time.Duration.ofSeconds(5), ex.retryAfter());
+        assertEquals(Duration.ofSeconds(5), ex.retryAfter());
+    }
+
+    @Test
+    void sendRetriesRetryableErrorResponsesThroughTheChain() {
+        // The facade never sees a 5xx: the retry interceptor maps it inside the chain and re-runs
+        // the chain per policy — the seam that was dead through 0.2.0.
+        AtomicInteger calls = new AtomicInteger();
+        HttpTransport transport = req -> calls.incrementAndGet() == 1
+                ? response(503, "overloaded", Map.of())
+                : response(200, "{}", Map.of());
+        ChatResponse canned = chatResponse();
+        ChatClientImpl client = new ChatClientImpl(
+                BASE, cannedCodec(canned), () -> "tok", List.of(), transport,
+                ObservabilityPlugin.noop(),
+                RetryPolicy.defaults().withBaseDelay(Duration.ofMillis(1)).withMaxDelay(Duration.ofMillis(1)),
+                Map.of(), null);
+
+        assertSame(canned, client.send(sampleRequest()));
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    void sendSurfacesRateLimitHintAboveCeilingWithoutRetrying() {
+        AtomicInteger calls = new AtomicInteger();
+        HttpTransport transport = req -> {
+            calls.incrementAndGet();
+            return response(429, "too fast", Map.of("Retry-After", List.of("7200")));
+        };
+        ChatClientImpl client = new ChatClientImpl(
+                BASE, cannedCodec(chatResponse()), () -> "tok", List.of(), transport,
+                ObservabilityPlugin.noop(), RetryPolicy.defaults(), Map.of(), null);
+
+        FanarRateLimitException ex = assertThrows(FanarRateLimitException.class, () -> client.send(sampleRequest()));
+        assertEquals(Duration.ofHours(2), ex.retryAfter());
+        assertEquals(1, calls.get(), "a hint above maxDelay ends retrying at once (ADR-025)");
     }
 
     @Test

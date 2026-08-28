@@ -85,6 +85,21 @@ class FanarExceptionTest {
     }
 
     @Test
+    void quotaExceededCarriesRetryAfter() {
+        var e = new FanarQuotaExceededException("quota", Duration.ofHours(12));
+        assertEquals(Duration.ofHours(12), e.retryAfter());
+        var withCause = new FanarQuotaExceededException("quota", Duration.ofHours(12), new RuntimeException("c"));
+        assertEquals(Duration.ofHours(12), withCause.retryAfter());
+        assertEquals("c", withCause.getCause().getMessage());
+    }
+
+    @Test
+    void quotaExceededDefaultsRetryAfterToNull() {
+        assertNull(new FanarQuotaExceededException("quota").retryAfter());
+        assertNull(new FanarQuotaExceededException("quota", new RuntimeException("c")).retryAfter());
+    }
+
+    @Test
     void contentFilterCarriesFilterType() {
         var e = new FanarContentFilterException("blocked", ContentFilterType.SAFETY);
         assertEquals(ContentFilterType.SAFETY, e.filterType());

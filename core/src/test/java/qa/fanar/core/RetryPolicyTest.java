@@ -1,6 +1,7 @@
 package qa.fanar.core;
 
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -104,6 +105,18 @@ class RetryPolicyTest {
         assertThrows(IllegalArgumentException.class, () ->
                 new RetryPolicy(3, Duration.ofSeconds(30), Duration.ofMillis(500), 2.0,
                         JitterStrategy.FULL, e -> true));
+    }
+
+    @Test
+    void rejectsMaxDelayNotRepresentableInMilliseconds() {
+        // The retry loop works in milliseconds; a sentinel "forever" must fail at construction,
+        // never as an ArithmeticException at retry time.
+        assertThrows(IllegalArgumentException.class, () ->
+                RetryPolicy.defaults().withMaxDelay(ChronoUnit.FOREVER.getDuration()));
+        assertThrows(IllegalArgumentException.class, () ->
+                RetryPolicy.defaults().withMaxDelay(Duration.ofSeconds(Long.MAX_VALUE)));
+        assertEquals(Duration.ofMillis(Long.MAX_VALUE - 1),
+                RetryPolicy.defaults().withMaxDelay(Duration.ofMillis(Long.MAX_VALUE - 1)).maxDelay());
     }
 
     @Test

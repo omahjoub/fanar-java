@@ -24,7 +24,6 @@ import qa.fanar.core.chat.StreamEvent;
 import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.sse.SseStreamPublisher;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
-import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.internal.transport.StreamFlag;
@@ -43,10 +42,12 @@ import qa.fanar.core.spi.ObservationHandle;
  *   <li>Encode the {@link ChatRequest} to JSON via the configured {@link FanarJsonCodec}.</li>
  *   <li>Build an {@link HttpRequest} with default and observation-supplied headers, plus
  *       {@code User-Agent} when configured.</li>
- *   <li>Run the interceptor chain ({@link BearerTokenInterceptor} first, then any user
- *       interceptors) terminating at the {@link HttpTransport}.</li>
- *   <li>On a 4xx/5xx response, map to a {@link FanarException} via {@link ExceptionMapper};
- *       otherwise decode the response body into {@link ChatResponse}.</li>
+ *   <li>Run the interceptor chain ({@link RetryInterceptor} first, then
+ *       {@link BearerTokenInterceptor}, then any user interceptors) terminating at the
+ *       {@link HttpTransport}. The retry interceptor maps 4xx/5xx to the typed
+ *       {@link FanarException} hierarchy inside the chain, so only successful responses
+ *       return from it.</li>
+ *   <li>Decode the response body into {@link ChatResponse}.</li>
  *   <li>Attach {@link FanarObservationAttributes} on the observation; on any exception call
  *       {@link ObservationHandle#error} before rethrowing.</li>
  * </ol>
@@ -156,14 +157,7 @@ public final class ChatClientImpl implements ChatClient {
 
         HttpRequest httpReq = buildHttpRequest(request, obs, streaming);
         InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        HttpResponse<InputStream> response = chain.proceed(httpReq);
-
-        obs.attribute(FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
-
-        if (response.statusCode() >= 400) {
-            throw ExceptionMapper.map(response);
-        }
-        return response;
+        return chain.proceed(httpReq);
     }
 
     private HttpRequest buildHttpRequest(ChatRequest request, ObservationHandle obs, boolean streaming) {

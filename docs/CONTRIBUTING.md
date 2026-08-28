@@ -62,8 +62,9 @@ PR CI does not run live tests (no key in PR scope); the nightly job will (planne
 
 If your change touches the public API, adds or alters an SPI, changes scope, or affects stability, it needs an ADR.
 
-1. Pick the next unused number (look at the [INDEX](adr/INDEX.md) — last entry is highest). Numbers are assigned in
-   creation order and **never** renumbered.
+1. Pick the next unused number — the highest existing number plus one, regardless of which [INDEX](adr/INDEX.md)
+   section it sits in (`ls docs/adr | sort | tail -1`). Numbers are assigned in creation order and **never**
+   renumbered.
 2. Copy an existing ADR as a template (they all follow the extended Michael Nygard format):
    ```
    cp docs/adr/019-pre-10-stability-policy.md docs/adr/020-my-decision.md

@@ -9,26 +9,54 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- **`fanar-core`** — `RetryPolicy.maxDelay()` now also caps honoured `Retry-After` hints
-  ([ADR-025](docs/adr/025-retry-after-ceiling.md)). Previously the built-in `RetryInterceptor`
-  slept for whatever the server hinted, bypassing `maxDelay` — with the 2026-08-27 spec
-  documenting daily quota windows (`ratelimit-policy: …;w=86400`), a countdown hint could block
-  the calling thread for hours. A hint above `maxDelay` now aborts the retry loop immediately:
-  the `FanarRateLimitException` surfaces with `retryAfter()` populated so callers can schedule
-  around the wait. Hints up to and including `maxDelay` are honoured exactly as before.
+- **`fanar-core`** — `FanarQuotaExceededException.retryAfter()`: the server's `Retry-After`
+  countdown now survives on both HTTP 429 subtypes, not only `FanarRateLimitException`
+  ([ADR-025](docs/adr/025-retry-after-handling.md)).
+- **`fanar-spring-boot-4-starter`** — `fanar.retry.max-delay` (default `30s`) and a
+  `@ConditionalOnMissingBean RetryPolicy` bean: declare your own `RetryPolicy` bean for a custom
+  `retryable` predicate, jitter or multiplier without replacing the `FanarClient` bean
+  ([ADR-020](docs/adr/020-spring-boot-4-starter.md), amended).
+- **`fanar-java-e2e`** — `LiveRateLimitHeadersTest`, a transport-level live pin of the
+  rate-limit response-header contract (single codec; headers are codec-independent).
 
 ### Changed
 
+- **`fanar-core`** — **retries now fire on HTTP 429 / 500 / 503 / 504** (see *Fixed*). Callers
+  see the sleeps and re-requests ADR-014 always described; the default policy's worst case is
+  two honoured `Retry-After` hints of up to 30 s each. `RetryPolicy.disabled()` opts out.
+- **`fanar-core`** — `Retry-After` semantics ([ADR-025](docs/adr/025-retry-after-handling.md)):
+  a hint is honoured up to `RetryPolicy.maxDelay()`; a larger hint ends retrying immediately and
+  the exception surfaces with `retryAfter()` populated so callers can schedule around the wait.
+  Non-positive, past-date or unparseable hints count as absent (computed backoff applies); a
+  future HTTP-date becomes the remaining wait. The ceiling applies regardless of the `retryable`
+  predicate — documented on `RetryPolicy`. `fanar.retry_count` is now recorded on every call
+  (`0` included) and `http.status_code` per attempt.
+- **`fanar-core`** — `RetryPolicy` rejects a `maxDelay` that is not representable in
+  milliseconds at construction (previously an `ArithmeticException` at retry time).
+- **`fanar-spring-boot-4-starter`** — `fanar.retry.initial-backoff` now defaults to `500ms`
+  (was `100ms`), matching `RetryPolicy.defaults()` as the properties javadoc always claimed.
 - **`api-spec`** — absorbed the 2026-08-27 Fanar spec refresh. Structurally a no-op (all 12
   operations, 97 schemas, and the per-model rate-limit table are unchanged; `info.version`
   still 1.0.0); the refresh documents the previously-unspecified rate-limit response headers:
   `x-ratelimit-limit` / `x-ratelimit-remaining` / `x-ratelimit-reset`, `ratelimit-policy`
   (`limit;w=seconds` — the only way to distinguish a per-minute from a per-day window), and
   `retry-after` (429-only, in seconds). Verified live 2026-08-27: chat 2xx responses carry all
-  four quota headers (`50;w=60` on chat models); un-rate-limited endpoints and error responses
-  carry none. The live e2e suite now pins the contract (`LiveChatCompletionsTest` §7).
+  four quota headers (`50;w=60` on chat models); `GET /v1/models` and 401 responses carry none.
+  Typed exposure of the window headers is deferred (see PROJECT_STATE); read them via the
+  `Interceptor` SPI.
+
+### Fixed
+
+- **`fanar-core`** — HTTP-status retry never fired. Every domain facade mapped 4xx/5xx to the
+  typed hierarchy *after* the interceptor chain returned, so the built-in `RetryInterceptor`
+  only ever retried transport failures — ADR-014's retryable set was dead end-to-end in 0.1.0
+  and 0.2.0. The mapping now happens inside the chain at the retry boundary
+  ([ADR-012](docs/adr/012-interceptor-spi.md) and
+  [ADR-006](docs/adr/006-unchecked-exception-hierarchy.md), amended); user interceptors still
+  see raw error responses. Covered by a facade-level test that drives a 503 → 200 sequence
+  through the real chain.
 
 ## [0.2.0] - 2026-08-06
 

@@ -1,6 +1,6 @@
 # ADR-014 — Retry policy defaults
 
-- **Status**: Accepted — `Retry-After` clause amended by [ADR-025](025-retry-after-ceiling.md)
+- **Status**: Accepted (amended 2026-08-28 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -21,8 +21,8 @@ tokens, inconsistent state). Retry of the initial connection is safe; retry mid-
 - **Backoff**: exponential with **full jitter**. `delay = random(0, base * 2^(attempt-1))`, where base = 500 ms.
 - **Max delay cap**: 30 seconds.
 - **`Retry-After` header**: respected when the server sends it; overrides the computed backoff.
-  *Amended by [ADR-025](025-retry-after-ceiling.md): a hint above `maxDelay` aborts the retry
-  loop instead — the exception surfaces immediately with the hint preserved.*
+  *Amended 2026-08-28 — honoured up to `maxDelay`, see [Amendments](#amendments) and
+  [ADR-025](025-retry-after-handling.md).*
 
 ### Retryable set
 
@@ -41,7 +41,8 @@ Based on typed `ErrorCode` (ADR-006) combined with HTTP status:
 | | `unprocessable` (422) |
 
 Note that `exceeded_quota` shares HTTP 429 with `rate_limit_reached` but is explicitly non-retryable — quota is a
-permanent condition, not a transient one. The typed `ErrorCode` lets us distinguish.
+permanent condition, not a transient one. The typed `ErrorCode` lets us distinguish. Both carry the server's
+`Retry-After` hint for caller-side scheduling (ADR-025).
 
 ### Streaming retries
 
@@ -101,13 +102,32 @@ explicit opt-out.
 
 ### Negative / Trade-offs
 - Users encountering transient failures outside our retryable set must supply a custom `retryable` predicate.
-  Mitigated by the `Predicate<FanarException>` hook, which gives full control.
-- 3 attempts can extend tail latency to ~30 seconds in the worst case (5 s first retry + 25 s second with cap).
-  Callers with stricter SLOs tune down.
+  Mitigated by the `Predicate<FanarException>` hook, which gives full control over *which* exceptions are
+  retried; the attempt budget and the `maxDelay` ceiling still apply regardless of its answer (ADR-025).
+- With the defaults, computed backoff adds at most ~1.5 s across the two retries (≤ 500 ms + ≤ 1 s with full
+  jitter); honoured `Retry-After` hints can add up to `maxDelay` per retry — ~60 s worst case. Callers with
+  stricter SLOs tune down.
 
 ### Neutral
 - The interaction with `Chain.observation()` (ADR-012 / ADR-013) is explicit: `RetryInterceptor` emits
   `retry_attempt` events on the current observation so traces and metrics reflect the retry count.
+
+## Amendments
+
+### 2026-08-28 — `Retry-After` ceiling, predicate bounds, and the retryable set made real (0.3.0)
+
+Through 0.2.0 the retryable set above was unimplemented end-to-end for every HTTP-status row: the
+domain facades mapped 4xx/5xx to typed exceptions only after the interceptor chain had returned,
+so `RetryInterceptor` retried transport failures and nothing else. 0.3.0 moves the mapping to the
+retry boundary inside the chain (ADR-012 amendment); the table now describes what happens.
+
+In the same release [ADR-025](025-retry-after-handling.md) amends the `Retry-After` clause:
+hints are honoured up to `maxDelay`, a larger hint ends retrying with the exception surfacing
+hint-preserved, non-positive / past-date / unparseable hints count as absent, and both HTTP 429
+subtypes carry the hint (`exceeded_quota` stays non-retryable). The "full control" wording in the
+trade-offs above is narrowed accordingly — the predicate decides *which*, the policy's bounds
+decide *how long* — and the worst-case latency arithmetic, which never matched the 500 ms base,
+is corrected in place.
 
 ## References
 
@@ -115,6 +135,6 @@ explicit opt-out.
 - ADR-012 Interceptor SPI
 - ADR-013 Observability SPI
 - ADR-016 `FanarClient` builder and domain facades
-- ADR-025 Retry-After ceiling (amends the `Retry-After` clause above)
+- ADR-025 Retry-After handling (amends the `Retry-After` clause above)
 - "Exponential Backoff and Jitter", AWS Architecture Blog
 - Google SRE Book, "Handling overload"

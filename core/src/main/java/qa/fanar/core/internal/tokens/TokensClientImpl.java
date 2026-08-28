@@ -17,7 +17,6 @@ import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.internal.retry.RetryInterceptor;
 import qa.fanar.core.internal.transport.BearerTokenInterceptor;
-import qa.fanar.core.internal.transport.ExceptionMapper;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -34,8 +33,9 @@ import qa.fanar.core.tokens.TokensClient;
  *
  * <p>Same plumbing as {@code ChatClientImpl} / {@code ModelsClientImpl}: retry → bearer-token →
  * user interceptors → transport. Encodes the {@link TokenizationRequest} via the configured
- * {@link FanarJsonCodec}, posts to {@code /v1/tokens}, decodes the {@link TokenizationResponse}
- * on success, and maps 4xx/5xx through {@link ExceptionMapper}.</p>
+ * {@link FanarJsonCodec}, posts to {@code /v1/tokens} and decodes the
+ * {@link TokenizationResponse}; 4xx/5xx become typed exceptions inside the chain (retry
+ * interceptor) before reaching this class.</p>
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
  *
@@ -115,14 +115,7 @@ public final class TokensClientImpl implements TokensClient {
 
         HttpRequest httpReq = buildHttpRequest(request, obs);
         InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        HttpResponse<InputStream> response = chain.proceed(httpReq);
-
-        obs.attribute(FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
-
-        if (response.statusCode() >= 400) {
-            throw ExceptionMapper.map(response);
-        }
-        return response;
+        return chain.proceed(httpReq);
     }
 
     private HttpRequest buildHttpRequest(TokenizationRequest request, ObservationHandle obs) {

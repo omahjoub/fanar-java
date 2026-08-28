@@ -28,7 +28,10 @@ public final class FanarObservationAttributes {
     /** Fanar model identifier used for this operation (for example {@code "Fanar-C-2-27B"}). */
     public static final String FANAR_MODEL = "fanar.model";
 
-    /** Number of retry attempts made by the built-in retry interceptor. Zero on first success. */
+    /**
+     * Number of retries the built-in retry interceptor performed for this call. Recorded on every
+     * completed call — {@code 0} when the first attempt succeeded or its failure was not retried.
+     */
     public static final String FANAR_RETRY_COUNT = "fanar.retry_count";
 
     /** For streaming operations, total number of {@code StreamEvent}s emitted. */

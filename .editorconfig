@@ -16,3 +16,8 @@ trim_trailing_whitespace = false
 
 [*.{json,xml}]
 indent_size = 2
+
+# Vendor-supplied spec files are kept byte-faithful to the download.
+[api-spec/**]
+insert_final_newline = false
+trim_trailing_whitespace = false

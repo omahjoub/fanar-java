@@ -1,5 +1,6 @@
 package qa.fanar.spring.boot.v4;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import qa.fanar.core.FanarClient;
+import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
@@ -47,7 +49,8 @@ class FanarAutoConfigurationTest {
                     assertThat(props.connectTimeout().toSeconds()).isEqualTo(10);
                     assertThat(props.requestTimeout().toSeconds()).isEqualTo(60);
                     assertThat(props.retry().maxAttempts()).isEqualTo(3);
-                    assertThat(props.retry().initialBackoff().toMillis()).isEqualTo(100);
+                    assertThat(props.retry().initialBackoff().toMillis()).isEqualTo(500);
+                    assertThat(props.retry().maxDelay().toSeconds()).isEqualTo(30);
                     assertThat(props.wireLogging().level().name()).isEqualTo("NONE");
                 });
     }
@@ -61,6 +64,7 @@ class FanarAutoConfigurationTest {
                         "fanar.request-timeout=30s",
                         "fanar.retry.max-attempts=5",
                         "fanar.retry.initial-backoff=250ms",
+                        "fanar.retry.max-delay=45s",
                         "fanar.wire-logging.level=BODY")
                 .run(ctx -> {
                     FanarProperties props = ctx.getBean(FanarProperties.class);
@@ -69,7 +73,43 @@ class FanarAutoConfigurationTest {
                     assertThat(props.requestTimeout().toSeconds()).isEqualTo(30);
                     assertThat(props.retry().maxAttempts()).isEqualTo(5);
                     assertThat(props.retry().initialBackoff().toMillis()).isEqualTo(250);
+                    assertThat(props.retry().maxDelay().toSeconds()).isEqualTo(45);
                     assertThat(props.wireLogging().level().name()).isEqualTo("BODY");
+                });
+    }
+
+    @Test
+    void defaultRetryPolicyBeanMirrorsTheSdkDefaults() {
+        runner.withPropertyValues("fanar.api-key=test-key")
+                .run(ctx -> assertThat(ctx.getBean(RetryPolicy.class)).isEqualTo(RetryPolicy.defaults()));
+    }
+
+    @Test
+    void retryPolicyBeanReflectsTheRetryKnobs() {
+        // initial-backoff above the SDK's default cap used to fail at startup; the three knobs are
+        // now validated together.
+        runner.withPropertyValues(
+                        "fanar.api-key=test-key",
+                        "fanar.retry.max-attempts=5",
+                        "fanar.retry.initial-backoff=45s",
+                        "fanar.retry.max-delay=90s")
+                .run(ctx -> {
+                    RetryPolicy policy = ctx.getBean(RetryPolicy.class);
+                    assertThat(policy.maxAttempts()).isEqualTo(5);
+                    assertThat(policy.baseDelay()).isEqualTo(Duration.ofSeconds(45));
+                    assertThat(policy.maxDelay()).isEqualTo(Duration.ofSeconds(90));
+                    assertThat(policy.jitter()).isEqualTo(RetryPolicy.defaults().jitter());
+                    assertThat(policy.backoffMultiplier()).isEqualTo(RetryPolicy.defaults().backoffMultiplier());
+                });
+    }
+
+    @Test
+    void userDefinedRetryPolicyBeanWins() {
+        runner.withPropertyValues("fanar.api-key=test-key", "fanar.retry.max-attempts=7")
+                .withUserConfiguration(CustomRetryPolicyConfig.class)
+                .run(ctx -> {
+                    assertThat(ctx).hasSingleBean(FanarClient.class);
+                    assertThat(ctx.getBean(RetryPolicy.class)).isSameAs(CustomRetryPolicyConfig.MARKER);
                 });
     }
 
@@ -114,6 +154,16 @@ class FanarAutoConfigurationTest {
 
         @Bean
         FanarClient fanarClient() {
+            return MARKER;
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class CustomRetryPolicyConfig {
+        static final RetryPolicy MARKER = RetryPolicy.disabled();
+
+        @Bean
+        RetryPolicy fanarRetryPolicy() {
             return MARKER;
         }
     }

@@ -7,12 +7,14 @@ import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservationHandle;
 
 import javax.net.ssl.SSLSession;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +41,9 @@ class RetryInterceptorTest {
         assertSame(expected, actual);
         assertEquals(1, chain.calls());
         assertEquals(0, sleeper.sleepCount());
-        assertEquals(0, chain.recorder().retryCount(), "no retries → attribute must not be set");
+        assertTrue(chain.recorder().retryCountRecorded(), "retry count is recorded on every exit");
+        assertEquals(0, chain.recorder().retryCount(), "recorded as 0 — no retry happened");
+        assertEquals(List.of(200), chain.recorder().statuses(), "status recorded per attempt");
     }
 
     @Test
@@ -131,9 +135,7 @@ class RetryInterceptorTest {
         FanarRateLimitException rateLimited = new FanarRateLimitException("come back later", hint);
         RecordingChain chain = new RecordingChain(List.of(rateLimited));
         RecordingSleeper sleeper = new RecordingSleeper();
-        RetryPolicy policy = RetryPolicy.defaults()
-                .withJitter(JitterStrategy.NONE)
-                .withMaxDelay(Duration.ofSeconds(30));
+        RetryPolicy policy = RetryPolicy.defaults(); // default maxDelay (30 s) is the ceiling
 
         FanarRateLimitException thrown = assertThrows(FanarRateLimitException.class, () ->
                 new RetryInterceptor(policy, sleeper, deterministicRandom())
@@ -144,20 +146,20 @@ class RetryInterceptorTest {
         assertEquals(1, chain.calls(), "no retry may be attempted");
         assertEquals(0, sleeper.sleepCount(), "must not sleep at all");
         assertTrue(chain.recorder().events().isEmpty(), "no retry_attempt event");
+        assertTrue(chain.recorder().retryCountRecorded(), "the abort is still observable");
         assertEquals(0, chain.recorder().retryCount());
     }
 
     @Test
     void retryAfterEqualToMaxDelayIsStillHonoured() {
-        // Boundary of the ADR-025 ceiling: a hint of exactly maxDelay is within policy.
-        Duration hint = Duration.ofSeconds(30);
+        // Boundary of the ADR-025 ceiling: a hint of exactly maxDelay is within policy. The hint
+        // is read from the policy so this test keeps telling ">" from ">=" if the default moves.
+        RetryPolicy policy = RetryPolicy.defaults().withJitter(JitterStrategy.NONE);
+        Duration hint = policy.maxDelay();
         RecordingChain chain = new RecordingChain(List.of(
                 new FanarRateLimitException("slow down", hint),
                 stubResponse()));
         RecordingSleeper sleeper = new RecordingSleeper();
-        RetryPolicy policy = RetryPolicy.defaults()
-                .withJitter(JitterStrategy.NONE)
-                .withMaxDelay(Duration.ofSeconds(30));
 
         new RetryInterceptor(policy, sleeper, deterministicRandom())
                 .intercept(baseRequest(), chain);
@@ -334,6 +336,100 @@ class RetryInterceptorTest {
         assertSame(chain.last(), response);
     }
 
+    @Test
+    void errorResponseIsMappedInsideTheChainAndRetried() {
+        // The interceptor is the SDK's error boundary: a 5xx HttpResponse coming back through the
+        // chain becomes a typed exception here, and the policy decides whether to retry it.
+        HttpResponse<InputStream> success = stubResponse();
+        RecordingChain chain = new RecordingChain(List.of(
+                httpResponse(503, "", Map.of()),
+                success));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        RetryPolicy policy = RetryPolicy.defaults()
+                .withJitter(JitterStrategy.NONE)
+                .withBaseDelay(Duration.ofMillis(100))
+                .withMaxDelay(Duration.ofMillis(100));
+
+        HttpResponse<InputStream> actual = new RetryInterceptor(policy, sleeper, deterministicRandom())
+                .intercept(baseRequest(), chain);
+
+        assertSame(success, actual);
+        assertEquals(2, chain.calls());
+        assertEquals(List.of(Duration.ofMillis(100)), sleeper.sleeps());
+        assertEquals(List.of(503, 200), chain.recorder().statuses(), "status recorded per attempt");
+        assertEquals(1, chain.recorder().retryCount());
+    }
+
+    @Test
+    void nonRetryableErrorResponseIsMappedAndRethrownWithoutRetry() {
+        RecordingChain chain = new RecordingChain(List.of(httpResponse(401, "bad token", Map.of())));
+        RecordingSleeper sleeper = new RecordingSleeper();
+
+        FanarAuthenticationException thrown = assertThrows(FanarAuthenticationException.class, () ->
+                new RetryInterceptor(RetryPolicy.defaults(), sleeper, deterministicRandom())
+                        .intercept(baseRequest(), chain));
+
+        assertEquals("bad token", thrown.getMessage());
+        assertEquals(1, chain.calls());
+        assertEquals(0, sleeper.sleepCount());
+        assertEquals(List.of(401), chain.recorder().statuses());
+        assertTrue(chain.recorder().retryCountRecorded());
+        assertEquals(0, chain.recorder().retryCount());
+    }
+
+    @Test
+    void rateLimitResponseHonoursRetryAfterHeader() {
+        RecordingChain chain = new RecordingChain(List.of(
+                httpResponse(429, "", Map.of("Retry-After", List.of("7"))),
+                stubResponse()));
+        RecordingSleeper sleeper = new RecordingSleeper();
+
+        new RetryInterceptor(RetryPolicy.defaults(), sleeper, deterministicRandom())
+                .intercept(baseRequest(), chain);
+
+        assertEquals(List.of(Duration.ofSeconds(7)), sleeper.sleeps());
+        assertEquals(2, chain.calls());
+    }
+
+    @Test
+    void quotaExceededIsNotRetriedByDefaultButKeepsTheHint() {
+        String body = "{\"error\":{\"code\":\"exceeded_quota\",\"message\":\"quota exhausted\",\"status\":429}}";
+        RecordingChain chain = new RecordingChain(List.of(
+                httpResponse(429, body, Map.of("Retry-After", List.of("86400")))));
+        RecordingSleeper sleeper = new RecordingSleeper();
+
+        FanarQuotaExceededException thrown = assertThrows(FanarQuotaExceededException.class, () ->
+                new RetryInterceptor(RetryPolicy.defaults(), sleeper, deterministicRandom())
+                        .intercept(baseRequest(), chain));
+
+        assertEquals(Duration.ofHours(24), thrown.retryAfter(), "hint survives for caller-side scheduling");
+        assertEquals(1, chain.calls());
+        assertEquals(0, sleeper.sleepCount());
+    }
+
+    @Test
+    void predicateOptingIntoQuotaGetsTheSameHintSemantics() {
+        // A caller who chooses to retry quota exhaustion gets the ceiling applied to its hint too:
+        // honoured up to maxDelay, retrying ended above it.
+        RetryPolicy optIn = RetryPolicy.defaults()
+                .withJitter(JitterStrategy.NONE)
+                .withRetryable(e -> e instanceof FanarQuotaExceededException);
+
+        RecordingChain within = new RecordingChain(List.of(
+                new FanarQuotaExceededException("quota", Duration.ofSeconds(5)),
+                stubResponse()));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        new RetryInterceptor(optIn, sleeper, deterministicRandom()).intercept(baseRequest(), within);
+        assertEquals(List.of(Duration.ofSeconds(5)), sleeper.sleeps());
+
+        FanarQuotaExceededException above = new FanarQuotaExceededException("quota", Duration.ofDays(1));
+        RecordingChain beyond = new RecordingChain(List.of(above));
+        RecordingSleeper noSleep = new RecordingSleeper();
+        assertSame(above, assertThrows(FanarQuotaExceededException.class, () ->
+                new RetryInterceptor(optIn, noSleep, deterministicRandom()).intercept(baseRequest(), beyond)));
+        assertEquals(0, noSleep.sleepCount());
+    }
+
     // --- helpers
 
     private static HttpRequest baseRequest() {
@@ -341,12 +437,17 @@ class RetryInterceptorTest {
     }
 
     private static HttpResponse<InputStream> stubResponse() {
+        return httpResponse(200, "", Map.of());
+    }
+
+    private static HttpResponse<InputStream> httpResponse(
+            int status, String body, Map<String, List<String>> headers) {
         return new HttpResponse<>() {
-            public int statusCode() { return 200; }
+            public int statusCode() { return status; }
             public HttpRequest request() { return null; }
             public Optional<HttpResponse<InputStream>> previousResponse() { return Optional.empty(); }
-            public HttpHeaders headers() { return HttpHeaders.of(Map.of(), (a, b) -> true); }
-            public InputStream body() { return InputStream.nullInputStream(); }
+            public HttpHeaders headers() { return HttpHeaders.of(headers, (a, b) -> true); }
+            public InputStream body() { return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)); }
             public Optional<SSLSession> sslSession() { return Optional.empty(); }
             public URI uri() { return URI.create("http://t"); }
             public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
@@ -404,9 +505,12 @@ class RetryInterceptorTest {
 
     private static final class RecordingObservation implements ObservationHandle {
         private final List<String> events = new ArrayList<>();
+        private final List<Integer> statuses = new ArrayList<>();
         private final AtomicReference<Object> retryCount = new AtomicReference<>();
 
         List<String> events() { return events; }
+        List<Integer> statuses() { return statuses; }
+        boolean retryCountRecorded() { return retryCount.get() != null; }
 
         int retryCount() {
             Object v = retryCount.get();
@@ -417,6 +521,8 @@ class RetryInterceptorTest {
         public ObservationHandle attribute(String key, Object value) {
             if (FanarObservationAttributes.FANAR_RETRY_COUNT.equals(key)) {
                 retryCount.set(value);
+            } else if (FanarObservationAttributes.HTTP_STATUS_CODE.equals(key)) {
+                statuses.add((Integer) value);
             }
             return this;
         }

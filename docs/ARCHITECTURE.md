@@ -141,21 +141,24 @@ ObservabilityPlugin.start("fanar.chat")  ──────►  ObservationHandl
     ▼
 Interceptor chain (registration order: first-added is outermost)
     │
-    ├─ BearerTokenInterceptor         adds Authorization header
-    │
-    ├─ RetryInterceptor               wraps the rest; retries on typed retryable errors
+    ├─ RetryInterceptor               wraps the rest; the SDK's error boundary: maps 4xx/5xx
+    │                                 to typed FanarException subtypes as the chain unwinds,
+    │                                 retries per RetryPolicy (Retry-After ≤ maxDelay honoured),
     │                                 emits observation.event("retry_attempt")
     │
-    ├─ <user interceptors>            Chain.proceed(request) invokes the next link
+    ├─ BearerTokenInterceptor         adds Authorization header (re-signed on every attempt)
+    │
+    ├─ <user interceptors>            Chain.proceed(request) invokes the next link; see raw
+    │                                 error responses (status, headers, body)
     │
     ▼
 JDK HttpClient.send(req, BodyHandlers.ofInputStream())                     qa.fanar.core.internal.transport
     │                                                                       (IOException → FanarTransportException)
     │
     ▼  HttpResponse
-Interceptor chain unwinds (post-processing)
+Interceptor chain unwinds (post-processing; errors already typed at the retry boundary)
     │
-    │  decode body via FanarJsonCodec, surface errors as typed FanarException subtypes
+    │  decode body via FanarJsonCodec
     ▼
 ChatResponse                                                                qa.fanar.core.chat.ChatResponse
 ```
@@ -167,15 +170,16 @@ All on the caller's thread. On a virtual thread, the blocking I/O does not tie u
 ```
 user code  ──────────► client.chat().stream(request)
                                     │
-                                    │ (same as sync up to the HTTP call: validate, observation,
-                                    │  interceptors, encode, send — but with BodyHandlers.ofLines())
+                                    │ (same as sync through the interceptor chain: validate,
+                                    │  observation, encode with "stream":true, send with
+                                    │  Accept: text/event-stream — errors mapped in-chain)
                                     ▼
-                       HttpClient.sendAsync(req, BodyHandlers.ofLines())    qa.fanar.core.internal.transport
+                       HttpClient.send(req, BodyHandlers.ofInputStream())   qa.fanar.core.internal.transport
                                     │
                                     ▼
-                       Flow.Publisher<String>          (one line per item)
-                                    │
-                                    │ accumulate into SSE frames:          qa.fanar.core.internal.sse
+                       SseStreamPublisher reads the InputStream            qa.fanar.core.internal.sse
+                                    │   line by line on a virtual thread,
+                                    │ accumulating SSE frames:
                                     │   data: / event: / id: / blank line = dispatch
                                     ▼
                        per frame: FanarJsonCodec.decode(...) into
@@ -199,8 +203,8 @@ Streamed TTS (`client.audio().speechStream(request)`) follows the same shape wit
 | HTTP transport | `.httpClient(HttpClient custom)` | JDK `HttpClient` built by the client, closed on `FanarClient.close()` |
 | JSON codec | `FanarJsonCodec` via `.jsonCodec(codec)` or `ServiceLoader` | `ServiceLoader` discovery; **loud error** at `build()` if none found |
 | Observability | `ObservabilityPlugin` via `.observability(plugin)` | No-op plugin |
-| Interceptors | `.addInterceptor(i)` (registration order = chain order) | `BearerTokenInterceptor` (if apiKey set) + `RetryInterceptor` |
-| Retry policy | `.retryPolicy(policy)` | `RetryPolicy.defaults()` — 3 attempts, exponential + full jitter, 30 s cap |
+| Interceptors | `.addInterceptor(i)` (registration order = chain order) | `RetryInterceptor` (outermost; also the error boundary) + `BearerTokenInterceptor` (if apiKey set) |
+| Retry policy | `.retryPolicy(policy)` | `RetryPolicy.defaults()` — 3 attempts, exponential + full jitter, 30 s cap (also the `Retry-After` ceiling, ADR-025) |
 | User-Agent | `.userAgent(ua)` | `fanar-java/<version>` |
 | Default headers | `.defaultHeader(name, value)` (repeated) | none |
 
@@ -232,7 +236,10 @@ FanarException               (sealed, unchecked)
 
 One subtype per Fanar `ErrorCode` plus `FanarTransportException` for JDK-transport failures. The
 mapper routes by the typed `code` in the error envelope first and falls back to HTTP status when the
-body isn't a well-formed envelope. See ADR-006.
+body isn't a well-formed envelope. It runs inside the interceptor chain at the retry boundary
+(`RetryInterceptor`), so user interceptors see raw error responses while the domain facades only
+ever see typed exceptions — and the retry policy can act on them. Both HTTP 429 subtypes carry the
+server's `Retry-After` hint. See ADR-006 and ADR-012.
 
 ---
 
@@ -258,12 +265,12 @@ zone (ADR-018).
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
 | Composite observability | `qa.fanar.core.internal.observability.CompositeObservabilityPlugin` | **implemented** — produced by `ObservabilityPlugin.compose(...)`; fans out `start` / `attribute` / `event` / `error` / `child` to N children, merges `propagationHeaders` (last-write-wins on key collision) |
-| Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** (record + enum; retry loop still to come) |
+| Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** — record + enum; validated at construction; `maxDelay` doubles as the `Retry-After` ceiling (ADR-025). The loop is `RetryInterceptor` below |
 | HTTP transport | `qa.fanar.core.internal.transport` (`HttpTransport`, `DefaultHttpTransport`, `InterceptorChainImpl`, `ExceptionMapper`, `ErrorEnvelope`) | **implemented** |
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |
 | Audio stream publisher | `qa.fanar.core.internal.audio.AudioStreamPublisher` | **implemented** — `SseStreamPublisher`'s structural twin minus frame assembly; emits opaque `byte[]` chunks for streamed TTS (ADR-023); `stream:true` spliced via the shared `internal.transport.StreamFlag` helper |
-| Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — exponential back-off with configurable jitter, `Retry-After` honouring on 429 up to `maxDelay` (a longer hint aborts retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` observation events, injectable `Sleeper`+`RandomGenerator` |
+| Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — the SDK's error boundary (maps 4xx/5xx to the typed hierarchy inside the chain, ADR-012 amendment) and retry loop: exponential back-off with configurable jitter, `Retry-After` honoured on both 429 subtypes up to `maxDelay` (a longer hint ends retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` events, `http.status_code` per attempt and `fanar.retry_count` on every exit, injectable `Sleeper`+`RandomGenerator` |
 | Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | SLF4J observability adapter | `qa.fanar.obs.slf4j.Slf4jObservabilityPlugin` | **implemented** — one structured log line per operation through SLF4J at `DEBUG` (success) / `ERROR` (failure); per-operation logger names (`fanar.chat.send`, `fanar.audio.speech`, ...); attribute filter / redactor knobs via builder; `provided`-scope SLF4J |
@@ -286,5 +293,5 @@ zone (ADR-018).
 - [API sketch](API_SKETCH.md) — concrete code shapes for every call.
 - [ADRs 010 + 011](adr/INDEX.md) — module and package conventions.
 - [ADRs 007 + 008 + 017](adr/INDEX.md) — transport, JSON, SSE.
-- [ADRs 012 + 013 + 014](adr/INDEX.md) — interceptor, observability, retry SPIs.
+- [ADRs 012 + 013 + 014 + 025](adr/INDEX.md) — interceptor, observability, retry SPIs, Retry-After handling.
 - [ADR 018](adr/018-internals-not-a-contract.md) — internals are not a contract.

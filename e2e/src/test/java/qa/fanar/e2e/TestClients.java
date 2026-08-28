@@ -12,6 +12,7 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.interceptor.logging.WireLoggingInterceptor;
 import qa.fanar.obs.micrometer.MicrometerObservabilityPlugin;
@@ -44,18 +45,9 @@ public final class TestClients {
     }
 
     /**
-     * A {@link FanarClient} configured with the provided codec and a generous per-request
-     * timeout appropriate for streaming tests against the live API. Caller closes the client
+     * A {@link FanarClient} for live tests — the provided codec, a generous per-request timeout
+     * appropriate for streaming, and four diagnostics turned on. Caller closes the client
      * (try-with-resources).
-     *
-     * @throws IllegalStateException if {@code FANAR_API_KEY} is not set
-     */
-    public static FanarClient live(FanarJsonCodec codec) {
-        return liveBuilder(codec).build();
-    }
-
-    /**
-     * Same as {@link #live(FanarJsonCodec)} but with four diagnostics turned on:
      * <ul>
      *   <li>{@link WireLoggingInterceptor} at {@link WireLoggingInterceptor.Level#BODY} — prints
      *       every request and response (method, URL, headers, body) through SLF4J. The e2e
@@ -76,29 +68,26 @@ public final class TestClients {
      * <p>All three observability plugins are wired through {@link ObservabilityPlugin#compose},
      * so a single live run dispatches every operation event to all of them in parallel — log
      * line + OTel span (with traceparent) + Micrometer Observation.</p>
+     *
+     * @param codec the JSON codec under test
+     * @param extra caller interceptors, registered after the wire logger so they sit closer to
+     *              the transport and observe the same exchange the log shows — e.g. a header
+     *              capture for transport-metadata assertions ({@code LiveRateLimitHeadersTest})
+     * @throws IllegalStateException if {@code FANAR_API_KEY} is not set
      */
-    public static FanarClient liveWithLogging(FanarJsonCodec codec) {
-        return liveBuilder(codec)
+    public static FanarClient liveWithLogging(FanarJsonCodec codec, Interceptor... extra) {
+        FanarClient.Builder builder = liveBuilder(codec)
                 .addInterceptor(WireLoggingInterceptor.builder()
                         .level(WireLoggingInterceptor.Level.BODY)
                         .build())
                 .observability(ObservabilityPlugin.compose(
                         new Slf4jObservabilityPlugin(),
                         new OpenTelemetryObservabilityPlugin(otelForDemo()),
-                        new MicrometerObservabilityPlugin(ObservationRegistry.create())))
-                .build();
-    }
-
-    /**
-     * Same as {@link #live(FanarJsonCodec)} plus the caller's {@link CapturingInterceptor},
-     * registered last so it sits innermost (closest to the transport) and observes the final
-     * response of each exchange — headers included. Used by transport-metadata assertions
-     * (e.g. the rate-limit headers pinned by {@code LiveChatCompletionsTest} §7).
-     */
-    public static FanarClient liveCapturing(FanarJsonCodec codec, CapturingInterceptor capture) {
-        return liveBuilder(codec)
-                .addInterceptor(capture)
-                .build();
+                        new MicrometerObservabilityPlugin(ObservationRegistry.create())));
+        for (Interceptor interceptor : extra) {
+            builder.addInterceptor(interceptor);
+        }
+        return builder.build();
     }
 
     /**
