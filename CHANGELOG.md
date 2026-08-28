@@ -57,8 +57,9 @@ may break public API until 1.0.0 ships.
   and 0.2.0. The mapping now happens inside the chain at the retry boundary
   ([ADR-012](docs/adr/012-interceptor-spi.md) and
   [ADR-006](docs/adr/006-unchecked-exception-hierarchy.md), amended); user interceptors still
-  see raw error responses. Covered by a facade-level test that drives a 503 → 200 sequence
-  through the real chain.
+  see raw error responses. Covered end-to-end by `FanarClientRetryIntegrationTest` — the public
+  builder against a local `HttpServer` scripting 5xx / 429 / `Retry-After` sequences — plus a
+  facade-level test driving 503 → 200 through the real chain.
 
 ## [0.2.0] - 2026-08-06
 
