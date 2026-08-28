@@ -9,6 +9,8 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-29
+
 ### Added
 
 - **`fanar-core`** — `FanarQuotaExceededException.retryAfter()`: the server's `Retry-After`
@@ -183,6 +185,7 @@ from a clone, or download the artifacts attached to this release.
   end-to-end since they shape the prompt text.
 - **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
 
-[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.3.0
 [0.2.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.2.0
 [0.1.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.1.0
