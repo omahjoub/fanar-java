@@ -290,7 +290,8 @@ import qa.fanar.core.*;
 try {
     ChatResponse response = client.chat().send(request);
 } catch (FanarRateLimitException e) {
-    // Retry-After honored automatically by the built-in RetryInterceptor
+    // Retry-After ≤ maxDelay is honored automatically by the built-in RetryInterceptor;
+    // a longer hint lands here immediately with retryAfter() populated (ADR-025)
     log.warn("Rate limited, retry in {}", e.retryAfter());
 } catch (FanarContentFilterException e) {
     showRefusalUi(e.filterType());

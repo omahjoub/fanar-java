@@ -1,6 +1,6 @@
 # ADR-014 — Retry policy defaults
 
-- **Status**: Accepted
+- **Status**: Accepted — `Retry-After` clause amended by [ADR-025](025-retry-after-ceiling.md)
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -20,7 +20,9 @@ tokens, inconsistent state). Retry of the initial connection is safe; retry mid-
 - **Attempts**: 3 total (1 initial + 2 retries).
 - **Backoff**: exponential with **full jitter**. `delay = random(0, base * 2^(attempt-1))`, where base = 500 ms.
 - **Max delay cap**: 30 seconds.
-- **`Retry-After` header**: always respected when the server sends it; overrides the computed backoff.
+- **`Retry-After` header**: respected when the server sends it; overrides the computed backoff.
+  *Amended by [ADR-025](025-retry-after-ceiling.md): a hint above `maxDelay` aborts the retry
+  loop instead — the exception surfaces immediately with the hint preserved.*
 
 ### Retryable set
 
@@ -113,5 +115,6 @@ explicit opt-out.
 - ADR-012 Interceptor SPI
 - ADR-013 Observability SPI
 - ADR-016 `FanarClient` builder and domain facades
+- ADR-025 Retry-After ceiling (amends the `Retry-After` clause above)
 - "Exponential Backoff and Jitter", AWS Architecture Blog
 - Google SRE Book, "Handling overload"

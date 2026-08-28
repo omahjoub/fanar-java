@@ -9,6 +9,27 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`fanar-core`** — `RetryPolicy.maxDelay()` now also caps honoured `Retry-After` hints
+  ([ADR-025](docs/adr/025-retry-after-ceiling.md)). Previously the built-in `RetryInterceptor`
+  slept for whatever the server hinted, bypassing `maxDelay` — with the 2026-08-27 spec
+  documenting daily quota windows (`ratelimit-policy: …;w=86400`), a countdown hint could block
+  the calling thread for hours. A hint above `maxDelay` now aborts the retry loop immediately:
+  the `FanarRateLimitException` surfaces with `retryAfter()` populated so callers can schedule
+  around the wait. Hints up to and including `maxDelay` are honoured exactly as before.
+
+### Changed
+
+- **`api-spec`** — absorbed the 2026-08-27 Fanar spec refresh. Structurally a no-op (all 12
+  operations, 97 schemas, and the per-model rate-limit table are unchanged; `info.version`
+  still 1.0.0); the refresh documents the previously-unspecified rate-limit response headers:
+  `x-ratelimit-limit` / `x-ratelimit-remaining` / `x-ratelimit-reset`, `ratelimit-policy`
+  (`limit;w=seconds` — the only way to distinguish a per-minute from a per-day window), and
+  `retry-after` (429-only, in seconds). Verified live 2026-08-27: chat 2xx responses carry all
+  four quota headers (`50;w=60` on chat models); un-rate-limited endpoints and error responses
+  carry none. The live e2e suite now pins the contract (`LiveChatCompletionsTest` §7).
+
 ## [0.2.0] - 2026-08-06
 
 Full parity with the 2026-08 Fanar spec: madhab-aware `Fanar-Sadiq-2`, custom personas,

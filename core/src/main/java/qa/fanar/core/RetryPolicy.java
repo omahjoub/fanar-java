@@ -28,7 +28,10 @@ import java.util.function.Predicate;
  * @param maxAttempts       total attempts including the first; must be ≥ 1. A value of 1
  *                          disables retries.
  * @param baseDelay         initial backoff delay; must be positive
- * @param maxDelay          cap on the computed backoff; must be positive and ≥ {@code baseDelay}
+ * @param maxDelay          cap on the computed backoff, and ceiling on honoured server
+ *                          {@code Retry-After} hints — a hint above it aborts retrying and the
+ *                          rate-limit exception surfaces with the hint preserved; must be
+ *                          positive and ≥ {@code baseDelay}
  * @param backoffMultiplier factor applied to the backoff on each retry; must be ≥ 1.0
  * @param jitter            jitter policy applied to the computed backoff
  * @param retryable         predicate deciding whether a given exception is worth retrying

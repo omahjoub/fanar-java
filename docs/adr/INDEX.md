@@ -46,6 +46,7 @@ Every ADR follows an extended Michael Nygard template:
 - [012 — Interceptor SPI](012-interceptor-spi.md)
 - [013 — Observability SPI](013-observability-spi.md)
 - [014 — Retry policy defaults](014-retry-policy-defaults.md)
+- [025 — Retry-After ceiling: hints above `maxDelay` abort the retry loop](025-retry-after-ceiling.md)
 
 ### Build, distribution, governance
 

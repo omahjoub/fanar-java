@@ -16,21 +16,24 @@ import javax.net.ssl.SSLSession;
 import qa.fanar.core.spi.Interceptor;
 
 /**
- * {@link Interceptor} that drains and stores the most recent HTTP response body so a test
- * can decode the same wire bytes through more than one codec.
+ * {@link Interceptor} that snapshots the most recent HTTP response — headers plus drained
+ * body — so a test can assert transport-level metadata the SDK's typed DTOs don't carry, or
+ * decode the same wire bytes through more than one codec.
  *
- * <p>Used by {@code AdapterParityTest.liveResponseDecodesIdenticallyAcrossAdapters}: send one
- * request via the SDK, capture the raw bytes the server returned, then feed them to both
- * Jackson 2 and Jackson 3 adapters and assert the resulting records are {@code .equals()}.
- * Catches server-side schema drift the offline canned-wire test would silently miss.</p>
+ * <p>Used by {@code LiveChatCompletionsTest} §7 to pin the rate-limit response headers
+ * ({@code x-ratelimit-*}, {@code ratelimit-policy}) documented in the 2026-08-27 spec
+ * refresh. The byte capture also supports codec-parity checks: send one request via the SDK,
+ * capture the raw bytes, then feed them to both Jackson adapters and assert the resulting
+ * records are {@code .equals()}.</p>
  *
  * <p>Bytes are buffered in memory and replayed via a fresh {@code ByteArrayInputStream} so the
  * downstream subscriber still sees a usable response. {@link #lastResponseBody()} returns a
- * defensive copy.</p>
+ * defensive copy; {@link #lastResponseHeaders()} returns the immutable JDK view.</p>
  */
 public final class CapturingInterceptor implements Interceptor {
 
     private volatile byte[] lastResponseBody;
+    private volatile HttpHeaders lastResponseHeaders;
 
     /** Bytes from the most recent response, or {@code null} if no exchange has occurred yet. */
     public byte[] lastResponseBody() {
@@ -38,11 +41,17 @@ public final class CapturingInterceptor implements Interceptor {
         return snapshot == null ? null : snapshot.clone();
     }
 
+    /** Headers from the most recent response, or {@code null} if no exchange has occurred yet. */
+    public HttpHeaders lastResponseHeaders() {
+        return lastResponseHeaders;
+    }
+
     @Override
     public HttpResponse<InputStream> intercept(HttpRequest request, Chain chain) {
         HttpResponse<InputStream> response = chain.proceed(request);
         byte[] body = drain(response.body());
         this.lastResponseBody = body;
+        this.lastResponseHeaders = response.headers();
         return replay(response, body);
     }
 

@@ -124,6 +124,49 @@ class RetryInterceptorTest {
     }
 
     @Test
+    void retryAfterAboveMaxDelayAbortsRetryingImmediately() {
+        // ADR-025: a hint the policy cannot honour within maxDelay (e.g. a daily-window reset)
+        // must surface the exception at once — no sleep, no burned attempt, hint preserved.
+        Duration hint = Duration.ofHours(2);
+        FanarRateLimitException rateLimited = new FanarRateLimitException("come back later", hint);
+        RecordingChain chain = new RecordingChain(List.of(rateLimited));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        RetryPolicy policy = RetryPolicy.defaults()
+                .withJitter(JitterStrategy.NONE)
+                .withMaxDelay(Duration.ofSeconds(30));
+
+        FanarRateLimitException thrown = assertThrows(FanarRateLimitException.class, () ->
+                new RetryInterceptor(policy, sleeper, deterministicRandom())
+                        .intercept(baseRequest(), chain));
+
+        assertSame(rateLimited, thrown);
+        assertEquals(hint, thrown.retryAfter(), "hint must survive for caller-side scheduling");
+        assertEquals(1, chain.calls(), "no retry may be attempted");
+        assertEquals(0, sleeper.sleepCount(), "must not sleep at all");
+        assertTrue(chain.recorder().events().isEmpty(), "no retry_attempt event");
+        assertEquals(0, chain.recorder().retryCount());
+    }
+
+    @Test
+    void retryAfterEqualToMaxDelayIsStillHonoured() {
+        // Boundary of the ADR-025 ceiling: a hint of exactly maxDelay is within policy.
+        Duration hint = Duration.ofSeconds(30);
+        RecordingChain chain = new RecordingChain(List.of(
+                new FanarRateLimitException("slow down", hint),
+                stubResponse()));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        RetryPolicy policy = RetryPolicy.defaults()
+                .withJitter(JitterStrategy.NONE)
+                .withMaxDelay(Duration.ofSeconds(30));
+
+        new RetryInterceptor(policy, sleeper, deterministicRandom())
+                .intercept(baseRequest(), chain);
+
+        assertEquals(List.of(hint), sleeper.sleeps());
+        assertEquals(2, chain.calls());
+    }
+
+    @Test
     void rateLimitWithoutRetryAfterFallsBackToExponentialBackoff() {
         RecordingChain chain = new RecordingChain(List.of(
                 new FanarRateLimitException("slow down", null),

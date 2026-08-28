@@ -11,12 +11,14 @@ import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.chat.*;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.e2e.CapturingInterceptor;
 import qa.fanar.e2e.Probes;
 import qa.fanar.e2e.TestClients;
 import qa.fanar.interceptor.logging.WireLoggingInterceptor;
 import qa.fanar.json.jackson2.Jackson2FanarJsonCodec;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
 
+import java.net.http.HttpHeaders;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -393,8 +395,64 @@ class LiveChatCompletionsTest {
     }
 
     // =====================================================================================
+    // §7 — Transport metadata: rate-limit response headers.
+    // =====================================================================================
+
+    /**
+     * Pins the rate-limit header contract documented in the 2026-08-27 spec refresh.
+     *
+     * <p>Observed 2026-08-27 (standard limited key, {@code Fanar} chat): every 2xx chat
+     * response carries {@code x-ratelimit-limit} / {@code x-ratelimit-remaining} /
+     * {@code x-ratelimit-reset} plus {@code ratelimit-policy} in {@code limit;w=seconds} form
+     * ({@code 50;w=60}). Caveats, all observed the same day: the headers are per-model-quota
+     * only ({@code GET /v1/models} and 401 responses carry none), and the spec documents them
+     * as omitted entirely for unlimited-quota keys — if this test starts failing on missing
+     * headers, check whether the key was upgraded before suspecting the SDK.
+     * {@code x-ratelimit-reset} read a constant 60 on consecutive calls 1&nbsp;s apart, so it
+     * is not a countdown to a fixed window boundary at low utilization — we assert it parses,
+     * not that it counts down. {@code retry-after} is 429-only and not asserted here.</p>
+     */
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§7.1 2xx chat response carries the documented rate-limit headers")
+    void transport_rateLimitHeadersOnSuccess(FanarJsonCodec codec) {
+        CapturingInterceptor capture = new CapturingInterceptor();
+        try (FanarClient client = TestClients.liveCapturing(codec, capture)) {
+            ChatResponse r = client.chat().send(Probes.ping());
+            assertNotNull(r.id(), "response id must be present");
+
+            HttpHeaders headers = capture.lastResponseHeaders();
+            assertNotNull(headers, "capturing interceptor must have seen the response");
+
+            long limit = requiredLong(headers, "x-ratelimit-limit");
+            long remaining = requiredLong(headers, "x-ratelimit-remaining");
+            requiredLong(headers, "x-ratelimit-reset");
+            assertTrue(remaining < limit,
+                    "remaining (" + remaining + ") must sit below limit (" + limit
+                            + ") right after a counted request");
+
+            String policy = headers.firstValue("ratelimit-policy").orElse(null);
+            assertNotNull(policy, "ratelimit-policy header must be present");
+            assertTrue(policy.matches("\\d+;w=\\d+"),
+                    "ratelimit-policy must be 'limit;w=seconds', got: " + policy);
+        }
+    }
+
+    // =====================================================================================
     // Helpers
     // =====================================================================================
+
+    /** Assert the header {@code name} is present and non-negative-numeric; return its value. */
+    private static long requiredLong(HttpHeaders headers, String name) {
+        String value = headers.firstValue(name).orElse(null);
+        assertNotNull(value, name + " header must be present (the 2026-08-27 spec omits the "
+                + "rate-limit headers only for unlimited-quota keys — check the key before "
+                + "suspecting the SDK)");
+        long parsed = assertDoesNotThrow(() -> Long.parseLong(value),
+                name + " must be an integer, got: " + value);
+        assertTrue(parsed >= 0, name + " must be >= 0, got: " + parsed);
+        return parsed;
+    }
 
     private static FanarClient liveClient(FanarJsonCodec codec) {
         return TestClients.liveWithLogging(codec);

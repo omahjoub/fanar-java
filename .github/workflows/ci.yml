@@ -80,6 +80,7 @@ jobs:
               docs/adr/022-observability-compose-factory.md \
               docs/adr/023-streaming-tts-via-flow-publisher.md \
               docs/adr/024-spring-ai-vendor-options.md \
+              docs/adr/025-retry-after-ceiling.md \
               api-spec/openapi.json \
               api-spec/openapi.yaml \
               .github/pull_request_template.md \

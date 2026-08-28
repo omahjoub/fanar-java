@@ -90,6 +90,18 @@ public final class TestClients {
     }
 
     /**
+     * Same as {@link #live(FanarJsonCodec)} plus the caller's {@link CapturingInterceptor},
+     * registered last so it sits innermost (closest to the transport) and observes the final
+     * response of each exchange — headers included. Used by transport-metadata assertions
+     * (e.g. the rate-limit headers pinned by {@code LiveChatCompletionsTest} §7).
+     */
+    public static FanarClient liveCapturing(FanarJsonCodec codec, CapturingInterceptor capture) {
+        return liveBuilder(codec)
+                .addInterceptor(capture)
+                .build();
+    }
+
+    /**
      * Minimal {@link OpenTelemetry} for the live-test demo: a real {@link SdkTracerProvider}
      * (so spans have valid context) plus the W3C trace-context propagator (so
      * {@code traceparent} is injected). No span exporter is wired — spans are produced and
