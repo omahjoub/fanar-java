@@ -29,17 +29,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * layer, so — unlike the per-domain {@code Live*Test} classes — this test runs on a single codec:
  * a second parameterization would spend a counted request to observe the same bytes.
  *
- * <p>Observed 2026-08-27 (standard limited key, {@code Fanar} chat, curl and SDK): every 2xx chat
- * response carries all four headers, lowercase — {@code x-ratelimit-limit: 50},
- * {@code x-ratelimit-remaining} decrementing per counted request (49 → 48 on consecutive calls),
- * {@code x-ratelimit-reset: 60}, {@code ratelimit-policy: 50;w=60}. Caveats observed the same day:
+ * <p>Observed 2026-08-27 by curl and 2026-08-28 through this test (standard limited key,
+ * {@code Fanar} chat): every 2xx chat response carries all four headers, lowercase —
+ * {@code x-ratelimit-limit: 50}, {@code x-ratelimit-remaining} decrementing per counted request
+ * (49 → 48 on consecutive calls), {@code x-ratelimit-reset: 60},
+ * {@code ratelimit-policy: 50;w=60}. Caveats observed the same days:
  * the headers are per-model-quota only ({@code GET /v1/models} and 401 responses carry none), and
  * the spec omits them entirely for unlimited-quota keys — if this test starts failing on missing
  * headers, check whether the key was upgraded before suspecting the SDK. {@code x-ratelimit-reset}
- * read a constant 60 on consecutive calls 1&nbsp;s apart, so it is not a countdown to a fixed
- * window boundary at low utilization — asserted to parse, not to count down. Still unobserved and
- * therefore not asserted: {@code retry-after} on a real 429, and a per-day ({@code w=86400})
- * policy.</p>
+ * read a constant 60 on consecutive calls 1&nbsp;s apart at low utilization, but counted down
+ * (28607 → 28606) on an exhausted per-day window — asserted to parse, not to count down.</p>
+ *
+ * <p>Observed 2026-08-28 but deliberately not asserted here, because provoking it burns a 20/day
+ * budget: an exhausted {@code Fanar-Aura-TTS-2} window ({@code ratelimit-policy: 20;w=86400},
+ * {@code x-ratelimit-remaining: 0}) answers 429 with envelope code {@code rate_limit_reached},
+ * {@code retry-after} equal to {@code x-ratelimit-reset} (28606&nbsp;s), and no {@code x-id}. The
+ * retry interceptor surfaced it immediately — {@code fanar.retry_count=0}, no sleep — per
+ * ADR-025.</p>
  *
  * <p>Skipped when {@code FANAR_API_KEY} is not set.</p>
  */

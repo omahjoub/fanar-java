@@ -26,14 +26,20 @@ the decision:
    down to a free slot" on an exhausted 20/day model can legitimately be hours.
 2. **Both 429 codes can carry it.** The spec's 429 example on every operation is
    `exceeded_quota`; `rate_limit_reached` shares the status. Whichever code Fanar sends for an
-   exhausted window, the countdown is the information a caller needs.
+   exhausted window, the countdown is the information a caller needs — and the one exhausted
+   window observed so far came back as `rate_limit_reached`, i.e. through the *retryable*
+   subtype, which is exactly where an unbounded hint does damage.
 3. **The value is not always Fanar's own countdown.** When an upstream service throttled the
    request, `retry-after` relays that service's hint. RFC 9110 also permits an HTTP-date form,
    and nothing stops a relay from sending zero or a negative number.
 
-Live verification (2026-08-27, standard key) confirmed the headers on the wire: chat 2xx responses
-carry `50;w=60`; `LiveRateLimitHeadersTest` pins the contract. No 429 has been observed live yet,
-so the exhausted-window code and hint values are spec-derived.
+Live verification (2026-08-27/28, standard key) confirmed the headers on the wire: chat 2xx
+responses carry `50;w=60` (`LiveRateLimitHeadersTest` pins the contract), and on 2026-08-28 an
+exhausted per-day window was observed for real — `Fanar-Aura-TTS-2` (`20;w=86400`,
+`x-ratelimit-remaining: 0`) answered 429 with envelope code `rate_limit_reached` (not
+`exceeded_quota`), `retry-after: 28606` equal to `x-ratelimit-reset`: a 7.9-hour countdown. The
+interceptor built here surfaced it in 496 ms with `fanar.retry_count=0`; the pre-0.3.0 loop, had
+it ever received the response, would have slept those eight hours on the caller's thread.
 
 Sleeping a caller's thread for hours inside a client library, invisibly, because a header said so,
 is a defect — the default policy advertises `maxDelay` as its longest wait, and an unbounded hint

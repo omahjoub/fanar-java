@@ -44,8 +44,10 @@ may break public API until 1.0.0 ships.
   (`limit;w=seconds` — the only way to distinguish a per-minute from a per-day window), and
   `retry-after` (429-only, in seconds). Verified live 2026-08-27: chat 2xx responses carry all
   four quota headers (`50;w=60` on chat models); `GET /v1/models` and 401 responses carry none.
-  Typed exposure of the window headers is deferred (see PROJECT_STATE); read them via the
-  `Interceptor` SPI.
+  2026-08-28: an exhausted per-day TTS window (`20;w=86400`) answered 429 `rate_limit_reached`
+  with `retry-after` equal to `x-ratelimit-reset` (~8 h) — surfaced immediately by the ADR-025
+  ceiling. Typed exposure of the window headers is deferred (see PROJECT_STATE); read them via
+  the `Interceptor` SPI.
 
 ### Fixed
 

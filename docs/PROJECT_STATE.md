@@ -40,7 +40,7 @@ at the retry boundary inside the chain, with `Retry-After` semantics per ADR-025
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
-- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with `FANAR_API_KEY` injected as a secret; PR builds stay offline.
+- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with `FANAR_API_KEY` injected as a secret; PR builds stay offline. Budget constraint (observed 2026-08-28): the TTS models allow 20 requests/day and a full run spends 14, so the nightly must be the only full run that day on that key.
 
 ## Deferred (won't fit cleanly)
 
