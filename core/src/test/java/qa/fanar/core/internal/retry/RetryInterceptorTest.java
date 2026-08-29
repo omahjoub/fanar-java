@@ -17,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -430,6 +431,67 @@ class RetryInterceptorTest {
         assertEquals(0, noSleep.sleepCount());
     }
 
+    // --- rate-limit visibility (ADR-026)
+
+    @Test
+    void rateLimitHeadersAreRecordedAsAttributes() {
+        RecordingChain chain = new RecordingChain(List.of(httpResponse(200, "", Map.of(
+                "x-ratelimit-limit", List.of("50"), "x-ratelimit-remaining", List.of("49"),
+                "x-ratelimit-reset", List.of("60"), "ratelimit-policy", List.of("50;w=60")))));
+
+        new RetryInterceptor(RetryPolicy.defaults(), new RecordingSleeper(), deterministicRandom())
+                .intercept(baseRequest(), chain);
+
+        Map<String, Object> attributes = chain.recorder().attributes();
+        assertEquals(50L, attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT));
+        assertEquals(49L, attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING));
+        assertEquals(60L, attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_RESET), "seconds, as on the wire");
+        assertEquals("50;w=60", attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_POLICY));
+    }
+
+    @Test
+    void rateLimitAttributesAreSkippedWhenTheHeadersAreAbsent() {
+        RecordingChain chain = new RecordingChain(List.of(stubResponse()));
+
+        new RetryInterceptor(RetryPolicy.defaults(), new RecordingSleeper(), deterministicRandom())
+                .intercept(baseRequest(), chain);
+
+        assertFalse(chain.recorder().attributes().containsKey(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT));
+        assertFalse(chain.recorder().attributes().containsKey(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING));
+    }
+
+    @Test
+    void rateLimitAttributesOmitResetAndPolicyWhenThoseHeadersAreAbsent() {
+        RecordingChain chain = new RecordingChain(List.of(httpResponse(200, "", Map.of(
+                "x-ratelimit-limit", List.of("50"), "x-ratelimit-remaining", List.of("49")))));
+
+        new RetryInterceptor(RetryPolicy.defaults(), new RecordingSleeper(), deterministicRandom())
+                .intercept(baseRequest(), chain);
+
+        Map<String, Object> attributes = chain.recorder().attributes();
+        assertEquals(50L, attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT));
+        assertFalse(attributes.containsKey(FanarObservationAttributes.FANAR_RATELIMIT_RESET));
+        assertFalse(attributes.containsKey(FanarObservationAttributes.FANAR_RATELIMIT_POLICY));
+    }
+
+    @Test
+    void rateLimitAttributesOfTheLastAttemptWin() {
+        RecordingChain chain = new RecordingChain(List.of(
+                httpResponse(503, "", Map.of(
+                        "x-ratelimit-limit", List.of("50"), "x-ratelimit-remaining", List.of("5"))),
+                httpResponse(200, "", Map.of(
+                        "x-ratelimit-limit", List.of("50"), "x-ratelimit-remaining", List.of("49")))));
+        RetryPolicy policy = RetryPolicy.defaults()
+                .withJitter(JitterStrategy.NONE)
+                .withBaseDelay(Duration.ofMillis(1))
+                .withMaxDelay(Duration.ofMillis(1));
+
+        new RetryInterceptor(policy, new RecordingSleeper(), deterministicRandom()).intercept(baseRequest(), chain);
+
+        assertEquals(List.of(503, 200), chain.recorder().statuses());
+        assertEquals(49L, chain.recorder().attributes().get(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING));
+    }
+
     // --- helpers
 
     private static HttpRequest baseRequest() {
@@ -507,8 +569,10 @@ class RetryInterceptorTest {
         private final List<String> events = new ArrayList<>();
         private final List<Integer> statuses = new ArrayList<>();
         private final AtomicReference<Object> retryCount = new AtomicReference<>();
+        private final Map<String, Object> attributes = new LinkedHashMap<>();
 
         List<String> events() { return events; }
+        Map<String, Object> attributes() { return attributes; }
         List<Integer> statuses() { return statuses; }
         boolean retryCountRecorded() { return retryCount.get() != null; }
 
@@ -519,6 +583,7 @@ class RetryInterceptorTest {
 
         @Override
         public ObservationHandle attribute(String key, Object value) {
+            attributes.put(key, value);
             if (FanarObservationAttributes.FANAR_RETRY_COUNT.equals(key)) {
                 retryCount.set(value);
             } else if (FanarObservationAttributes.HTTP_STATUS_CODE.equals(key)) {

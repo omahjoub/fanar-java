@@ -47,6 +47,7 @@ Every ADR follows an extended Michael Nygard template:
 - [013 — Observability SPI](013-observability-spi.md)
 - [014 — Retry policy defaults](014-retry-policy-defaults.md)
 - [025 — Retry-After handling: ceiling, normalisation, and the quota hint](025-retry-after-handling.md)
+- [026 — Rate-limit visibility: observation attributes and `RateLimitInfo` on the 429s](026-rate-limit-telemetry.md)
 
 ### Build, distribution, governance
 

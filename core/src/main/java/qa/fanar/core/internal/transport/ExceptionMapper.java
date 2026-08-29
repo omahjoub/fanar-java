@@ -26,6 +26,7 @@ import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
 import qa.fanar.core.FanarUnprocessableException;
+import qa.fanar.core.RateLimitInfo;
 
 /**
  * Maps an error {@link HttpResponse} (status code ≥ 400) to the matching
@@ -42,7 +43,9 @@ import qa.fanar.core.FanarUnprocessableException;
  * when present, the raw body text otherwise, falling back to a canonical status description when
  * both are blank. The {@code Retry-After} header is carried on both HTTP 429 subtypes
  * ({@link FanarRateLimitException}, {@link FanarQuotaExceededException}) after the
- * normalisation described on {@link #parseRetryAfterValue}.</p>
+ * normalisation described on {@link #parseRetryAfterValue}, together with the rate-limit window
+ * the response reports ({@link RateLimitHeaders}, ADR-026) — {@code null} when the headers are
+ * absent.</p>
  *
  * <p>Internal (ADR-018).</p>
  *
@@ -70,8 +73,8 @@ public final class ExceptionMapper {
             case CONTENT_FILTER         -> new FanarContentFilterException(detail);
             case INVALID_AUTHENTICATION -> new FanarAuthenticationException(detail);
             case INVALID_AUTHORIZATION  -> new FanarAuthorizationException(detail);
-            case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, parseRetryAfter(response));
-            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail, parseRetryAfter(response));
+            case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, parseRetryAfter(response), rateLimit(response));
+            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail, parseRetryAfter(response), rateLimit(response));
             case INTERNAL_SERVER_ERROR  -> new FanarInternalServerException(detail);
             case OVERLOADED             -> new FanarOverloadedException(detail);
             case TIMEOUT                -> new FanarTimeoutException(detail);
@@ -94,7 +97,7 @@ public final class ExceptionMapper {
             case 410 -> new FanarGoneException(detail);
             case 413 -> new FanarTooLargeException(detail);
             case 422 -> new FanarUnprocessableException(detail);
-            case 429 -> new FanarRateLimitException(detail, parseRetryAfter(response));
+            case 429 -> new FanarRateLimitException(detail, parseRetryAfter(response), rateLimit(response));
             case 499 -> new FanarClientClosedRequestException(detail);
             case 500 -> new FanarInternalServerException(detail);
             case 503 -> new FanarOverloadedException(detail);
@@ -125,6 +128,10 @@ public final class ExceptionMapper {
         } catch (IOException e) {
             return "";
         }
+    }
+
+    private static RateLimitInfo rateLimit(HttpResponse<InputStream> response) {
+        return RateLimitHeaders.parse(response.headers());
     }
 
     private static Duration parseRetryAfter(HttpResponse<InputStream> response) {

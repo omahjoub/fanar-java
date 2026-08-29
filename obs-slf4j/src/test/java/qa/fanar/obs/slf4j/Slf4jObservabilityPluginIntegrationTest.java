@@ -26,7 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The SLF4J adapter fed by a real, <em>retried</em> public call: {@code FanarClient.builder()
  * .observability(plugin)} → interceptor chain → scripted local server. The unit test drives
  * synthetic handles; this proves the SDK actually hands the adapter the {@code retry_attempt}
- * event and the {@code fanar.retry_count} / {@code http.status_code} attributes (ADR-013, ADR-025).
+ * event, the {@code fanar.retry_count} / {@code http.status_code} attributes (ADR-013, ADR-025) and
+ * the {@code fanar.ratelimit.*} window of the last attempt (ADR-026).
  */
 @Tag("integration")
 class Slf4jObservabilityPluginIntegrationTest {
@@ -47,7 +48,11 @@ class Slf4jObservabilityPluginIntegrationTest {
 
     @Test
     void retriedCallIsLoggedWithItsRetryTelemetry() {
-        server.enqueue(Reply.of(503, "busy"), Reply.json(200, OK));
+        server.enqueue(Reply.of(503, "busy"), Reply.json(200, OK)
+                        .withHeader("x-ratelimit-limit", "50")
+                        .withHeader("x-ratelimit-remaining", "49")
+                        .withHeader("x-ratelimit-reset", "60")
+                        .withHeader("ratelimit-policy", "50;w=60"));
 
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")
@@ -69,6 +74,10 @@ class Slf4jObservabilityPluginIntegrationTest {
         assertEquals(1, attrs.get("fanar.retry_count"));
         assertEquals(200, attrs.get("http.status_code"), "last attempt's status wins");
         assertEquals(ChatModel.FANAR.wireValue(), attrs.get("fanar.model"));
+        assertEquals(50L, attrs.get("fanar.ratelimit.limit"), "the window of the last attempt (ADR-026)");
+        assertEquals(49L, attrs.get("fanar.ratelimit.remaining"));
+        assertEquals(60L, attrs.get("fanar.ratelimit.reset"));
+        assertEquals("50;w=60", attrs.get("fanar.ratelimit.policy"));
     }
 
     private static ChatRequest ping() {

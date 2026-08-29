@@ -12,10 +12,13 @@ import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.JitterStrategy;
+import qa.fanar.core.RateLimitInfo;
 import qa.fanar.core.RetryPolicy;
 import qa.fanar.core.internal.transport.ExceptionMapper;
+import qa.fanar.core.internal.transport.RateLimitHeaders;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
+import qa.fanar.core.spi.ObservationHandle;
 
 /**
  * The SDK's error boundary and retry loop, driven by the caller's {@link RetryPolicy}.
@@ -45,6 +48,10 @@ import qa.fanar.core.spi.Interceptor;
  *   <li>Records {@link FanarObservationAttributes#HTTP_STATUS_CODE} for every response received
  *       (the last attempt's status wins) and {@link FanarObservationAttributes#FANAR_RETRY_COUNT}
  *       on every exit, {@code 0} included; emits one {@code retry_attempt} event per retry.</li>
+ *   <li>Publishes the server's rate-limit window as the {@code fanar.ratelimit.*} attributes
+ *       ({@link FanarObservationAttributes#FANAR_RATELIMIT_LIMIT} and friends) from every response
+ *       that carries the headers — successes and 429s alike, the last attempt's values winning;
+ *       nothing is recorded for responses without them (ADR-026).</li>
  *   <li>If {@link Thread#interrupt()} cuts the sleep short, restores the interrupt flag and
  *       surfaces a {@link FanarTransportException}.</li>
  * </ul>
@@ -79,6 +86,7 @@ public final class RetryInterceptor implements Interceptor {
                 HttpResponse<InputStream> response = chain.proceed(request);
                 chain.observation().attribute(
                         FanarObservationAttributes.HTTP_STATUS_CODE, response.statusCode());
+                recordRateLimit(chain, response);
                 if (response.statusCode() >= 400) {
                     throw ExceptionMapper.map(response);
                 }
@@ -136,6 +144,23 @@ public final class RetryInterceptor implements Interceptor {
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new FanarTransportException("Retry sleep interrupted", ie);
+        }
+    }
+
+    /** The window the server reported on this attempt, if any — later attempts overwrite. */
+    private static void recordRateLimit(Chain chain, HttpResponse<?> response) {
+        RateLimitInfo window = RateLimitHeaders.parse(response.headers());
+        if (window == null) {
+            return;
+        }
+        ObservationHandle observation = chain.observation();
+        observation.attribute(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT, window.limit());
+        observation.attribute(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING, window.remaining());
+        if (window.reset() != null) {
+            observation.attribute(FanarObservationAttributes.FANAR_RATELIMIT_RESET, window.reset().toSeconds());
+        }
+        if (window.policy() != null) {
+            observation.attribute(FanarObservationAttributes.FANAR_RATELIMIT_POLICY, window.policy());
         }
     }
 

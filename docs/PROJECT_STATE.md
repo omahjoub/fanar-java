@@ -19,9 +19,11 @@ backstop, the contributor rule that an ADR's consumer-observable promise is prov
 integration test, and the dated [wire-observations ledger](WIRE_OBSERVATIONS.md) — what the live API
 does where it differs from the spec, each row pinned by a live test, plus the live-suite budget — and
 the wire-log throw path (a `<-- failed` line when the chain throws, exception rethrown unchanged;
-ADR-012 amended). Still to come in 0.4.0: rate-limit telemetry (ADR-026), `RetryPolicy` builder +
-total retry budget (ADR-027), facade plumbing consolidation, live-suite budget hygiene + nightly run,
-Maven Central readiness.
+ADR-012 amended), and rate-limit visibility (ADR-026: the `fanar.ratelimit.*` observation attributes
+on every response that carries the headers, `RateLimitInfo` via `rateLimit()` on both 429 exceptions,
+Micrometer's cardinality rule). Still to come in 0.4.0: `RetryPolicy` builder + total retry budget
+(ADR-027), facade plumbing consolidation, live-suite budget hygiene + nightly run, Maven Central
+readiness.
 
 ## Planned
 
@@ -38,7 +40,7 @@ Maven Central readiness.
 - **Native `response_format` / structured output on chat** — not in the Fanar wire spec. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work because they shape the prompt text, not the request flag.
 - **User-supplied tool calling** — Fanar's `/v1/chat/completions` rejects user `tools` / `tool_choice`. The `tool_calls` events in streams are server-internal Sadiq retriever telemetry. Spring AI tool callbacks degrade silently in our adapter ([wire observations](WIRE_OBSERVATIONS.md)).
 - **Fanar `stop` parameter** — silently dropped server-side; dated in the [wire observations](WIRE_OBSERVATIONS.md).
-- **Typed rate-limit header exposure** — the 2026-08-27 spec documents `x-ratelimit-limit` / `-remaining` / `-reset` and `ratelimit-policy` on every rate-limited 2xx, but the SDK surfaces neither as DTO fields nor as observation attributes; only the `Retry-After` hint is typed (on both 429 exceptions). Which surface is right — exception fields, response metadata, `fanar.ratelimit.*` attributes, a proactive throttle — needs an ADR, deferred until a consumer needs more than the `Interceptor` SPI (which sees the raw headers today; `LiveRateLimitHeadersTest` shows the pattern).
+- **Rate-limit headers on response DTOs** — shipped in 0.4.0 as observation attributes and as `RateLimitInfo` on the 429 exceptions instead ([ADR-026](adr/026-rate-limit-telemetry.md)); putting them on every DTO would touch the whole ADR-015 grid for information those two surfaces already carry. A proactive throttle stays a user-supplied interceptor (ADR-012).
 
 ## Cadence for updates
 
