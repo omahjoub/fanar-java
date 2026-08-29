@@ -372,16 +372,25 @@ Three adapters ship: `fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer`
 ## 10. Custom retry policy
 
 ```java
+import qa.fanar.core.JitterStrategy;
 import qa.fanar.core.RetryPolicy;
 import java.time.Duration;
 
-RetryPolicy aggressive = RetryPolicy.defaults()
-    .withMaxAttempts(5)
-    .withBaseDelay(Duration.ofMillis(200))
-    .withMaxDelay(Duration.ofSeconds(10));   // also caps honoured Retry-After hints (ADR-025)
+RetryPolicy aggressive = RetryPolicy.builder()          // starts from defaults() (ADR-027)
+    .maxAttempts(5)
+    .baseDelay(Duration.ofMillis(200))
+    .maxDelay(Duration.ofSeconds(10))                   // also caps honoured Retry-After hints (ADR-025)
+    .maxTotalDelay(Duration.ofSeconds(30))              // never sleep more than 30 s in total for one call
+    .build();
 
-// Bridge a full per-minute window instead of failing fast above 30 s:
-RetryPolicy patient = RetryPolicy.defaults().withMaxDelay(Duration.ofSeconds(60));
+// Bridge a full per-minute window instead of failing fast above 30 s — the budget must keep up:
+RetryPolicy patient = RetryPolicy.builder()
+    .maxDelay(Duration.ofSeconds(60))
+    .maxTotalDelay(Duration.ofMinutes(2))
+    .build();
+
+// One-off variants of an existing policy:
+RetryPolicy quieter = patient.withJitter(JitterStrategy.EQUAL);
 
 FanarClient client = FanarClient.builder()
     .apiKey(System.getenv("FANAR_API_KEY"))
@@ -416,6 +425,7 @@ fanar:
     max-attempts: 3
     initial-backoff: 500ms
     max-delay: 30s                    # also the ceiling on honoured Retry-After hints (ADR-025)
+    max-total-delay: 1m               # budget for the sum of all sleeps within one call (ADR-027)
   wire-logging:
     level: BASIC                      # NONE | BASIC | HEADERS | BODY
 ```

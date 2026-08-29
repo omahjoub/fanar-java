@@ -50,6 +50,7 @@ class FanarAutoConfigurationTest {
                     assertThat(props.retry().maxAttempts()).isEqualTo(3);
                     assertThat(props.retry().initialBackoff().toMillis()).isEqualTo(500);
                     assertThat(props.retry().maxDelay().toSeconds()).isEqualTo(30);
+                    assertThat(props.retry().maxTotalDelay()).isEqualTo(Duration.ofMinutes(1));
                     assertThat(props.wireLogging().level().name()).isEqualTo("NONE");
                 });
     }
@@ -64,6 +65,7 @@ class FanarAutoConfigurationTest {
                         "fanar.retry.max-attempts=5",
                         "fanar.retry.initial-backoff=250ms",
                         "fanar.retry.max-delay=45s",
+                        "fanar.retry.max-total-delay=5m",
                         "fanar.wire-logging.level=BODY")
                 .run(ctx -> {
                     FanarProperties props = ctx.getBean(FanarProperties.class);
@@ -73,6 +75,7 @@ class FanarAutoConfigurationTest {
                     assertThat(props.retry().maxAttempts()).isEqualTo(5);
                     assertThat(props.retry().initialBackoff().toMillis()).isEqualTo(250);
                     assertThat(props.retry().maxDelay().toSeconds()).isEqualTo(45);
+                    assertThat(props.retry().maxTotalDelay()).isEqualTo(Duration.ofMinutes(5));
                     assertThat(props.wireLogging().level().name()).isEqualTo("BODY");
                 });
     }
@@ -85,20 +88,37 @@ class FanarAutoConfigurationTest {
 
     @Test
     void retryPolicyBeanReflectsTheRetryKnobs() {
-        // initial-backoff above the SDK's default cap used to fail at startup; the three knobs are
-        // now validated together.
+        // initial-backoff above the SDK's default cap used to fail at startup; the four knobs are
+        // now validated together (a max-delay of 90 s also needs max-total-delay >= 90 s).
         runner.withPropertyValues(
                         "fanar.api-key=test-key",
                         "fanar.retry.max-attempts=5",
                         "fanar.retry.initial-backoff=45s",
-                        "fanar.retry.max-delay=90s")
+                        "fanar.retry.max-delay=90s",
+                        "fanar.retry.max-total-delay=10m")
                 .run(ctx -> {
                     RetryPolicy policy = ctx.getBean(RetryPolicy.class);
                     assertThat(policy.maxAttempts()).isEqualTo(5);
                     assertThat(policy.baseDelay()).isEqualTo(Duration.ofSeconds(45));
                     assertThat(policy.maxDelay()).isEqualTo(Duration.ofSeconds(90));
+                    assertThat(policy.maxTotalDelay()).isEqualTo(Duration.ofMinutes(10));
                     assertThat(policy.jitter()).isEqualTo(RetryPolicy.defaults().jitter());
                     assertThat(policy.backoffMultiplier()).isEqualTo(RetryPolicy.defaults().backoffMultiplier());
+                });
+    }
+
+    @Test
+    void retryKnobsAreValidatedTogetherAtStartup() {
+        // max-delay raised above the default 1 m budget without raising max-total-delay: the
+        // policy's own validation fails the context, loudly, instead of a silent mis-configuration.
+        runner.withPropertyValues(
+                        "fanar.api-key=test-key",
+                        "fanar.retry.max-delay=2m")
+                .run(ctx -> {
+                    assertThat(ctx).hasFailed();
+                    assertThat(ctx.getStartupFailure()).rootCause()
+                            .isInstanceOf(IllegalArgumentException.class)
+                            .hasMessageContaining("maxTotalDelay");
                 });
     }
 

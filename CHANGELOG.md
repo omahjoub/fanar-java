@@ -9,7 +9,26 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking** — `RetryPolicy`'s canonical constructor gains a fourth `Duration`, `maxTotalDelay`,
+  after `maxDelay` (seven components, was six). Migration: prefer the new `RetryPolicy.builder()`
+  (starts from `defaults()`, one setter per knob), or insert `Duration.ofMinutes(1)` — the default —
+  as the fourth positional argument. Deconstruction patterns over the record gain a component too.
+  Pre-1.0 per [ADR-019](docs/adr/019-pre-10-stability-policy.md); see
+  [ADR-027](docs/adr/027-retry-policy-builder-and-budget.md).
+
 ### Added
+
+- **`fanar-core`** — a total sleep budget for retries ([ADR-027](docs/adr/027-retry-policy-builder-and-budget.md)):
+  `RetryPolicy.maxTotalDelay()` (default 1 min — the worst case the other defaults already allowed, so
+  nothing changes at the defaults) bounds the sum of all sleeps within one call; a sleep that would exceed
+  it — computed back-off or honoured `Retry-After` hint — is never started, retrying ends and the exception
+  surfaces with the hint preserved, like the ADR-025 ceiling. Plus `RetryPolicy.builder()` and
+  `withMaxTotalDelay(...)`.
+- **`fanar-spring-boot-4-starter`** — `fanar.retry.max-total-delay` (default `1m`); the `RetryPolicy` bean
+  is built through the builder, so a `max-delay` raised above the budget fails the context at startup
+  ([ADR-020](docs/adr/020-spring-boot-4-starter.md), amended).
 
 - **`fanar-core`** — rate-limit visibility ([ADR-026](docs/adr/026-rate-limit-telemetry.md)): the retry boundary
   publishes `fanar.ratelimit.limit` / `.remaining` / `.reset` / `.policy` observation attributes from every response

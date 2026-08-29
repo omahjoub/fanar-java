@@ -39,7 +39,7 @@ public record FanarProperties(
 
     /**
      * Retry policy knobs. Maps to {@link qa.fanar.core.RetryPolicy}; the defaults are the SDK's
-     * own ({@code RetryPolicy.defaults()}). Anything beyond these three — jitter, multiplier, a
+     * own ({@code RetryPolicy.defaults()}). Anything beyond these four — jitter, multiplier, a
      * custom retryable predicate — is a {@code RetryPolicy} bean, see
      * {@link FanarAutoConfiguration}.
      *
@@ -50,11 +50,15 @@ public record FanarProperties(
      * @param maxDelay       cap on the computed backoff and ceiling on honoured server
      *                       {@code Retry-After} hints — defaults to 30s; a hint above it ends
      *                       retrying and the exception surfaces with the hint preserved (ADR-025)
+     * @param maxTotalDelay  budget for the sum of all sleeps within one call — defaults to 1m; a
+     *                       sleep that would exceed it is never taken and the exception surfaces
+     *                       with the hint preserved (ADR-027); must be at least {@code maxDelay}
      */
     public record Retry(
             @DefaultValue("3") int maxAttempts,
             @DefaultValue("500ms") Duration initialBackoff,
-            @DefaultValue("30s") Duration maxDelay
+            @DefaultValue("30s") Duration maxDelay,
+            @DefaultValue("1m") Duration maxTotalDelay
     ) { }
 
     /**

@@ -48,6 +48,7 @@ Every ADR follows an extended Michael Nygard template:
 - [014 — Retry policy defaults](014-retry-policy-defaults.md)
 - [025 — Retry-After handling: ceiling, normalisation, and the quota hint](025-retry-after-handling.md)
 - [026 — Rate-limit visibility: observation attributes and `RateLimitInfo` on the 429s](026-rate-limit-telemetry.md)
+- [027 — `RetryPolicy`: a total sleep budget and a builder](027-retry-policy-builder-and-budget.md)
 
 ### Build, distribution, governance
 

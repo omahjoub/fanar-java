@@ -54,21 +54,20 @@ public class FanarAutoConfiguration {
      * Retry policy from the {@code fanar.retry.*} knobs on top of {@link RetryPolicy#defaults()}.
      * Replaced if the user declares their own {@link RetryPolicy} bean — the route to a custom
      * {@code retryable} predicate, jitter strategy or multiplier without re-wiring the client.
-     * Built through the canonical constructor so the three knobs are validated together (a
-     * raised {@code initial-backoff} needs a {@code max-delay} at least as large).
+     * Built through {@link RetryPolicy#builder()} so the four knobs are validated together (a
+     * raised {@code initial-backoff} needs a {@code max-delay} at least as large, and a raised
+     * {@code max-delay} a {@code max-total-delay} at least as large — ADR-027).
      */
     @Bean
     @ConditionalOnMissingBean
     RetryPolicy fanarRetryPolicy(FanarProperties props) {
         FanarProperties.Retry retry = props.retry();
-        RetryPolicy defaults = RetryPolicy.defaults();
-        return new RetryPolicy(
-                retry.maxAttempts(),
-                retry.initialBackoff(),
-                retry.maxDelay(),
-                defaults.backoffMultiplier(),
-                defaults.jitter(),
-                defaults.retryable());
+        return RetryPolicy.builder()
+                .maxAttempts(retry.maxAttempts())
+                .baseDelay(retry.initialBackoff())
+                .maxDelay(retry.maxDelay())
+                .maxTotalDelay(retry.maxTotalDelay())
+                .build();
     }
 
     @Bean
