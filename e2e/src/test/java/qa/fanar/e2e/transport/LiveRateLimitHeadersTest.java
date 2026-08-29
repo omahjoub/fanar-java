@@ -36,9 +36,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code ratelimit-policy: 50;w=60}. Caveats observed the same days:
  * the headers are per-model-quota only ({@code GET /v1/models} and 401 responses carry none), and
  * the spec omits them entirely for unlimited-quota keys — if this test starts failing on missing
- * headers, check whether the key was upgraded before suspecting the SDK. {@code x-ratelimit-reset}
- * read a constant 60 on consecutive calls 1&nbsp;s apart at low utilization, but counted down
- * (28607 → 28606) on an exhausted per-day window — asserted to parse, not to count down.</p>
+ * headers, check whether the key was upgraded before suspecting the SDK. The windows are sliding:
+ * {@code x-ratelimit-reset} counts down to the moment the <em>oldest</em> counted request ages out
+ * (2026-08-29: 60 → 59 on consecutive calls, jumping back up when a request left the window;
+ * 28607 → 28606 on the exhausted per-day window) — asserted to parse, not to count down; the
+ * dated record is {@code docs/WIRE_OBSERVATIONS.md}.</p>
  *
  * <p>Observed 2026-08-28 but deliberately not asserted here, because provoking it burns a 20/day
  * budget: an exhausted {@code Fanar-Aura-TTS-2} window ({@code ratelimit-policy: 20;w=86400},

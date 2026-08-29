@@ -39,9 +39,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * fail-loudly preference — auth/timeout errors surface with the wire log showing the server
  * response.</p>
  *
- * <p>Budget, observed 2026-08-28: {@code Fanar-Aura-TTS-2} is 20 requests per <em>day</em>
- * ({@code ratelimit-policy: 20;w=86400}), not a per-minute window. A full e2e run spends 14 of
- * them (7 TTS call sites × 2 codecs), so a second full run the same day fails loudly here with a
+ * <p>Budget, observed 2026-08-28 and 2026-08-29: {@code Fanar-Aura-TTS-2} allows 20 requests in any
+ * <em>trailing 24 hours</em> — a sliding window ({@code ratelimit-policy: 20;w=86400};
+ * {@code x-ratelimit-reset} counts down to the oldest counted request ageing out), not a per-minute
+ * window and not a calendar day. A full e2e run spends 11 of them (the five cases here × 2 codecs,
+ * plus one shared STT source clip per JVM — the per-model table is in
+ * {@code docs/WIRE_OBSERVATIONS.md}), so a second full run within 24 hours fails loudly here with a
  * {@code FanarRateLimitException} whose {@code retryAfter()} is hours long ({@code retry-after}
  * equals {@code x-ratelimit-reset}, envelope code {@code rate_limit_reached}). That is the
  * budget, not the SDK — the retry interceptor surfaces it immediately per ADR-025.</p>

@@ -15,10 +15,12 @@ at the retry boundary inside the chain, with `Retry-After` semantics per ADR-025
 Unreleased on `main` (0.4.0-SNAPSHOT) — the 0.4.0 "proof over coverage" cycle. Landed so far: the
 seam-crossing `*IntegrationTest` layer (core retry/streaming/async, starter, Spring AI, the three
 observability adapters, wire logging), the unpublished `test-support` fixture module, a JUnit timeout
-backstop, and the contributor rule that an ADR's consumer-observable promise is proved by a named
-integration test. Still to come in 0.4.0: the wire-observations ledger, the wire-log throw path,
-rate-limit telemetry (ADR-026), `RetryPolicy` builder + total retry budget (ADR-027), facade plumbing
-consolidation, live-suite budget hygiene + nightly run, Maven Central readiness.
+backstop, the contributor rule that an ADR's consumer-observable promise is proved by a named
+integration test, and the dated [wire-observations ledger](WIRE_OBSERVATIONS.md) — what the live API
+does where it differs from the spec, each row pinned by a live test, plus the live-suite budget. Still
+to come in 0.4.0: the wire-log throw path, rate-limit telemetry (ADR-026), `RetryPolicy` builder + total
+retry budget (ADR-027), facade plumbing consolidation, live-suite budget hygiene + nightly run, Maven
+Central readiness.
 
 ## Planned
 
@@ -26,15 +28,15 @@ consolidation, live-suite budget hygiene + nightly run, Maven Central readiness.
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
-- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with `FANAR_API_KEY` injected as a secret; PR builds stay offline. Budget constraint (observed 2026-08-28): the TTS models allow 20 requests/day and a full run spends 14, so the nightly must be the only full run that day on that key.
+- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with `FANAR_API_KEY` injected as a secret; PR builds stay offline. Budget constraint (observed 2026-08-28/29): `Fanar-Aura-TTS-2` allows 20 requests in any trailing 24 h (sliding window) and a full run spends 11 ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly must be the only full run within 24 h on that key.
 
 ## Deferred (won't fit cleanly)
 
 - **Spring AI `ModerationModel`** — Fanar's `/v1/moderations` returns continuous `safety` + `culturalAwareness` scores; Spring AI's surface expects 16 category booleans. A best-effort mapping would always report `Categories.isHate()=false`, which is misleading. Surfaced via `FanarClient.moderations()` directly instead.
 - **Spring AI `EmbeddingModel`** — Fanar exposes no `/v1/embeddings` endpoint at all. Users wanting RAG bring their own embedder (`spring-ai-openai`, `spring-ai-transformers`, etc.).
 - **Native `response_format` / structured output on chat** — not in the Fanar wire spec. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work because they shape the prompt text, not the request flag.
-- **User-supplied tool calling** — Fanar's `/v1/chat/completions` rejects user `tools` / `tool_choice`. The `tool_calls` events in streams are server-internal Sadiq retriever telemetry. Spring AI tool callbacks degrade silently in our adapter.
-- **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
+- **User-supplied tool calling** — Fanar's `/v1/chat/completions` rejects user `tools` / `tool_choice`. The `tool_calls` events in streams are server-internal Sadiq retriever telemetry. Spring AI tool callbacks degrade silently in our adapter ([wire observations](WIRE_OBSERVATIONS.md)).
+- **Fanar `stop` parameter** — silently dropped server-side; dated in the [wire observations](WIRE_OBSERVATIONS.md).
 - **Typed rate-limit header exposure** — the 2026-08-27 spec documents `x-ratelimit-limit` / `-remaining` / `-reset` and `ratelimit-policy` on every rate-limited 2xx, but the SDK surfaces neither as DTO fields nor as observation attributes; only the `Retry-After` hint is typed (on both 429 exceptions). Which surface is right — exception fields, response metadata, `fanar.ratelimit.*` attributes, a proactive throttle — needs an ADR, deferred until a consumer needs more than the `Interceptor` SPI (which sees the raw headers today; `LiveRateLimitHeadersTest` shows the pattern).
 
 ## Cadence for updates

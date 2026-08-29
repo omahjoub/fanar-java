@@ -34,10 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Live battle-test of {@code POST /v1/images/generations} via {@link FanarClient#images()},
  * parameterized over both codec adapters.
  *
- * <p>Per the Fanar spec this endpoint requires additional authorization. {@code Fanar-Oryx-IG-2}
- * <em>was</em> visible in the live {@code /v1/models} listing as of 2026-04-25, so the call
- * is more likely to succeed than {@code /v1/poems/generations} — but we still tolerate the
- * documented access-error exceptions and log instead of failing, mirroring §M.5.</p>
+ * <p>Generation works for the standard key (observed 2026-04-25, re-confirmed 2026-08-29: four
+ * 200s, 1024 × 1024 PNG, {@code 20;w=86400}); the 2026-04 spec flagged this endpoint as needing
+ * additional authorization, the 2026-08 spec no longer does. The synchronous case still carries
+ * the 2026-04 lenient catch for access errors — it has swallowed nothing since, and its removal
+ * is pending a decision (live-suite hygiene, see {@code docs/WIRE_OBSERVATIONS.md}); the async
+ * case carries no tolerance.</p>
  *
  * <p>Skipped when {@code FANAR_API_KEY} is not set.</p>
  */

@@ -126,6 +126,7 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 
 - [Project state](docs/PROJECT_STATE.md) — what's shipped, planned, deferred.
 - [Compatibility matrix](docs/COMPATIBILITY.md) — capability map: Fanar ↔ core ↔ framework layer.
+- [Wire observations](docs/WIRE_OBSERVATIONS.md) — dated ledger of what the live API does where it differs from the spec, and the live-suite budget.
 - [Architecture](docs/ARCHITECTURE.md) — module layout, request-flow diagrams, where things live.
 - [API sketch](docs/API_SKETCH.md) — concrete code shapes for every call.
 - [GraalVM walkthrough](docs/GRAALVM.md) — native-image build, end-to-end.

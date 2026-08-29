@@ -14,6 +14,8 @@ The core stays **universal**: no hard dependency on any framework, no JSON-libra
 
 ## 1. What Fanar offers
 
+The tables below follow the spec. Where the live API was observed to differ — `stop` accepted but ignored, model gating answering 422, a visibility-scoped `/v1/models`, per-day audio windows — the dated record is [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md).
+
 ### Capabilities
 
 | Capability                      | Status | How it's exposed                                                                                          |
