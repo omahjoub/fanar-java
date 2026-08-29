@@ -1,6 +1,6 @@
 # ADR-013 — Observability SPI
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-08-29 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -52,7 +52,10 @@ public interface ObservationHandle extends AutoCloseable {
   in the SPI Javadoc.
 - **Standardized attributes**. A constants class `qa.fanar.core.spi.FanarObservationAttributes` defines the canonical
   attribute vocabulary: `http.method`, `http.url`, `http.status_code`, `fanar.model`, `fanar.retry_count`,
-  `fanar.stream.chunks`, `fanar.stream.first_chunk_ms`. Adapter authors map these consistently.
+  `fanar.stream.chunks`, `fanar.stream.first_chunk_ms` — and, since ADR-026 (2026-08-29), `fanar.ratelimit.limit`,
+  `fanar.ratelimit.remaining`, `fanar.ratelimit.reset`, `fanar.ratelimit.policy`, recorded at the retry boundary from
+  the server's rate-limit headers. Adapter authors map these consistently; `fanar.ratelimit.remaining` and `.reset`
+  have unbounded value spaces and are high-cardinality (the Micrometer adapter records them as such by default).
 - **Nested observations** via `.child(operationName)` for phase-level breakdowns (e.g., serialization vs network).
   Maps cleanly to OpenTelemetry parent/child spans and Micrometer nested observations.
 - **Context propagation** via `propagationHeaders()` — the SDK queries the handle for trace-context headers (e.g.,
@@ -100,6 +103,18 @@ public interface ObservationHandle extends AutoCloseable {
 
 ### Neutral
 - Adapter implementations are out-of-scope for `fanar-core`'s initial release; they arrive as separate modules.
+
+## Amendments
+
+### 2026-08-29 — The `fanar.ratelimit.*` vocabulary and a cardinality rule (0.4.0)
+
+ADR-026 adds four canonical attributes — `fanar.ratelimit.limit`, `.remaining`, `.reset` (seconds) and
+`.policy` — recorded by the retry boundary from the server's rate-limit headers on every response that carries
+them (last attempt wins). It is also the first time the vocabulary distinguishes cardinality: `remaining` and
+`reset` are unbounded and must not become metric tags. The Micrometer adapter records them as
+`highCardinalityKeyValue`s by default and exposes `highCardinalityKeys(Predicate)` to change the rule; the
+OpenTelemetry adapter's typed dispatch and the SLF4J adapter need nothing. Adding attributes stays a
+minor-version change, as the constants class documents.
 
 ## References
 

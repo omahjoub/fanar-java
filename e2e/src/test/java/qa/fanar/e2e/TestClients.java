@@ -76,6 +76,22 @@ public final class TestClients {
      * @throws IllegalStateException if {@code FANAR_API_KEY} is not set
      */
     public static FanarClient liveWithLogging(FanarJsonCodec codec, Interceptor... extra) {
+        return liveWithLogging(codec, ObservabilityPlugin.noop(), extra);
+    }
+
+    /**
+     * Same as {@link #liveWithLogging(FanarJsonCodec, Interceptor...)} with one more observability
+     * plugin composed in — e.g. a recording plugin asserting the attributes the SDK publishes on
+     * the same counted request ({@code LiveRateLimitHeadersTest}).
+     *
+     * @param codec       the JSON codec under test
+     * @param extraPlugin composed after the three demo plugins; {@link ObservabilityPlugin#noop()}
+     *                    for none
+     * @param extra       caller interceptors, as above
+     * @throws IllegalStateException if {@code FANAR_API_KEY} is not set
+     */
+    public static FanarClient liveWithLogging(FanarJsonCodec codec, ObservabilityPlugin extraPlugin,
+                                              Interceptor... extra) {
         FanarClient.Builder builder = liveBuilder(codec)
                 .addInterceptor(WireLoggingInterceptor.builder()
                         .level(WireLoggingInterceptor.Level.BODY)
@@ -83,7 +99,8 @@ public final class TestClients {
                 .observability(ObservabilityPlugin.compose(
                         new Slf4jObservabilityPlugin(),
                         new OpenTelemetryObservabilityPlugin(otelForDemo()),
-                        new MicrometerObservabilityPlugin(ObservationRegistry.create())));
+                        new MicrometerObservabilityPlugin(ObservationRegistry.create()),
+                        extraPlugin));
         for (Interceptor interceptor : extra) {
             builder.addInterceptor(interceptor);
         }

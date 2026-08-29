@@ -293,6 +293,12 @@ try {
     // Retried automatically with Retry-After honoured up to maxDelay; a longer hint lands
     // here immediately with retryAfter() populated — null when the server sent none (ADR-025)
     log.warn("Rate limited, retry in {}", e.retryAfter());
+    RateLimitInfo window = e.rateLimit();   // the window the server reported, null without headers (ADR-026)
+    if (window != null) {
+        // Fanar's windows slide: reset() is the wait until one slot frees, never a boundary
+        log.warn("{} of {} left, a slot frees in {} (policy {}, window {})",
+                window.remaining(), window.limit(), window.reset(), window.policy(), window.window());
+    }
 } catch (FanarContentFilterException e) {
     showRefusalUi(e.filterType());
 } catch (FanarQuotaExceededException e) {
@@ -301,6 +307,11 @@ try {
     log.error("Fanar call failed", e);
 }
 ```
+
+The same window reaches your dashboards without a catch block: the retry boundary records
+`fanar.ratelimit.limit` / `.remaining` / `.reset` / `.policy` on every call whose response carries the headers —
+successes included — through whichever `ObservabilityPlugin` is configured (§9; Micrometer keeps the unbounded
+`remaining` / `reset` on the high-cardinality side).
 
 The hierarchy is sealed per ADR-006 — every subtype is documented, and pattern matching on exception type works:
 

@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * The OpenTelemetry adapter fed by a real, <em>retried</em> public call: {@code FanarClient.builder()
  * .observability(plugin)} → interceptor chain → scripted local server. The unit test drives
  * synthetic handles; this proves one span per call with the {@code retry_attempt} event, the
- * {@code fanar.retry_count} / {@code http.status_code} attributes, and W3C context propagated
+ * {@code fanar.retry_count} / {@code http.status_code} attributes, the typed
+ * {@code fanar.ratelimit.*} window of the last attempt (ADR-026), and W3C context propagated
  * onto the wire on every attempt (ADR-013, ADR-025).
  */
 @Tag("integration")
@@ -64,7 +65,11 @@ class OpenTelemetryObservabilityPluginIntegrationTest {
 
     @Test
     void retriedCallIsOneSpanCarryingItsRetryTelemetry() {
-        server.enqueue(Reply.of(503, "busy"), Reply.json(200, OK));
+        server.enqueue(Reply.of(503, "busy"), Reply.json(200, OK)
+                        .withHeader("x-ratelimit-limit", "50")
+                        .withHeader("x-ratelimit-remaining", "49")
+                        .withHeader("x-ratelimit-reset", "60")
+                        .withHeader("ratelimit-policy", "50;w=60"));
 
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")
@@ -83,6 +88,10 @@ class OpenTelemetryObservabilityPluginIntegrationTest {
         assertEquals(1L, span.getAttributes().get(AttributeKey.longKey("fanar.retry_count")));
         assertEquals(200L, span.getAttributes().get(AttributeKey.longKey("http.status_code")), "last attempt's status wins");
         assertEquals(ChatModel.FANAR.wireValue(), span.getAttributes().get(AttributeKey.stringKey("fanar.model")));
+        assertEquals(49L, span.getAttributes().get(AttributeKey.longKey("fanar.ratelimit.remaining")),
+                "the window of the last attempt, typed as long (ADR-026)");
+        assertEquals(60L, span.getAttributes().get(AttributeKey.longKey("fanar.ratelimit.reset")));
+        assertEquals("50;w=60", span.getAttributes().get(AttributeKey.stringKey("fanar.ratelimit.policy")));
         assertEquals(List.of("retry_attempt"), span.getEvents().stream().map(e -> e.getName()).toList());
         for (ScriptedHttpServer.Received request : server.received()) {
             String traceparent = request.header("traceparent");

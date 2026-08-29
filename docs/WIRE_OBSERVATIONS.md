@@ -129,8 +129,10 @@ admission (401, 403, the gate's 422) do not count; a rejection after admission (
 for a header reader: never treat `reset` as a window boundary; tolerate every header being absent (non-model calls,
 auth/gate errors and — per the spec — keys with unlimited quota); `exceeded_quota` has never been observed, so the
 `rate_limit_reached` / `exceeded_quota` split in ADR-014 rests on the spec alone, as does the "upstream service
-throttled" variant of `retry-after`. Typed exposure of these headers is ADR-026 (0.4.0 Phase 4); until then the
-`Interceptor` SPI sees them raw — `LiveRateLimitHeadersTest` shows the pattern.
+throttled" variant of `retry-after`. Typed exposure: since 0.4.0 (ADR-026) the retry boundary publishes the headers
+as the `fanar.ratelimit.*` observation attributes on every response that carries them and both 429 exceptions carry
+them as `RateLimitInfo` (`rateLimit()`); the `Interceptor` SPI still sees them raw — `LiveRateLimitHeadersTest`
+asserts the headers and the attributes on the same counted request.
 
 ## Live-suite budget
 

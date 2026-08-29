@@ -1,6 +1,6 @@
 # ADR-006 — Unchecked exception hierarchy
 
-- **Status**: Accepted (amended 2026-08-05 and 2026-08-28 — see [Amendments](#amendments))
+- **Status**: Accepted (amended 2026-08-05, 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -80,9 +80,9 @@ at the transport boundary; callers never see JDK checked exceptions on the publi
   `RuntimeException` in Java.
 
 ### Neutral
-- Fanar-specific metadata (the `Retry-After` hint on both HTTP 429 subtypes, the content-filter type) lives as
-  fields on the relevant subtype, retrievable via typed accessors. The rate-limit *window* headers are not
-  surfaced — deferred, see [PROJECT_STATE](../PROJECT_STATE.md).
+- Fanar-specific metadata (the `Retry-After` hint and the rate-limit window on both HTTP 429 subtypes, the
+  content-filter type) lives as fields on the relevant subtype, retrievable via typed accessors — the window as
+  `rateLimit()` since ADR-026 (2026-08-29), `null` when the server sent no headers.
 
 ## Amendments
 
@@ -116,6 +116,15 @@ is exactly where a caller needs it (ADR-025). The mapper normalises the header �
 seconds, past HTTP-dates and unparseable values become `null`; a future HTTP-date becomes the
 remaining wait. Additive under ADR-019. The "rate-limit window" metadata this ADR originally
 listed was never implemented and is now explicitly deferred (PROJECT_STATE).
+
+### 2026-08-29 — `RateLimitInfo` on both 429 subtypes (0.4.0)
+
+The deferral above ends with ADR-026: both 429 subtypes gain `rateLimit()`, a nullable
+`RateLimitInfo` (`limit`, `remaining`, `reset`, raw `policy`, derived `window()`) parsed from the
+`x-ratelimit-*` / `ratelimit-policy` headers by the same internal parser that feeds the
+`fanar.ratelimit.*` observation attributes. New constructor overloads carry it; the existing ones
+delegate with `null` — additive under ADR-019. `reset` is the wait until one slot frees in a
+sliding window, never a boundary ([WIRE_OBSERVATIONS](../WIRE_OBSERVATIONS.md)).
 
 ## References
 

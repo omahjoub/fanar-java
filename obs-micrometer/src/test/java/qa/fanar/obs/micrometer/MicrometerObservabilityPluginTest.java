@@ -10,6 +10,7 @@ import io.micrometer.observation.tck.TestObservationRegistryAssert.TestObservati
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.ObservationHandle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,6 +101,61 @@ class MicrometerObservabilityPluginTest {
         try (ObservationHandle h = plugin().start("op")) {
             assertThrows(NullPointerException.class, () -> h.attribute(null, "v"));
         }
+    }
+
+    // --- attribute: cardinality (ADR-026) -----------------------------------------------------
+
+    @Test
+    void attribute_unboundedRateLimitKeysAreHighCardinalityByDefault() {
+        try (ObservationHandle h = plugin().start("op")) {
+            h.attribute(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT, 50L);
+            h.attribute(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING, 49L);
+            h.attribute(FanarObservationAttributes.FANAR_RATELIMIT_RESET, 60L);
+            h.attribute(FanarObservationAttributes.FANAR_RATELIMIT_POLICY, "50;w=60");
+        }
+        obs("op")
+                .hasLowCardinalityKeyValue("fanar.ratelimit.limit", "50")
+                .hasLowCardinalityKeyValue("fanar.ratelimit.policy", "50;w=60")
+                .hasHighCardinalityKeyValue("fanar.ratelimit.remaining", "49")
+                .hasHighCardinalityKeyValue("fanar.ratelimit.reset", "60")
+                .doesNotHaveLowCardinalityKeyValueWithKey("fanar.ratelimit.remaining")
+                .doesNotHaveLowCardinalityKeyValueWithKey("fanar.ratelimit.reset");
+    }
+
+    @Test
+    void builder_highCardinalityKeysReplacesTheDefaultRule() {
+        MicrometerObservabilityPlugin custom = MicrometerObservabilityPlugin.builder(registry)
+                .highCardinalityKeys("http.url"::equals)
+                .build();
+        try (ObservationHandle h = custom.start("op")) {
+            h.attribute("http.url", "https://api.fanar.qa/v1/chat/completions");
+            h.attribute(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING, 49L);
+        }
+        obs("op")
+                .hasHighCardinalityKeyValue("http.url", "https://api.fanar.qa/v1/chat/completions")
+                .hasLowCardinalityKeyValue("fanar.ratelimit.remaining", "49");
+    }
+
+    @Test
+    void child_inheritsTheCardinalityRule() {
+        try (ObservationHandle parent = plugin().start("parent")) {
+            try (ObservationHandle child = parent.child("child")) {
+                child.attribute(FanarObservationAttributes.FANAR_RATELIMIT_RESET, 60L);
+            }
+        }
+        obs("child").hasHighCardinalityKeyValue("fanar.ratelimit.reset", "60");
+    }
+
+    @Test
+    void builder_highCardinalityKeysRejectsNull() {
+        assertThrows(NullPointerException.class,
+                () -> MicrometerObservabilityPlugin.builder(registry).highCardinalityKeys(null));
+    }
+
+    @Test
+    void builder_highCardinalityKeysIsFluent() {
+        MicrometerObservabilityPlugin.Builder b = MicrometerObservabilityPlugin.builder(registry);
+        assertSame(b, b.highCardinalityKeys(key -> false));
     }
 
     // --- attribute: filter / redactor ---------------------------------------------------------

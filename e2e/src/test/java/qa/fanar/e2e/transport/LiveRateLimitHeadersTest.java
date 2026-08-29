@@ -1,6 +1,8 @@
 package qa.fanar.e2e.transport;
 
 import java.net.http.HttpHeaders;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,7 +14,10 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import qa.fanar.core.FanarClient;
 import qa.fanar.core.chat.ChatResponse;
+import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
+import qa.fanar.core.spi.ObservabilityPlugin;
+import qa.fanar.core.spi.ObservationHandle;
 import qa.fanar.e2e.Probes;
 import qa.fanar.e2e.TestClients;
 import qa.fanar.json.jackson3.Jackson3FanarJsonCodec;
@@ -49,6 +54,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * retry interceptor surfaced it immediately — {@code fanar.retry_count=0}, no sleep — per
  * ADR-025.</p>
  *
+ * <p>Since ADR-026 the same counted request also proves the SDK's typed exposure: the retry
+ * boundary publishes the four headers as the {@code fanar.ratelimit.*} observation attributes,
+ * asserted here through a recording plugin — no extra budget.</p>
+ *
  * <p>Skipped when {@code FANAR_API_KEY} is not set.</p>
  */
 @Tag("live")
@@ -59,15 +68,16 @@ class LiveRateLimitHeadersTest {
     private static final Pattern POLICY_ITEM = Pattern.compile("(\\d+);w=(\\d+)");
 
     @Test
-    @DisplayName("§T.1 2xx chat response carries the documented rate-limit headers")
+    @DisplayName("§T.1 2xx chat response carries the documented rate-limit headers — and the SDK publishes them")
     void success_carriesRateLimitHeaders() {
         AtomicReference<HttpHeaders> captured = new AtomicReference<>();
+        RecordingPlugin recording = new RecordingPlugin();
         Interceptor capture = (request, chain) -> {
             var response = chain.proceed(request);
             captured.set(response.headers());
             return response;
         };
-        try (FanarClient client = TestClients.liveWithLogging(new Jackson3FanarJsonCodec(), capture)) {
+        try (FanarClient client = TestClients.liveWithLogging(new Jackson3FanarJsonCodec(), recording, capture)) {
             ChatResponse r = client.chat().send(Probes.ping());
             assertNotNull(r.id(), "response id must be present");
         }
@@ -76,7 +86,7 @@ class LiveRateLimitHeadersTest {
 
         long limit = requiredLong(headers, "x-ratelimit-limit");
         long remaining = requiredLong(headers, "x-ratelimit-remaining");
-        requiredLong(headers, "x-ratelimit-reset");
+        long reset = requiredLong(headers, "x-ratelimit-reset");
         assertTrue(remaining < limit,
                 "remaining (" + remaining + ") must sit below limit (" + limit
                         + ") right after a counted request (observed 49 → 48 against 50)");
@@ -88,6 +98,26 @@ class LiveRateLimitHeadersTest {
         assertEquals(limit, Long.parseLong(item.group(1)),
                 "the policy's limit must match x-ratelimit-limit, got: " + policy);
         assertTrue(Long.parseLong(item.group(2)) > 0, "the window must be positive, got: " + policy);
+
+        // ADR-026: the retry boundary publishes the same headers as observation attributes.
+        assertEquals(limit, recording.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT),
+                "fanar.ratelimit.limit must mirror x-ratelimit-limit: " + recording.attributes);
+        assertEquals(remaining, recording.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING));
+        assertEquals(reset, recording.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_RESET));
+        assertEquals(policy, recording.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_POLICY));
+    }
+
+    /** Records every attribute of every operation — one map, last write wins. */
+    private static final class RecordingPlugin implements ObservabilityPlugin, ObservationHandle {
+        final Map<String, Object> attributes = new ConcurrentHashMap<>();
+
+        @Override public ObservationHandle start(String operationName) { return this; }
+        @Override public ObservationHandle attribute(String key, Object value) { attributes.put(key, value); return this; }
+        @Override public ObservationHandle event(String name) { return this; }
+        @Override public ObservationHandle error(Throwable throwable) { return this; }
+        @Override public ObservationHandle child(String operationName) { return this; }
+        @Override public Map<String, String> propagationHeaders() { return Map.of(); }
+        @Override public void close() { }
     }
 
     /** Assert the header {@code name} is present and a non-negative integer; return its value. */

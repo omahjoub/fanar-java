@@ -36,6 +36,7 @@ import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
 import qa.fanar.core.FanarUnprocessableException;
+import qa.fanar.core.RateLimitInfo;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -122,6 +123,39 @@ class ExceptionMapperTest {
     @Test
     void retryAfterGarbageIsAbsent() {
         assertNull(ExceptionMapper.parseRetryAfterValue("soon"));
+    }
+
+    @Test
+    void status429CarriesTheRateLimitWindow() {
+        FanarException ex = ExceptionMapper.map(response(429, "", Map.of(
+                "Retry-After", List.of("42"),
+                "x-ratelimit-limit", List.of("50"), "x-ratelimit-remaining", List.of("0"),
+                "x-ratelimit-reset", List.of("42"), "ratelimit-policy", List.of("50;w=60"))));
+        assertEquals(new RateLimitInfo(50, 0, Duration.ofSeconds(42), "50;w=60"),
+                ((FanarRateLimitException) ex).rateLimit());
+    }
+
+    @Test
+    void status429WithoutRateLimitHeadersLeavesTheWindowNull() {
+        assertNull(((FanarRateLimitException) ExceptionMapper.map(response(429, "", Map.of()))).rateLimit());
+    }
+
+    @Test
+    void rateLimitEnvelopeCarriesTheRateLimitWindow() {
+        String body = "{\"error\":{\"code\":\"rate_limit_reached\",\"message\":\"Rate limit reached\",\"status\":429}}";
+        FanarException ex = ExceptionMapper.map(response(429, body, Map.of(
+                "x-ratelimit-limit", List.of("20"), "x-ratelimit-remaining", List.of("0"),
+                "x-ratelimit-reset", List.of("28606"), "ratelimit-policy", List.of("20;w=86400"))));
+        assertEquals(new RateLimitInfo(20, 0, Duration.ofSeconds(28606), "20;w=86400"),
+                ((FanarRateLimitException) ex).rateLimit());
+    }
+
+    @Test
+    void quotaEnvelopeOn429CarriesTheRateLimitWindow() {
+        String body = "{\"error\":{\"code\":\"exceeded_quota\",\"message\":\"quota exhausted\",\"status\":429}}";
+        FanarException ex = ExceptionMapper.map(response(429, body, Map.of(
+                "x-ratelimit-limit", List.of("20"), "x-ratelimit-remaining", List.of("0"))));
+        assertEquals(new RateLimitInfo(20, 0, null, null), ((FanarQuotaExceededException) ex).rateLimit());
     }
 
     @Test

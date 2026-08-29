@@ -42,6 +42,7 @@ import qa.fanar.testsupport.ScriptedHttpServer.Reply;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -206,6 +207,75 @@ class FanarClientRetryIntegrationTest {
                     assertThrows(FanarException.class, () -> client.chat().send(ping())));
         }
         assertEquals(1, server.hits());
+    }
+
+    // --- rate-limit visibility (ADR-026) ------------------------------------------------------
+
+    @Test
+    void rateLimitHeadersOnA429SurfaceOnTheExceptionAndAsAttributes() {
+        // The exhausted per-day window observed live on 2026-08-28: retry-after equals x-ratelimit-reset,
+        // both far above the ceiling, so the call surfaces immediately carrying the window.
+        server.enqueue(Reply.json(429,
+                "{\"error\":{\"code\":\"rate_limit_reached\",\"message\":\"Rate limit reached\",\"status\":429}}")
+                .withHeader("Retry-After", "28606")
+                .withHeader("x-ratelimit-limit", "20")
+                .withHeader("x-ratelimit-remaining", "0")
+                .withHeader("x-ratelimit-reset", "28606")
+                .withHeader("ratelimit-policy", "20;w=86400"));
+        RecordingObservability obs = new RecordingObservability();
+
+        FanarRateLimitException ex;
+        try (FanarClient client = client(RetryPolicy.defaults(), obs)) {
+            ex = assertThrows(FanarRateLimitException.class, () -> client.chat().send(ping()));
+        }
+
+        assertEquals(1, server.hits(), "the hint is above the ceiling: no retry");
+        RateLimitInfo window = ex.rateLimit();
+        assertEquals(new RateLimitInfo(20, 0, Duration.ofSeconds(28606), "20;w=86400"), window);
+        assertEquals(Duration.ofDays(1), window.window());
+        assertEquals(ex.retryAfter(), window.reset(), "on Fanar the 429's Retry-After is the same countdown");
+        assertEquals(20L, obs.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT));
+        assertEquals(0L, obs.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING));
+        assertEquals(28606L, obs.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_RESET));
+        assertEquals("20;w=86400", obs.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_POLICY));
+    }
+
+    @Test
+    void rateLimitHeadersOnSuccessAreRecordedAndTheLastAttemptWins() {
+        server.enqueue(
+                Reply.json(429, "{\"error\":{\"code\":\"rate_limit_reached\",\"message\":\"slow down\",\"status\":429}}")
+                        .withHeader("x-ratelimit-limit", "50")
+                        .withHeader("x-ratelimit-remaining", "0")
+                        .withHeader("x-ratelimit-reset", "1")
+                        .withHeader("ratelimit-policy", "50;w=60"),
+                ok().withHeader("x-ratelimit-limit", "50")
+                        .withHeader("x-ratelimit-remaining", "49")
+                        .withHeader("x-ratelimit-reset", "60")
+                        .withHeader("ratelimit-policy", "50;w=60"));
+        RecordingObservability obs = new RecordingObservability();
+
+        try (FanarClient client = client(FAST, obs)) {
+            assertEquals("c_1", client.chat().send(ping()).id());
+        }
+
+        assertEquals(2, server.hits(), "a 429 without Retry-After is retried after the computed back-off");
+        assertEquals(1, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
+        assertEquals(49L, obs.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_REMAINING), "last attempt wins");
+        assertEquals(60L, obs.attributes.get(FanarObservationAttributes.FANAR_RATELIMIT_RESET));
+        assertTrue(obs.errors.isEmpty());
+    }
+
+    @Test
+    void responsesWithoutRateLimitHeadersRecordNoRateLimitAttributes() {
+        server.enqueue(ok());
+        RecordingObservability obs = new RecordingObservability();
+
+        try (FanarClient client = client(FAST, obs)) {
+            assertEquals("c_1", client.chat().send(ping()).id());
+        }
+
+        assertFalse(obs.attributes.containsKey(FanarObservationAttributes.FANAR_RATELIMIT_LIMIT),
+                "non-model calls and unlimited-quota keys carry no headers — and no attributes");
     }
 
     // --- streaming: retries apply to the handshake only (ADR-014) -----------------------------

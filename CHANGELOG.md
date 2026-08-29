@@ -11,6 +11,15 @@ may break public API until 1.0.0 ships.
 
 ### Added
 
+- **`fanar-core`** — rate-limit visibility ([ADR-026](docs/adr/026-rate-limit-telemetry.md)): the retry boundary
+  publishes `fanar.ratelimit.limit` / `.remaining` / `.reset` / `.policy` observation attributes from every response
+  that carries Fanar's rate-limit headers (successes and 429s alike; the last attempt's values win), and both HTTP
+  429 subtypes gain `rateLimit()` — a `RateLimitInfo` record (`limit`, `remaining`, `reset`, raw `policy`, derived
+  `window()`), `null` when the server sent no headers. `reset` is the wait until one slot frees: Fanar's windows
+  slide, so it is never a boundary. Additive — new constants, a new record, new constructor overloads.
+- **`fanar-obs-micrometer`** — the unbounded `fanar.ratelimit.remaining` / `.reset` are recorded as
+  high-cardinality key-values so they never become metric tags;
+  `MicrometerObservabilityPlugin.builder(...).highCardinalityKeys(Predicate)` replaces the rule.
 - **Seam-crossing integration tests** (`*IntegrationTest`, `@Tag("integration")`) proving, through the public
   API against a scripted local server, what the ADRs promise: retry on 5xx, the `Retry-After` ceiling,
   handshake-only retry for chat and TTS streams (a mid-stream drop is `onError`, never re-requested),

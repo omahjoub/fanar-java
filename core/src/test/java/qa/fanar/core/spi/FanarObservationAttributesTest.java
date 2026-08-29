@@ -20,6 +20,10 @@ class FanarObservationAttributesTest {
         assertEquals("fanar.retry_count", FanarObservationAttributes.FANAR_RETRY_COUNT);
         assertEquals("fanar.stream.chunks", FanarObservationAttributes.FANAR_STREAM_CHUNKS);
         assertEquals("fanar.stream.first_chunk_ms", FanarObservationAttributes.FANAR_STREAM_FIRST_CHUNK_MS);
+        assertEquals("fanar.ratelimit.limit", FanarObservationAttributes.FANAR_RATELIMIT_LIMIT);
+        assertEquals("fanar.ratelimit.remaining", FanarObservationAttributes.FANAR_RATELIMIT_REMAINING);
+        assertEquals("fanar.ratelimit.reset", FanarObservationAttributes.FANAR_RATELIMIT_RESET);
+        assertEquals("fanar.ratelimit.policy", FanarObservationAttributes.FANAR_RATELIMIT_POLICY);
     }
 
     /**

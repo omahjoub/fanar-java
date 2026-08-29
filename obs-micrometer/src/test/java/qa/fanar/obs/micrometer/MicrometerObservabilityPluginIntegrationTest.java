@@ -23,8 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * The Micrometer adapter fed by a real, <em>retried</em> public call: {@code FanarClient.builder()
  * .observability(plugin)} → interceptor chain → scripted local server. The unit test drives
  * synthetic handles; this proves the SDK hands the adapter one stopped observation per call with
- * the {@code retry_attempt} event and the {@code fanar.retry_count} / {@code http.status_code}
- * key-values (ADR-013, ADR-025).
+ * the {@code retry_attempt} event, the {@code fanar.retry_count} / {@code http.status_code}
+ * key-values (ADR-013, ADR-025) and the {@code fanar.ratelimit.*} window of the last attempt —
+ * the unbounded counters on the high-cardinality side (ADR-026).
  */
 @Tag("integration")
 class MicrometerObservabilityPluginIntegrationTest {
@@ -45,7 +46,11 @@ class MicrometerObservabilityPluginIntegrationTest {
 
     @Test
     void retriedCallIsOneObservationCarryingItsRetryTelemetry() {
-        server.enqueue(Reply.of(503, "busy"), Reply.json(200, OK));
+        server.enqueue(Reply.of(503, "busy"), Reply.json(200, OK)
+                        .withHeader("x-ratelimit-limit", "50")
+                        .withHeader("x-ratelimit-remaining", "49")
+                        .withHeader("x-ratelimit-reset", "60")
+                        .withHeader("ratelimit-policy", "50;w=60"));
 
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")
@@ -66,7 +71,11 @@ class MicrometerObservabilityPluginIntegrationTest {
                 .hasEvent("retry_attempt")
                 .hasLowCardinalityKeyValue("fanar.retry_count", "1")
                 .hasLowCardinalityKeyValue("http.status_code", "200")
-                .hasLowCardinalityKeyValue("fanar.model", ChatModel.FANAR.wireValue());
+                .hasLowCardinalityKeyValue("fanar.model", ChatModel.FANAR.wireValue())
+                .hasLowCardinalityKeyValue("fanar.ratelimit.limit", "50")
+                .hasLowCardinalityKeyValue("fanar.ratelimit.policy", "50;w=60")
+                .hasHighCardinalityKeyValue("fanar.ratelimit.remaining", "49")
+                .hasHighCardinalityKeyValue("fanar.ratelimit.reset", "60");
     }
 
     private static ChatRequest ping() {

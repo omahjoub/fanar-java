@@ -94,6 +94,42 @@ class FanarExceptionTest {
     }
 
     @Test
+    void rateLimitCarriesTheWindow() {
+        RateLimitInfo window = new RateLimitInfo(50, 0, Duration.ofSeconds(7), "50;w=60");
+        var e = new FanarRateLimitException("slow down", Duration.ofSeconds(7), window);
+        assertSame(window, e.rateLimit());
+        assertEquals(Duration.ofSeconds(7), e.retryAfter());
+        var withCause = new FanarRateLimitException("slow down", Duration.ofSeconds(7), window, new RuntimeException("c"));
+        assertSame(window, withCause.rateLimit());
+        assertEquals("c", withCause.getCause().getMessage());
+    }
+
+    @Test
+    void rateLimitDefaultsTheWindowToNull() {
+        assertNull(new FanarRateLimitException("slow down").rateLimit());
+        assertNull(new FanarRateLimitException("slow down", Duration.ofSeconds(1)).rateLimit());
+        assertNull(new FanarRateLimitException("slow down", Duration.ofSeconds(1), new RuntimeException("c")).rateLimit());
+    }
+
+    @Test
+    void quotaExceededCarriesTheWindow() {
+        RateLimitInfo window = new RateLimitInfo(20, 0, Duration.ofHours(8), "20;w=86400");
+        var e = new FanarQuotaExceededException("quota", Duration.ofHours(8), window);
+        assertSame(window, e.rateLimit());
+        var withCause = new FanarQuotaExceededException("quota", Duration.ofHours(8), window, new RuntimeException("c"));
+        assertSame(window, withCause.rateLimit());
+        assertEquals("c", withCause.getCause().getMessage());
+    }
+
+    @Test
+    void quotaExceededDefaultsTheWindowToNull() {
+        assertNull(new FanarQuotaExceededException("quota").rateLimit());
+        assertNull(new FanarQuotaExceededException("quota", Duration.ofHours(1)).rateLimit());
+        assertNull(new FanarQuotaExceededException("quota", new RuntimeException("c")).rateLimit());
+        assertNull(new FanarQuotaExceededException("quota", Duration.ofHours(1), new RuntimeException("c")).rateLimit());
+    }
+
+    @Test
     void quotaExceededDefaultsRetryAfterToNull() {
         assertNull(new FanarQuotaExceededException("quota").retryAfter());
         assertNull(new FanarQuotaExceededException("quota", new RuntimeException("c")).retryAfter());
