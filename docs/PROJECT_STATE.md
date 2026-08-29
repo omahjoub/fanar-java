@@ -17,10 +17,11 @@ seam-crossing `*IntegrationTest` layer (core retry/streaming/async, starter, Spr
 observability adapters, wire logging), the unpublished `test-support` fixture module, a JUnit timeout
 backstop, the contributor rule that an ADR's consumer-observable promise is proved by a named
 integration test, and the dated [wire-observations ledger](WIRE_OBSERVATIONS.md) — what the live API
-does where it differs from the spec, each row pinned by a live test, plus the live-suite budget. Still
-to come in 0.4.0: the wire-log throw path, rate-limit telemetry (ADR-026), `RetryPolicy` builder + total
-retry budget (ADR-027), facade plumbing consolidation, live-suite budget hygiene + nightly run, Maven
-Central readiness.
+does where it differs from the spec, each row pinned by a live test, plus the live-suite budget — and
+the wire-log throw path (a `<-- failed` line when the chain throws, exception rethrown unchanged;
+ADR-012 amended). Still to come in 0.4.0: rate-limit telemetry (ADR-026), `RetryPolicy` builder +
+total retry budget (ADR-027), facade plumbing consolidation, live-suite budget hygiene + nightly run,
+Maven Central readiness.
 
 ## Planned
 

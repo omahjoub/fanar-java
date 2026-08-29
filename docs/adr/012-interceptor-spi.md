@@ -1,6 +1,6 @@
 # ADR-012 — Interceptor SPI
 
-- **Status**: Accepted (amended 2026-08-28 — see [Amendments](#amendments))
+- **Status**: Accepted (amended 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -120,6 +120,32 @@ policy. Consequences for the SPI contract:
   where the retry layer classifies raw status itself), not a third built-in.
 - A user interceptor that *throws* a `FanarException` is treated the same as a mapped one: the
   policy decides whether to retry it.
+
+### 2026-08-29 — Exceptions propagate through interceptors unchanged (0.4.0)
+
+The 2026-08-28 amendment settled where error *responses* become exceptions; it left unstated what
+an interceptor sees when the rest of the chain *throws*. The contract, now also in the `Interceptor`
+javadoc:
+
+- What comes out of `Chain.proceed` as an exception is a `FanarTransportException` from the
+  transport (connection refused, timeout, interrupt) or whatever a later interceptor throws. HTTP
+  error responses never surface as exceptions to user interceptors — they sit inside the retry
+  boundary and see the raw 4xx/5xx.
+- Exceptions propagate through every interceptor **unchanged**. An interceptor that wants to observe
+  a failure wraps `proceed` in `try`/`catch` (or `try`/`finally`), records, and rethrows the same
+  instance — it never swallows, wraps or substitutes it. `RetryInterceptor` retries a
+  `FanarException` the policy accepts; any other `RuntimeException` passes straight through to the
+  caller.
+- Consequence for the shipped wire logger: through 0.3.0 `WireLoggingInterceptor` logged the `-->`
+  block and nothing else when `proceed` threw, so a transport failure left no trace in the wire log.
+  It now logs `<-- failed <uri> (<ms>ms): <exception class: message>` at the configured level and
+  rethrows.
+
+*Proved by* `WireLoggingInterceptorTest` (`failure_transportExceptionIsLoggedAndRethrownUnchanged`,
+`failure_downstreamInterceptorExceptionIsLoggedAtEveryLevel`, `none_failurePassesThroughSilently`) and,
+through `FanarClient.builder()` against a gone server and a throwing interceptor,
+`WireLoggingInterceptorIntegrationTest` (`aTransportFailureBelowItIsLoggedOnEveryAttemptAndPropagates`,
+`aLaterInterceptorThrowingIsLoggedAndPropagatesUnchanged`).
 
 ## References
 
