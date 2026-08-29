@@ -28,10 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * Live battle-test of {@code POST /v1/translations} via {@link FanarClient#translations()},
  * parameterized over both codec adapters.
  *
- * <p>Per the Fanar spec this endpoint requires additional authorization. If the configured API
- * key isn't authorized the test will surface a {@code FanarAuthorizationException}; share the
- * wire log when that happens so we can request access. Skipped when {@code FANAR_API_KEY} is
- * not set.</p>
+ * <p>Works for the standard key (observed 2026-04-25, re-confirmed 2026-08-29; {@code 20;w=86400}).
+ * The 2026-04 spec flagged this endpoint as needing additional authorization, the 2026-08 spec no
+ * longer does; should a key lose access the test surfaces a {@code FanarAuthorizationException}
+ * loudly — share the wire log when that happens. Skipped when {@code FANAR_API_KEY} is not set.
+ * Dated record: {@code docs/WIRE_OBSERVATIONS.md}.</p>
  */
 @Tag("live")
 @EnabledIfEnvironmentVariable(named = "FANAR_API_KEY", matches = ".+")

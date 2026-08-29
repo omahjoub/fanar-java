@@ -61,7 +61,7 @@ Exact model IDs as accepted by the API.
 - **`restrict_to_islamic`** — a `Fanar-Sadiq` request flag that server-side rejects non-Islamic prompts.
 - **Madhab** — Islamic school of jurisprudence (`hanafi`, `maliki`, `shafii`, `hanbali`, or `all`). The `madhab` request filter narrows `Fanar-Sadiq-2` retrieval to the chosen school(s).
 - **Persona** — free-form request text (≤ 2000 chars) controlling the assistant's voice and identity; only `Fanar-Sadiq` honours it.
-- **Emotional TTS** — `with_emotion` speech synthesis, available on `Fanar-Aura-TTS-2` with the emotion-capable voices (`Abdulrahman`, `Radwa`); other combinations are rejected with HTTP 422.
+- **Emotional TTS** — `with_emotion` speech synthesis, available on `Fanar-Aura-TTS-2` with the emotion-capable voices (`Abdulrahman`, `Radwa`); other combinations are rejected with HTTP 422 per the spec (unverified live — see [wire observations](WIRE_OBSERVATIONS.md)).
 - **Prompt revision** — image generation's `revise` flag (server default on): Fanar rewrites the prompt for style, quality, and cultural alignment and reports `revised` / `revised_prompt` per image.
 - **Source scoping** (`preferred_sources`, `exclude_sources`, `filter_sources`, `book_names`, `madhab`) — Sadiq-family controls that narrow retrieval to specific corpora or schools.
 

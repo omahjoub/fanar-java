@@ -45,6 +45,9 @@
 | `Fanar-Shaheen-MT-1`  | 20/day     | Translation        |
 | `Fanar-Diwan`         | 50/min     | Poetry             |
 
+Where the live API departs from these tables — gating that answers 422, a visibility-scoped listing, the per-day
+audio windows — the dated record is [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md).
+
 ---
 
 ## 2. SDK architecture
@@ -293,6 +296,7 @@ zone (ADR-018).
 ## References
 
 - [Compatibility matrix](COMPATIBILITY.md) — capability view.
+- [Wire observations](WIRE_OBSERVATIONS.md) — observed API behaviour vs the spec, dated and pinned by live tests.
 - [API sketch](API_SKETCH.md) — concrete code shapes for every call.
 - [ADRs 010 + 011](adr/INDEX.md) — module and package conventions.
 - [ADRs 007 + 008 + 017](adr/INDEX.md) — transport, JSON, SSE.

@@ -21,8 +21,19 @@ may break public API until 1.0.0 ships.
   `test-support` fixture module (`ScriptedHttpServer`, `CollectingSubscriber`) and a 60 s JUnit timeout
   backstop on every test. `CONTRIBUTING.md` gains a "Testing" section with the rule: an ADR's
   consumer-observable promise is proved by a named `*IntegrationTest`.
+- **docs** — [`docs/WIRE_OBSERVATIONS.md`](docs/WIRE_OBSERVATIONS.md): a dated, per-endpoint ledger of what the
+  live Fanar API does where it differs from the spec — model gating answers 422, `/v1/models` is visibility-scoped,
+  `stop` is ignored, no user `tools`, the response `model` names the routed backend, Diwan's nondeterministic verse
+  miss, voice-personalization gating (`POST` 403, `GET` works), the rate-limit header shapes per response class and
+  the fact that the windows are sliding (`x-ratelimit-reset` counts down to the oldest request ageing out; "20/day"
+  means 20 in any trailing 24 h) — each row naming the live test that pins it, plus the per-model budget of a full
+  live run, verified against a full run on 2026-08-29 (100 exchanges). Linked from README, PROJECT_STATE, COMPATIBILITY, ARCHITECTURE, ADR-025
+  and the CONTRIBUTING testing rules (a new observation is a ledger row in the same PR as its test caveat).
 
 ### Fixed
+
+- **docs** — a full live run spends 11 `Fanar-Aura-TTS-2` calls, not 14 (five speech cases × 2 codecs plus one
+  shared STT source clip per JVM); `LiveAudioSpeechTest` and PROJECT_STATE corrected.
 
 - **docs** — ADR-014 said a connection dying mid-stream surfaces as an `ErrorChunk`; it surfaces as
   `onError` on the subscriber (an `ErrorChunk` is a server-sent error frame). Corrected, amended and proved.

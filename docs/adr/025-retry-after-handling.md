@@ -142,3 +142,5 @@ backoff, jitter, streaming posture — is untouched.
 - Fanar OpenAPI `info.description`, 2026-08-27 refresh — rate-limit header contract
 - RFC 9110 §10.2.3 — `Retry-After`
 - `LiveRateLimitHeadersTest` — live-observed header shapes, dated caveats
+- `docs/WIRE_OBSERVATIONS.md` — the dated ledger of the observations above (header shapes per response class,
+  the 2026-08-28 exhausted TTS window)

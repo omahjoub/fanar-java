@@ -37,7 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>All tests transcribe one <em>shared</em> WAV clip, synthesised lazily on first use via
  * {@code .speech(...)} (the M.7b endpoint already battle-tested). Previously every test
  * synthesised its own clip — 8 TTS calls per live run on top of the speech suite — which
- * tripped the audio endpoints' shared rate limit (429s). The clip's bytes come from the server,
+ * exhausted {@code Fanar-Aura-TTS-2}'s 20-per-24-hour window (429s on the speech endpoint, not a
+ * transcription limit; see {@code docs/WIRE_OBSERVATIONS.md}). The clip's bytes come from the server,
  * not from the codec under test, so sharing it does not weaken the per-codec transcription
  * coverage.</p>
  *

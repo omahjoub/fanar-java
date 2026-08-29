@@ -54,6 +54,10 @@ FANAR_API_KEY=… ./mvnw -pl e2e -am verify
 
 PR CI does not run live tests (no key in PR scope); the nightly job will (planned).
 
+The audio models have sliding 24 h windows — a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 — so start full runs at
+least 24 h apart per key. The per-model table lives in [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md#live-suite-budget),
+next to the dated record of every observed deviation from the spec that the live tests encode.
+
 ## Getting a change in
 
 1. **Discuss first for substantial changes.** Open an issue or comment on an existing one. Use the appropriate issue
@@ -152,7 +156,8 @@ Rules for every test:
 - **Dependencies**: test scope stays JDK + JUnit + the fixture (the core-only modules also get the Jackson 3 codec,
   discovered through `ServiceLoader`, never imported); `dependency:analyze` fails on unused or undeclared ones.
 - **Live tests fail loudly.** The only tolerated exceptions are documented nondeterministic outcomes and
-  spec-documented gating, each with a dated note.
+  spec-documented gating, each with a dated note. Every observed deviation from the spec is a dated row in
+  [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md) naming the test that pins it — added in the same PR as the caveat.
 
 ## Quality gates
 
