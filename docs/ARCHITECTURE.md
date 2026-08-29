@@ -78,6 +78,7 @@ fanar-java                            (reactor parent — NOT published)
 ├── spring-ai-sample/                 qa.fanar:fanar-spring-ai-sample       — jar  (runnable sample; not published)
 ├── e2e/                              qa.fanar:fanar-java-e2e               — jar  (live integration tests; not published)
 ├── e2e-graalvm/                      qa.fanar:fanar-java-e2e-graalvm       — jar  (native-image self-test + live walk; not published)
+├── test-support/                     qa.fanar:fanar-java-test-support      — jar  (scripted HttpServer + collecting subscriber for *IntegrationTest; not published)
 └── bom/                              qa.fanar:fanar-java-bom               — pom  (dependency management for consumers)
 ```
 
@@ -239,7 +240,9 @@ mapper routes by the typed `code` in the error envelope first and falls back to 
 body isn't a well-formed envelope. It runs inside the interceptor chain at the retry boundary
 (`RetryInterceptor`), so user interceptors see raw error responses while the domain facades only
 ever see typed exceptions — and the retry policy can act on them. Both HTTP 429 subtypes carry the
-server's `Retry-After` hint. See ADR-006 and ADR-012.
+server's `Retry-After` hint. See ADR-006 and ADR-012. Proved by
+`FanarClientRetryIntegrationTest.userInterceptorsSeeRawErrorResponses` and
+`WireLoggingInterceptorIntegrationTest` (a user interceptor observes the raw 503, the caller the decoded success).
 
 ---
 
@@ -270,7 +273,7 @@ zone (ADR-018).
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |
 | Audio stream publisher | `qa.fanar.core.internal.audio.AudioStreamPublisher` | **implemented** — `SseStreamPublisher`'s structural twin minus frame assembly; emits opaque `byte[]` chunks for streamed TTS (ADR-023); `stream:true` spliced via the shared `internal.transport.StreamFlag` helper |
-| Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — the SDK's error boundary (maps 4xx/5xx to the typed hierarchy inside the chain, ADR-012 amendment) and retry loop: exponential back-off with configurable jitter, `Retry-After` honoured on both 429 subtypes up to `maxDelay` (a longer hint ends retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` events, `http.status_code` per attempt and `fanar.retry_count` on every exit, injectable `Sleeper`+`RandomGenerator` |
+| Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — the SDK's error boundary (maps 4xx/5xx to the typed hierarchy inside the chain, ADR-012 amendment) and retry loop: exponential back-off with configurable jitter, `Retry-After` honoured on both 429 subtypes up to `maxDelay` (a longer hint ends retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` events, `http.status_code` per attempt and `fanar.retry_count` on every exit, injectable `Sleeper`+`RandomGenerator`. Proved end to end by `FanarClientRetryIntegrationTest` (core), `FanarAutoConfigurationRetryIntegrationTest` (starter), `FanarChatModelRetryIntegrationTest` (Spring AI), the three `*ObservabilityPluginIntegrationTest`s and `WireLoggingInterceptorIntegrationTest` |
 | Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | SLF4J observability adapter | `qa.fanar.obs.slf4j.Slf4jObservabilityPlugin` | **implemented** — one structured log line per operation through SLF4J at `DEBUG` (success) / `ERROR` (failure); per-operation logger names (`fanar.chat.send`, `fanar.audio.speech`, ...); attribute filter / redactor knobs via builder; `provided`-scope SLF4J |

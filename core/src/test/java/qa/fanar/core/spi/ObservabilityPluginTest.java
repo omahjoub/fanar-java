@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,6 +54,6 @@ class ObservabilityPluginTest {
     void noopHandleCloseIsIdempotent() {
         ObservationHandle handle = ObservabilityPlugin.noop().start("test.operation");
         handle.close();
-        handle.close(); // second call must not throw
+        assertDoesNotThrow(handle::close, "second close must be a no-op");
     }
 }

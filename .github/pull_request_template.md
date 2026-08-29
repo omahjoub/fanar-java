@@ -24,6 +24,7 @@
 <!-- Items CI can't check on its own — human judgment required. Tick or mark N/A. -->
 
 - [ ] Public API changes are intentional, documented in javadoc, and an ADR was added/updated if the design changed
+- [ ] Which `*IntegrationTest` proves the behaviour this PR claims? (100 % JaCoCo on a unit is not proof of wiring — see CONTRIBUTING "Testing")
 - [ ] Breaking changes carry `@Deprecated(since, forRemoval = true)` and a migration path in the PR description
 - [ ] BOM updated if modules were added or removed
 - [ ] No third-party types leak into `qa.fanar.core` public API

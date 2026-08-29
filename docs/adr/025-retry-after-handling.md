@@ -73,6 +73,16 @@ would void that contract. Sync-primary (ADR-004) makes it worse: the blocked thr
    first-attempt abort is observable; `http.status_code` is recorded per attempt (last wins). No
    event fires on the abort because no retry is attempted.
 
+*Proved by* `FanarClientRetryIntegrationTest` (core; public builder → chain → JDK transport → scripted local
+server): `retryAfterWithinTheCeilingIsHonoured` (1), `retryAfterAboveTheCeilingSurfacesImmediatelyWithTheHint`
+(1 and 6 — no `retry_attempt` event, `fanar.retry_count = 0`, `http.status_code = 429`),
+`exceededQuotaIsNotRetriedButCarriesTheCountdown` (2), `sendAsyncSurfacesTheRetryAfterHintAboveTheCeiling`
+(1, through `sendAsync`); the ceiling as the starter's `fanar.retry.max-delay` in
+`FanarAutoConfigurationRetryIntegrationTest.maxDelayIsTheRetryAfterCeiling` (5); the hint surviving the Spring AI
+adapter in `FanarChatModelRetryIntegrationTest.callSurfacesTheRetryAfterHintAboveTheCeiling`; the telemetry (6)
+reaching each adapter in the three `*ObservabilityPluginIntegrationTest` classes. Points 3 and 4 are mapper- and
+loop-level mechanics covered by the unit tests.
+
 No new `RetryPolicy` component is introduced — the existing knob already expresses "the longest
 this policy is willing to wait between attempts".
 

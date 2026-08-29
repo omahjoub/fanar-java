@@ -11,13 +11,21 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>fanar-core</artifactId>
+    <artifactId>fanar-java-test-support</artifactId>
     <packaging>jar</packaging>
 
-    <name>Fanar Java :: Core</name>
-    <description>Typed, pluggable, observable Java client for the Fanar API. Zero runtime dependencies.</description>
+    <name>Fanar Java :: Test Support</name>
+    <description>In-JVM test fixtures shared by the reactor's *IntegrationTest classes — a scripted loopback HttpServer and a collecting Flow.Subscriber. JDK-only (no dependency on fanar-core, so core's own tests use it too). Never published.</description>
 
-    <!-- No runtime dependencies. Core depends only on java.base and java.net.http. -->
+    <!--
+      A test fixture, not a library: never deployed, no coverage gate. It IS installed locally so
+      `./mvnw -pl <module> -am verify` resolves it from the reactor like any sibling.
+      dependency:analyze stays on — the module has no dependencies to get wrong.
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <jacoco.skip>true</jacoco.skip>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -27,24 +35,9 @@
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- Scripted loopback HttpServer + collecting Flow.Subscriber for the *IntegrationTest
-             classes. JDK-only, never published — a test fixture, not a runtime dependency. -->
-        <dependency>
-            <groupId>qa.fanar</groupId>
-            <artifactId>fanar-java-test-support</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
-
 </project>
-

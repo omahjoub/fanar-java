@@ -1,50 +1,55 @@
 package qa.fanar.core;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.sun.net.httpserver.HttpServer;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AutoClose;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import qa.fanar.core.audio.TextToSpeechRequest;
+import qa.fanar.core.audio.TtsModel;
+import qa.fanar.core.audio.Voice;
 import qa.fanar.core.chat.ChatChoice;
 import qa.fanar.core.chat.ChatMessage;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.FinishReason;
+import qa.fanar.core.chat.StreamEvent;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
+import qa.fanar.testsupport.CollectingSubscriber;
+import qa.fanar.testsupport.ScriptedHttpServer;
+import qa.fanar.testsupport.ScriptedHttpServer.Reply;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Retry through the <em>public</em> API: {@code FanarClient.builder()} → {@code chat().send()} →
- * interceptor chain → real JDK transport → a local {@link HttpServer} scripting the responses.
+ * interceptor chain → real JDK transport → a local {@link ScriptedHttpServer} scripting the responses.
  *
  * <p>This is the seam the unit tests cannot see. {@code RetryInterceptorTest} proves the loop on
  * outcomes it is handed and the facade tests prove mapping with retries disabled; only a test
@@ -53,49 +58,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * / ADR-025 promise a consumer can observe is asserted here: retry on 5xx, {@code Retry-After}
  * honoured up to {@code maxDelay}, abort above it with the hint preserved, quota not retried but
  * hinted, non-retryable errors not retried, attempts exhausted → last error, and user interceptors
- * still seeing the raw error responses.</p>
+ * still seeing the raw error responses. The streaming and async surfaces cross the same seam:
+ * {@code chat().stream()} / {@code audio().speechStream()} retry the handshake only — a connection
+ * that dies mid-stream reaches the subscriber as {@code onError} and is never re-requested (ADR-014)
+ * — and {@code sendAsync()} runs the whole chain, retries included, on its virtual thread (ADR-004).</p>
+ *
+ * <p>The server is {@code @AutoClose}d after each test, which also fails the test if a scripted
+ * reply was never requested or an unscripted request arrived — every hit count below is exact.</p>
  */
+@Tag("integration")
 class FanarClientRetryIntegrationTest {
 
     private static final RetryPolicy FAST = RetryPolicy.defaults()
             .withBaseDelay(Duration.ofMillis(1))
             .withMaxDelay(Duration.ofMillis(1));
+    private static final Duration WAIT = Duration.ofSeconds(10);
 
-    private HttpServer server;
-    private final ConcurrentLinkedQueue<Scripted> script = new ConcurrentLinkedQueue<>();
-    private final AtomicInteger hits = new AtomicInteger();
-
-    @BeforeEach
-    void startServer() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-        server.createContext("/v1/chat/completions", exchange -> {
-            try (InputStream in = exchange.getRequestBody()) {
-                in.readAllBytes();
-            }
-            hits.incrementAndGet();
-            Scripted next = script.poll();
-            if (next == null) {
-                throw new IllegalStateException("script exhausted — the client sent more requests than expected");
-            }
-            byte[] body = next.body().getBytes(StandardCharsets.UTF_8);
-            next.headers().forEach((k, v) -> exchange.getResponseHeaders().add(k, v));
-            exchange.sendResponseHeaders(next.status(), body.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(body);
-            }
-        });
-        server.start();
-    }
-
-    @AfterEach
-    void stopServer() {
-        server.stop(0);
-    }
+    @AutoClose
+    private final ScriptedHttpServer server = ScriptedHttpServer.start();
 
     @Test
     void retryableErrorResponseIsRetriedThroughThePublicApi() {
-        script.add(status(503, "{\"error\":{\"code\":\"overloaded\",\"message\":\"busy\",\"status\":503}}"));
-        script.add(ok());
+        server.enqueue(
+                Reply.json(503, "{\"error\":{\"code\":\"overloaded\",\"message\":\"busy\",\"status\":503}}"),
+                ok());
         RecordingObservability obs = new RecordingObservability();
 
         try (FanarClient client = client(FAST, obs)) {
@@ -103,7 +89,7 @@ class FanarClientRetryIntegrationTest {
             assertEquals("c_1", response.id());
         }
 
-        assertEquals(2, hits.get(), "the 503 must be retried once");
+        assertEquals(2, server.hits(), "the 503 must be retried once");
         assertEquals(List.of("retry_attempt"), obs.events);
         assertEquals(1, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
         assertEquals(200, obs.attributes.get(FanarObservationAttributes.HTTP_STATUS_CODE), "last attempt's status wins");
@@ -112,8 +98,7 @@ class FanarClientRetryIntegrationTest {
 
     @Test
     void retryAfterWithinTheCeilingIsHonoured() {
-        script.add(status(429, "slow down", Map.of("Retry-After", "1")));
-        script.add(ok());
+        server.enqueue(Reply.of(429, "slow down", Map.of("Retry-After", "1")), ok());
 
         long started = System.nanoTime();
         try (FanarClient client = client(RetryPolicy.defaults(), ObservabilityPlugin.noop())) {
@@ -121,13 +106,13 @@ class FanarClientRetryIntegrationTest {
         }
         long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
 
-        assertEquals(2, hits.get());
+        assertEquals(2, server.hits());
         assertTrue(elapsedMs >= 950, "the 1 s hint must be slept, elapsed " + elapsedMs + " ms");
     }
 
     @Test
     void retryAfterAboveTheCeilingSurfacesImmediatelyWithTheHint() {
-        script.add(status(429, "come back later", Map.of("Retry-After", "7200")));
+        server.enqueue(Reply.of(429, "come back later", Map.of("Retry-After", "7200")));
         RecordingObservability obs = new RecordingObservability();
 
         long started = System.nanoTime();
@@ -138,7 +123,7 @@ class FanarClientRetryIntegrationTest {
         long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
 
         assertEquals(Duration.ofHours(2), ex.retryAfter(), "hint preserved for caller-side scheduling");
-        assertEquals(1, hits.get(), "no retry may be attempted");
+        assertEquals(1, server.hits(), "no retry may be attempted");
         assertTrue(elapsedMs < 5_000, "must not sleep, elapsed " + elapsedMs + " ms");
         assertTrue(obs.events.isEmpty(), "no retry_attempt event");
         assertEquals(0, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT), "abort is observable");
@@ -148,21 +133,21 @@ class FanarClientRetryIntegrationTest {
 
     @Test
     void exceededQuotaIsNotRetriedButCarriesTheCountdown() {
-        script.add(status(429,
-                "{\"error\":{\"code\":\"exceeded_quota\",\"message\":\"quota exhausted\",\"status\":429}}",
-                Map.of("Retry-After", "86400")));
+        server.enqueue(Reply.json(429,
+                "{\"error\":{\"code\":\"exceeded_quota\",\"message\":\"quota exhausted\",\"status\":429}}")
+                .withHeader("Retry-After", "86400"));
 
         try (FanarClient client = client(FAST, ObservabilityPlugin.noop())) {
             FanarQuotaExceededException ex =
                     assertThrows(FanarQuotaExceededException.class, () -> client.chat().send(ping()));
             assertEquals(Duration.ofHours(24), ex.retryAfter());
         }
-        assertEquals(1, hits.get(), "quota exhaustion is not retried by default");
+        assertEquals(1, server.hits(), "quota exhaustion is not retried by default");
     }
 
     @Test
     void nonRetryableErrorIsNotRetried() {
-        script.add(status(401,
+        server.enqueue(Reply.json(401,
                 "{\"error\":{\"code\":\"invalid_authentication\",\"message\":\"bad key\",\"status\":401}}"));
 
         try (FanarClient client = client(FAST, ObservabilityPlugin.noop())) {
@@ -170,14 +155,12 @@ class FanarClientRetryIntegrationTest {
                     assertThrows(FanarAuthenticationException.class, () -> client.chat().send(ping()));
             assertEquals("bad key", ex.getMessage());
         }
-        assertEquals(1, hits.get());
+        assertEquals(1, server.hits());
     }
 
     @Test
     void exhaustedAttemptsSurfaceTheLastError() {
-        script.add(status(503, "busy 1"));
-        script.add(status(503, "busy 2"));
-        script.add(status(503, "busy 3"));
+        server.enqueue(Reply.of(503, "busy 1"), Reply.of(503, "busy 2"), Reply.of(503, "busy 3"));
         RecordingObservability obs = new RecordingObservability();
 
         try (FanarClient client = client(FAST.withMaxAttempts(3), obs)) {
@@ -185,7 +168,7 @@ class FanarClientRetryIntegrationTest {
                     assertThrows(FanarOverloadedException.class, () -> client.chat().send(ping()));
             assertEquals("busy 3", ex.getMessage(), "the last attempt's error surfaces");
         }
-        assertEquals(3, hits.get());
+        assertEquals(3, server.hits());
         assertEquals(2, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
         assertEquals(List.of("retry_attempt", "retry_attempt"), obs.events);
     }
@@ -194,8 +177,7 @@ class FanarClientRetryIntegrationTest {
     void userInterceptorsSeeRawErrorResponses() {
         // ADR-012 amendment: mapping happens at the retry boundary, outside user interceptors,
         // so logging / capture interceptors keep observing 4xx/5xx as responses.
-        script.add(status(503, "busy"));
-        script.add(ok());
+        server.enqueue(Reply.of(503, "busy"), ok());
         List<Integer> seen = new CopyOnWriteArrayList<>();
         Interceptor capture = (request, chain) -> {
             var response = chain.proceed(request);
@@ -205,7 +187,7 @@ class FanarClientRetryIntegrationTest {
 
         try (FanarClient client = FanarClient.builder()
                 .apiKey("sk_test")
-                .baseUrl(baseUrl())
+                .baseUrl(server.baseUri())
                 .jsonCodec(cannedCodec())
                 .retryPolicy(FAST)
                 .addInterceptor(capture)
@@ -217,14 +199,131 @@ class FanarClientRetryIntegrationTest {
 
     @Test
     void disabledPolicyStillMapsErrorsButNeverRetries() {
-        script.add(status(503, "busy"));
+        server.enqueue(Reply.of(503, "busy"));
 
         try (FanarClient client = client(RetryPolicy.disabled(), ObservabilityPlugin.noop())) {
             assertInstanceOf(FanarOverloadedException.class,
                     assertThrows(FanarException.class, () -> client.chat().send(ping())));
         }
-        assertEquals(1, hits.get());
-        assertNull(script.poll(), "nothing left unconsumed");
+        assertEquals(1, server.hits());
+    }
+
+    // --- streaming: retries apply to the handshake only (ADR-014) -----------------------------
+
+    @Test
+    void streamingHandshakeIsRetriedThroughThePublicApi() throws Exception {
+        // The [DONE] sentinel is handled without the codec (StreamEventDecoder), so the canned
+        // codec suffices: a retried handshake followed by an empty stream completes with no events.
+        server.enqueue(Reply.of(503, "busy"), Reply.sse("data: [DONE]\n\n"));
+        RecordingObservability obs = new RecordingObservability();
+        CollectingSubscriber<StreamEvent> subscriber = CollectingSubscriber.unbounded();
+
+        try (FanarClient client = client(FAST, obs)) {
+            client.chat().stream(ping()).subscribe(subscriber);
+            assertEquals(List.of(), subscriber.awaitCompletion(WAIT), "[DONE] is a sentinel, not an event");
+        }
+
+        assertEquals(2, server.hits(), "the 503 handshake must be retried once");
+        assertEquals("text/event-stream", server.lastReceived().header("Accept"));
+        assertEquals(List.of("retry_attempt"), obs.events);
+        assertEquals(1, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
+        assertEquals(200, obs.attributes.get(FanarObservationAttributes.HTTP_STATUS_CODE));
+    }
+
+    @Test
+    void speechStreamHandshakeIsRetriedThroughThePublicApi() throws Exception {
+        byte[] audio = "ID3\u0003\u0000fake-mp3-bytes".getBytes(StandardCharsets.UTF_8);
+        server.enqueue(Reply.of(503, "busy"), Reply.of(200, audio, Map.of("Content-Type", "audio/mpeg")));
+        RecordingObservability obs = new RecordingObservability();
+        CollectingSubscriber<byte[]> subscriber = CollectingSubscriber.unbounded();
+
+        try (FanarClient client = client(FAST, obs)) {
+            client.audio().speechStream(speech()).subscribe(subscriber);
+            assertArrayEquals(audio, concat(subscriber.awaitCompletion(WAIT)), "the retried body streams through intact");
+        }
+
+        assertEquals(2, server.hits(), "the 503 handshake must be retried once");
+        assertEquals("audio/*", server.lastReceived().header("Accept"));
+        assertEquals(List.of("retry_attempt"), obs.events);
+        assertEquals(1, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
+    }
+
+    @Test
+    void connectionDropMidStreamIsNotRetried() throws Exception {
+        // A handshake that succeeded and then died: the failure reaches the subscriber, and the
+        // server is never asked again — there is no mid-stream retry (ADR-014).
+        server.enqueue(Reply.sse(": keep-alive\n\n").thenDropConnection());
+        RecordingObservability obs = new RecordingObservability();
+        CollectingSubscriber<StreamEvent> subscriber = CollectingSubscriber.unbounded();
+
+        try (FanarClient client = client(FAST, obs)) {
+            client.chat().stream(ping()).subscribe(subscriber);
+            assertInstanceOf(IOException.class, subscriber.awaitError(WAIT),
+                    "the transport failure surfaces on the subscriber, unwrapped");
+        }
+
+        assertEquals(1, server.hits(), "no second handshake");
+        assertTrue(subscriber.items().isEmpty());
+        assertTrue(obs.events.isEmpty(), "no retry_attempt event");
+        assertEquals(0, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
+        assertTrue(obs.errors.isEmpty(), "the handshake observation had already closed successfully");
+    }
+
+    @Test
+    void speechStreamConnectionDropIsNotRetried() throws Exception {
+        server.enqueue(Reply.of(200, new byte[] {'I', 'D', '3'}, Map.of("Content-Type", "audio/mpeg"))
+                .thenDropConnection());
+        CollectingSubscriber<byte[]> subscriber = CollectingSubscriber.unbounded();
+
+        try (FanarClient client = client(FAST, ObservabilityPlugin.noop())) {
+            client.audio().speechStream(speech()).subscribe(subscriber);
+            assertInstanceOf(IOException.class, subscriber.awaitError(WAIT));
+        }
+        assertEquals(1, server.hits(), "no second handshake");
+    }
+
+    // --- async sugar runs the whole chain, retries included, off the caller's thread (ADR-004) ---
+
+    @Test
+    void sendAsyncRetriesThroughTheChainOnAVirtualThread() throws Exception {
+        server.enqueue(Reply.of(503, "busy"), ok());
+        RecordingObservability obs = new RecordingObservability();
+        AtomicBoolean chainRanOnVirtualThread = new AtomicBoolean();
+        Interceptor probe = (request, chain) -> {
+            chainRanOnVirtualThread.set(Thread.currentThread().isVirtual());
+            return chain.proceed(request);
+        };
+
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .baseUrl(server.baseUri())
+                .jsonCodec(cannedCodec())
+                .retryPolicy(FAST)
+                .observability(obs)
+                .addInterceptor(probe)
+                .build()) {
+            CompletableFuture<ChatResponse> future = client.chat().sendAsync(ping());
+            assertEquals("c_1", future.get(WAIT.toSeconds(), TimeUnit.SECONDS).id());
+        }
+
+        assertEquals(2, server.hits(), "the 503 must be retried once");
+        assertTrue(chainRanOnVirtualThread.get(), "ADR-004: the async variant runs the chain on a virtual thread");
+        assertEquals(List.of("retry_attempt"), obs.events);
+        assertEquals(1, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
+    }
+
+    @Test
+    void sendAsyncSurfacesTheRetryAfterHintAboveTheCeiling() throws Exception {
+        server.enqueue(Reply.of(429, "come back later", Map.of("Retry-After", "7200")));
+
+        try (FanarClient client = client(RetryPolicy.defaults(), ObservabilityPlugin.noop())) {
+            CompletableFuture<ChatResponse> future = client.chat().sendAsync(ping());
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> future.get(WAIT.toSeconds(), TimeUnit.SECONDS));
+            FanarRateLimitException ex = assertInstanceOf(FanarRateLimitException.class, failure.getCause());
+            assertEquals(Duration.ofHours(2), ex.retryAfter(), "hint preserved through completeExceptionally");
+        }
+        assertEquals(1, server.hits(), "no retry may be attempted");
     }
 
     // --- helpers -----------------------------------------------------------------------------
@@ -232,7 +331,7 @@ class FanarClientRetryIntegrationTest {
     private FanarClient client(RetryPolicy policy, ObservabilityPlugin observability) {
         return FanarClient.builder()
                 .apiKey("sk_test")
-                .baseUrl(baseUrl())
+                .baseUrl(server.baseUri())
                 .jsonCodec(cannedCodec())
                 .retryPolicy(policy)
                 .observability(observability)
@@ -241,27 +340,23 @@ class FanarClientRetryIntegrationTest {
                 .build();
     }
 
-    private URI baseUrl() {
-        return URI.create("http://" + server.getAddress().getHostString() + ":" + server.getAddress().getPort());
-    }
-
     private static ChatRequest ping() {
         return ChatRequest.builder().model(ChatModel.FANAR).addMessage(UserMessage.of("ping")).build();
     }
 
-    private static Scripted ok() {
-        return status(200, "{}");
+    private static Reply ok() {
+        return Reply.json(200, "{}");
     }
 
-    private static Scripted status(int status, String body) {
-        return status(status, body, Map.of());
+    private static TextToSpeechRequest speech() {
+        return TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "ping", Voice.EMILY);
     }
 
-    private static Scripted status(int status, String body, Map<String, String> headers) {
-        return new Scripted(status, headers, body);
+    private static byte[] concat(List<byte[]> chunks) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        chunks.forEach(out::writeBytes);
+        return out.toByteArray();
     }
-
-    private record Scripted(int status, Map<String, String> headers, String body) { }
 
     /** Decodes every 2xx body into the same canned response — this test is about retry, not JSON. */
     private static FanarJsonCodec cannedCodec() {

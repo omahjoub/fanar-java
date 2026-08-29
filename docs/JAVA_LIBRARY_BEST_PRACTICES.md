@@ -221,6 +221,7 @@ mirrors it, so any change here must be reflected there too. Items are split by s
 - [ ] Deprecated API carries `@Deprecated(since, forRemoval)` and a migration path
 - [ ] BOM updated if this PR adds or removes a module
 - [ ] Javadoc builds clean on any new public API
+- [ ] Every consumer-observable behaviour the PR claims is proved by a seam-crossing `*IntegrationTest` through the public API — JaCoCo measures execution, not integration (see [CONTRIBUTING → Testing](CONTRIBUTING.md#testing))
 
 ### Core-module PRs — touch the core client
 

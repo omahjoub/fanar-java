@@ -120,6 +120,13 @@
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Scripted loopback HttpServer for the *IntegrationTest classes (JDK-only, never published). -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-java-test-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

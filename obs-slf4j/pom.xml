@@ -52,6 +52,30 @@
             <artifactId>slf4j-nop</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Scripted loopback HttpServer for the *IntegrationTest classes (JDK-only, never published). -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-java-test-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Real wire JSON for the *IntegrationTest classes — the seam test decodes what Fanar sends.
+             Never imported: FanarClient discovers the codec through ServiceLoader (ADR-008), which is
+             also what keeps this module's test code from needing to read the codec's JPMS module. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson3</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Runtime of that codec: fanar-json-jackson3 declares Jackson `provided`, and on the test
+             module path the codec (a FanarJsonCodec provider) must resolve tools.jackson.databind.
+             No compile-time imports — whitelisted for dependency:analyze in the root pom. -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>
