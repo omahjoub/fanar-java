@@ -32,10 +32,16 @@ If it fails for any other reason, that is a bug — please open an issue.
 ### Running one module only
 
 ```bash
-./mvnw -pl core verify                # core only
-./mvnw -pl json-jackson3 -am verify   # adapter + its dependencies
-./mvnw -pl spring-ai-starter verify   # Spring AI adapter + starter chain
+./mvnw -pl core -am verify                 # core + the test-support fixture its integration tests use
+./mvnw -pl json-jackson3 -am verify        # adapter + its dependencies
+./mvnw -pl spring-ai-starter -am verify    # Spring AI adapter + starter chain
+./mvnw -pl core -am test -Dtest=ChatRequestTest -Dsurefire.failIfNoSpecifiedTests=false   # one test class
+./mvnw verify -Dgroups=integration         # only the seam-crossing tests (see Testing below)
 ```
+
+`-am` builds the reactor siblings a module depends on — since 0.4.0 that includes the unpublished `test-support`
+fixture for every module with `*IntegrationTest` classes. With `-Dtest=…`, `-Dsurefire.failIfNoSpecifiedTests=false`
+keeps Surefire from failing in the sibling modules where the pattern matches nothing.
 
 ### Running the live e2e suite
 
@@ -71,7 +77,9 @@ If your change touches the public API, adds or alters an SPI, changes scope, or 
    ```
 3. Fill in the sections: Status (`Proposed` initially), Date, Deciders, Context, Decision, Alternatives considered,
    Consequences, References.
-4. Open a PR containing the ADR and (if applicable) the code change it motivates.
+4. Open a PR containing the ADR, the code change it motivates (if applicable), and the seam-crossing
+   `*IntegrationTest` that proves the behaviour the ADR promises — and name that test in the ADR (see
+   [Testing](#testing)).
 5. When the PR merges, flip the ADR's Status to `Accepted`.
 6. If the change supersedes an existing ADR, set the old one's Status to `Superseded by ADR-XYZ` and add a cross-
    reference both ways.
@@ -102,10 +110,49 @@ The full set lives in [Library best practices](JAVA_LIBRARY_BEST_PRACTICES.md). 
 - **`module-info.java`** exports only public packages. Never internal ones.
 - **`-parameters` is enabled globally.** Spring MVC's `@PathVariable String foo` binds by parameter name
   reflectively; the flag must be on for that to work without explicit name args.
-- **Test patterns to mimic**: `ApplicationContextRunner` + AssertJ for auto-config tests;
-  `FilteredClassLoader(ChatModel.class)` to assert "without spring-ai on classpath, the bean isn't
-  registered"; real `HttpServer` (no mocks) for adapter wire-format tests — see `FanarChatModelTest` and
-  `FanarHealthIndicatorTest`.
+- **Tests** follow the layers and rules in [Testing](#testing) below.
+
+## Testing
+
+Three layers, told apart by name and tag. All of them run under Surefire in the `test` phase (hermetic and fast —
+no Failsafe), and every layer can be selected with `-Dgroups=` / `-DexcludedGroups=`:
+
+| Layer | Name | Tag | Proves |
+|---|---|---|---|
+| Unit | `*Test` | — | one class, in process — SPI lambdas and hand-rolled recorders instead of mocks (Mockito stays out) |
+| Seam-crossing | `*IntegrationTest`, in the module's public package | `integration` | a behaviour a consumer can observe, through the public `FanarClient.builder()` (or the starter's `ApplicationContextRunner`), the real interceptor chain and JDK transport, against a scripted local server |
+| Live | `Live*Test` in `e2e` | `live` | observed Fanar wire behaviour; gated on `FANAR_API_KEY`, skips silently without it |
+
+**The seam-crossing rule.** Every behaviour an ADR promises to a consumer has an `*IntegrationTest` that proves it
+end to end, and the ADR names that test. JaCoCo measures execution, not integration: the retry loop had 100 %
+coverage and sixteen green unit tests for two releases while no HTTP-status error ever reached it (ADR-025). A unit
+test that hands the unit the outcome it expects proves the unit, not the wiring.
+
+The fixture is the unpublished `test-support` module (`fanar-java-test-support`; JDK-only, so `core` uses it too).
+`ScriptedHttpServer` answers from a queue of `Reply`s on a loopback port, records every request and — declared as an
+`@AutoClose` field — fails the test if a scripted reply was never requested or an unscripted request arrived.
+`CollectingSubscriber<T>` drains a `Flow.Publisher` and waits, with a timeout, for items or the terminal signal.
+`FanarClientRetryIntegrationTest` (core) is the pattern to copy; `FanarAutoConfigurationRetryIntegrationTest` shows
+the same seam entered through a Spring context.
+
+Rules for every test:
+
+- **No `Thread.sleep`.** Wait on latches and futures with a timeout and assert the result
+  (`assertTrue(latch.await(…))`); wall-clock assertions only as generous lower bounds where the behaviour *is* a
+  sleep. A 60 s JUnit timeout (root `pom.xml`, `disabled_on_debug`; 5 min in `e2e`) turns a hang into a failure
+  with a stack trace — add `@Timeout` only where tighter matters.
+- **Assertions**: JUnit `Assertions` (with messages) outside the Spring modules, AssertJ inside them;
+  `assertDoesNotThrow` says "must not throw" explicitly.
+- **Scripted-server tests assert the hit count** — retries are counted, never assumed.
+- **Shape**: flat classes with behaviour-named methods; `@Nested` only to group facades inside an integration
+  class; explicit imports.
+- **Spring**: `ApplicationContextRunner` + `FilteredClassLoader` + `@Configuration(proxyBeanMethods = false)` for
+  auto-config tests; a real server, never a mock, for wire-format tests (`FanarChatModelTest`,
+  `FanarHealthIndicatorTest`).
+- **Dependencies**: test scope stays JDK + JUnit + the fixture (the core-only modules also get the Jackson 3 codec,
+  discovered through `ServiceLoader`, never imported); `dependency:analyze` fails on unused or undeclared ones.
+- **Live tests fail loudly.** The only tolerated exceptions are documented nondeterministic outcomes and
+  spec-documented gating, each with a dated note.
 
 ## Quality gates
 

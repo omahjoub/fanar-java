@@ -9,6 +9,24 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Seam-crossing integration tests** (`*IntegrationTest`, `@Tag("integration")`) proving, through the public
+  API against a scripted local server, what the ADRs promise: retry on 5xx, the `Retry-After` ceiling,
+  handshake-only retry for chat and TTS streams (a mid-stream drop is `onError`, never re-requested),
+  `sendAsync` through the chain on a virtual thread — and the same seam through every consumer surface: the
+  Spring Boot starter's `fanar.retry.*` knobs and `RetryPolicy` bean, the Spring AI `FanarChatModel`, the
+  SLF4J / OpenTelemetry / Micrometer adapters (retry telemetry, W3C context on every attempt) and the
+  wire-logging interceptor (raw 503 visible below the retry boundary). Backed by a new unpublished
+  `test-support` fixture module (`ScriptedHttpServer`, `CollectingSubscriber`) and a 60 s JUnit timeout
+  backstop on every test. `CONTRIBUTING.md` gains a "Testing" section with the rule: an ADR's
+  consumer-observable promise is proved by a named `*IntegrationTest`.
+
+### Fixed
+
+- **docs** — ADR-014 said a connection dying mid-stream surfaces as an `ErrorChunk`; it surfaces as
+  `onError` on the subscriber (an `ErrorChunk` is a server-sent error frame). Corrected, amended and proved.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added

@@ -49,6 +49,7 @@ import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -279,7 +280,7 @@ class AudioClientImplTest {
     void createVoiceAsyncCompletes() throws Exception {
         HttpTransport transport = req -> httpResponse(200, "", Map.of());
         AudioClientImpl client = build(transport, throwOnAnyCodec(), List.of());
-        client.createVoiceAsync(new CreateVoiceRequest("alice", new byte[0], "t")).get();
+        assertDoesNotThrow(() -> client.createVoiceAsync(new CreateVoiceRequest("alice", new byte[0], "t")).get());
     }
 
     @Test
@@ -352,7 +353,7 @@ class AudioClientImplTest {
     void deleteVoiceAsyncCompletes() throws Exception {
         HttpTransport transport = req -> httpResponse(200, "", Map.of());
         AudioClientImpl client = build(transport, throwOnAnyCodec(), List.of());
-        client.deleteVoiceAsync("alice").get();
+        assertDoesNotThrow(() -> client.deleteVoiceAsync("alice").get());
     }
 
     @Test
@@ -893,7 +894,7 @@ class AudioClientImplTest {
             public void onError(Throwable t) { done.countDown(); }
             public void onComplete() { done.countDown(); }
         });
-        done.await(1, TimeUnit.SECONDS);
+        assertTrue(done.await(1, TimeUnit.SECONDS), "request body publisher must complete");
         return new String(buf.get(), StandardCharsets.UTF_8);
     }
 }

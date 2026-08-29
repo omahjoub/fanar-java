@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import qa.fanar.core.FanarTransportException;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -158,7 +159,7 @@ class DefaultHttpTransportTest {
     @Test
     void acceptsNullRequestTimeout() {
         // null timeout is valid — DefaultHttpTransport uses the inbound request unchanged.
-        new DefaultHttpTransport(HttpClient.newHttpClient(), null);
+        assertDoesNotThrow(() -> new DefaultHttpTransport(HttpClient.newHttpClient(), null));
     }
 
     // --- helpers

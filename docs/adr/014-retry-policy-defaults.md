@@ -44,11 +44,24 @@ Note that `exceeded_quota` shares HTTP 429 with `rate_limit_reached` but is expl
 permanent condition, not a transient one. The typed `ErrorCode` lets us distinguish. Both carry the server's
 `Retry-After` hint for caller-side scheduling (ADR-025).
 
+*Proved by* `FanarClientRetryIntegrationTest` (core; public builder → interceptor chain → JDK transport → scripted
+local server): `retryableErrorResponseIsRetriedThroughThePublicApi` (503 retried),
+`exhaustedAttemptsSurfaceTheLastError`, `nonRetryableErrorIsNotRetried` (401),
+`exceededQuotaIsNotRetriedButCarriesTheCountdown`, `disabledPolicyStillMapsErrorsButNeverRetries` — and the same
+seam entered through the Spring starter (`FanarAutoConfigurationRetryIntegrationTest`) and the Spring AI adapter
+(`FanarChatModelRetryIntegrationTest`).
+
 ### Streaming retries
 
-Retries apply to the **initial connection handshake only**. Mid-stream disconnects surface as an `ErrorChunk` on
-the `Flow.Publisher<StreamEvent>` (ADR-005) — the user decides whether to re-subscribe, because only they know the
-semantic implication of replaying partially-consumed events.
+Retries apply to the **initial connection handshake only**. A connection that dies mid-stream surfaces as
+`onError` on the subscriber of the `Flow.Publisher<StreamEvent>` (ADR-005) — an `ErrorChunk` is a server-*sent*
+error frame, not a transport failure — and the user decides whether to re-subscribe, because only they know the
+semantic implication of replaying partially-consumed events. *(Wording corrected 2026-08-29, see
+[Amendments](#amendments).)*
+
+*Proved by* `FanarClientRetryIntegrationTest.streamingHandshakeIsRetriedThroughThePublicApi` /
+`speechStreamHandshakeIsRetriedThroughThePublicApi` (a 503 handshake is retried, then the body streams) and
+`connectionDropMidStreamIsNotRetried` / `speechStreamConnectionDropIsNotRetried` (exactly one request, `onError`).
 
 ### Customization API
 
@@ -128,6 +141,15 @@ subtypes carry the hint (`exceeded_quota` stays non-retryable). The "full contro
 trade-offs above is narrowed accordingly — the predicate decides *which*, the policy's bounds
 decide *how long* — and the worst-case latency arithmetic, which never matched the 500 ms base,
 is corrected in place.
+
+### 2026-08-29 — streaming posture: wording corrected and proved (0.4.0)
+
+The streaming clause said a mid-stream disconnect surfaces as an `ErrorChunk`. It never did: `ErrorChunk` is the
+decoded shape of a server-sent error *frame*, while a transport failure after the handshake reaches the subscriber
+as `onError` (the response body's `IOException`, unwrapped). The wording above is corrected in place; the posture —
+retry the handshake only, never re-request mid-stream — is unchanged and now proved by the seam-crossing tests
+named in each section. This is the 0.4.0 rule: an ADR names the `*IntegrationTest` that proves what it promises
+(CONTRIBUTING → Testing).
 
 ## References
 

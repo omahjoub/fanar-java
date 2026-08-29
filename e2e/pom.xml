@@ -172,6 +172,20 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Live calls run up to the 60 s request timeout and LivePoemsTest retries a verse miss
+                 three times; the root's 60 s hang backstop would cut them short. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.timeout.default = 5 m
+                            junit.jupiter.execution.timeout.mode = disabled_on_debug
+                        </configurationParameters>
+                    </properties>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

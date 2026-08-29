@@ -63,6 +63,7 @@
 
         <!-- Test -->
         <jacoco.version>0.8.15</jacoco.version>
+        <assertj.version>3.27.7</assertj.version>
         <jacoco.line.coverage>1.00</jacoco.line.coverage>
         <jacoco.branch.coverage>1.00</jacoco.branch.coverage>
         <jacoco.instruction.coverage>1.00</jacoco.instruction.coverage>
@@ -83,6 +84,12 @@
         <module>spring-ai-starter</module>
         <module>spring-ai-sample</module>
         <module>bom</module>
+        <!--
+          `test-support` is the JDK-only fixture module behind every `*IntegrationTest` (scripted
+          loopback HttpServer, collecting Flow.Subscriber). Never published (`maven.deploy.skip`),
+          no coverage gate; it has no dependency on core so core's tests can use it.
+        -->
+        <module>test-support</module>
         <!--
           `e2e` is part of the reactor so IDEs auto-detect it. It adds ~1 second to
           `./mvnw verify`. Its pom.xml disables publication (`maven.deploy.skip=true`) and
@@ -152,6 +159,13 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Pinned here rather than inherited from spring-boot-dependencies, so a Boot bump
+                 cannot move the assertion library under the Spring modules' tests unnoticed. -->
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -206,6 +220,23 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <!-- jdk.httpserver backs the scripted local server every *IntegrationTest
+                             runs against (fanar-java-test-support). The JPMS modules declare it
+                             `requires static` at most, so it must be added to the test module graph
+                             explicitly; the @{argLine} prefix preserves JaCoCo's javaagent. -->
+                        <argLine>@{argLine} --add-modules=jdk.httpserver</argLine>
+                        <properties>
+                            <!-- Hang backstop, not a performance budget: a stuck latch or
+                                 Flow.Publisher fails the test with a stack trace instead of hanging
+                                 the fork. Interrupts the test thread (SAME_THREAD mode). Off while a
+                                 debugger is attached. e2e raises the default for live calls. -->
+                            <configurationParameters>
+                                junit.jupiter.execution.timeout.default = 60 s
+                                junit.jupiter.execution.timeout.mode = disabled_on_debug
+                            </configurationParameters>
+                        </properties>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -233,6 +264,13 @@
                                      `obs-*` module's public no-arg constructor is exercised.
                                      Has no compile-time imports. -->
                                 <ignoredUnusedDeclaredDependency>org.slf4j:slf4j-nop:*</ignoredUnusedDeclaredDependency>
+                                <!-- The *IntegrationTest classes of the core-only modules decode real
+                                     wire JSON through the Jackson 3 codec, which FanarClient discovers via
+                                     ServiceLoader (ADR-008) — never imported. The codec module declares
+                                     Jackson `provided`, so its runtime must be on the test module path
+                                     explicitly. No compile-time imports for either. -->
+                                <ignoredUnusedDeclaredDependency>qa.fanar:fanar-json-jackson3:*</ignoredUnusedDeclaredDependency>
+                                <ignoredUnusedDeclaredDependency>tools.jackson.core:jackson-databind:*</ignoredUnusedDeclaredDependency>
                             </ignoredUnusedDeclaredDependencies>
                         </configuration>
                     </execution>

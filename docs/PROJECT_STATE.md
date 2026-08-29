@@ -1,6 +1,6 @@
 # Project state
 
-> **Snapshot — 2026-08-28.** Updated on every milestone. If this looks wrong or stale, that is
+> **Snapshot — 2026-08-29.** Updated on every milestone. If this looks wrong or stale, that is
 > the signal — update it in the same PR as whatever moved.
 
 ## Phase
@@ -12,7 +12,13 @@ through 0.2.0 because the facades mapped errors *after* the interceptor chain; m
 at the retry boundary inside the chain, with `Retry-After` semantics per ADR-025 and a
 `fanar.retry.max-delay` knob in the starter. See [CHANGELOG](../CHANGELOG.md).
 
-Unreleased on `main` (0.4.0-SNAPSHOT)
+Unreleased on `main` (0.4.0-SNAPSHOT) — the 0.4.0 "proof over coverage" cycle. Landed so far: the
+seam-crossing `*IntegrationTest` layer (core retry/streaming/async, starter, Spring AI, the three
+observability adapters, wire logging), the unpublished `test-support` fixture module, a JUnit timeout
+backstop, and the contributor rule that an ADR's consumer-observable promise is proved by a named
+integration test. Still to come in 0.4.0: the wire-observations ledger, the wire-log throw path,
+rate-limit telemetry (ADR-026), `RetryPolicy` builder + total retry budget (ADR-027), facade plumbing
+consolidation, live-suite budget hygiene + nightly run, Maven Central readiness.
 
 ## Planned
 

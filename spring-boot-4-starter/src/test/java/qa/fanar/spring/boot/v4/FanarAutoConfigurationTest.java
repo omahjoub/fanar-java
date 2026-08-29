@@ -1,7 +1,6 @@
 package qa.fanar.spring.boot.v4;
 
 import java.time.Duration;
-import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -188,8 +187,4 @@ class FanarAutoConfigurationTest {
             return (req, chain) -> chain.proceed(req);
         }
     }
-
-    /** Reference List to assert the orderedStream picks up multiple beans correctly. */
-    @SuppressWarnings("unused")
-    private static List<Interceptor> interceptors;
 }

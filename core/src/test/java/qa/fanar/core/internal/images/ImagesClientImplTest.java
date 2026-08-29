@@ -341,7 +341,7 @@ class ImagesClientImplTest {
             public void onError(Throwable t) { done.countDown(); }
             public void onComplete() { done.countDown(); }
         });
-        done.await(1, TimeUnit.SECONDS);
+        assertTrue(done.await(1, TimeUnit.SECONDS), "request body publisher must complete");
         return new String(buf.get(), StandardCharsets.UTF_8);
     }
 }
