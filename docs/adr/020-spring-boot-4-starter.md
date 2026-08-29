@@ -1,6 +1,6 @@
 # ADR-020 — Spring Boot 4 starter shape
 
-- **Status**: Accepted (amended 2026-08-28 — see [Amendments](#amendments))
+- **Status**: Accepted (amended 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
 - **Date**: 2026-04-26
 - **Deciders**: @omahjoub
 
@@ -76,6 +76,15 @@ a `@ConditionalOnMissingBean RetryPolicy` bean consumed by the `FanarClient` bea
 `RetryPolicy` bean — custom predicate, jitter, multiplier — replaces it; overriding the
 `FanarClient` bean is no longer the only escape. The sample `application.yml` and the API sketch
 list the new knob.
+
+### 2026-08-29 — `fanar.retry.max-total-delay` (0.4.0, ADR-027)
+
+The retry budget of ADR-027 reaches Spring configuration as `fanar.retry.max-total-delay`
+(default `1m`). The `fanarRetryPolicy` bean is now built through `RetryPolicy.builder()` — the
+construction path that survives future knobs — so the four knobs validate together: a
+`max-delay` raised above the budget fails the context at startup with the policy's own message
+instead of misconfiguring the client silently. The sample `application.yml` and the API sketch
+list the knob.
 
 ## References
 

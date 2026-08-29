@@ -1,6 +1,7 @@
 package qa.fanar.core;
 
 import java.time.Duration;
+import java.util.function.Predicate;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
 
@@ -26,6 +27,7 @@ class RetryPolicyTest {
         assertEquals(3, p.maxAttempts());
         assertEquals(Duration.ofMillis(500), p.baseDelay());
         assertEquals(Duration.ofSeconds(30), p.maxDelay());
+        assertEquals(Duration.ofMinutes(1), p.maxTotalDelay(), "the worst case the other defaults allow (ADR-027)");
         assertEquals(2.0, p.backoffMultiplier());
         assertEquals(JitterStrategy.FULL, p.jitter());
     }
@@ -54,56 +56,56 @@ class RetryPolicyTest {
     @Test
     void rejectsMaxAttemptsBelowOne() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(0, Duration.ofMillis(500), Duration.ofSeconds(30), 2.0,
+                new RetryPolicy(0, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsNullBaseDelay() {
         assertThrows(NullPointerException.class, () ->
-                new RetryPolicy(3, null, Duration.ofSeconds(30), 2.0,
+                new RetryPolicy(3, null, Duration.ofSeconds(30), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsNegativeBaseDelay() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(-500), Duration.ofSeconds(30), 2.0,
+                new RetryPolicy(3, Duration.ofMillis(-500), Duration.ofSeconds(30), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsZeroBaseDelay() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(3, Duration.ZERO, Duration.ofSeconds(30), 2.0,
+                new RetryPolicy(3, Duration.ZERO, Duration.ofSeconds(30), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsNullMaxDelay() {
         assertThrows(NullPointerException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(500), null, 2.0,
+                new RetryPolicy(3, Duration.ofMillis(500), null, Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsZeroMaxDelay() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(500), Duration.ZERO, 2.0,
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ZERO, Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsNegativeMaxDelay() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(-30), 2.0,
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(-30), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsMaxDelayLessThanBaseDelay() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(3, Duration.ofSeconds(30), Duration.ofMillis(500), 2.0,
+                new RetryPolicy(3, Duration.ofSeconds(30), Duration.ofMillis(500), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, e -> true));
     }
 
@@ -115,28 +117,67 @@ class RetryPolicyTest {
                 RetryPolicy.defaults().withMaxDelay(ChronoUnit.FOREVER.getDuration()));
         assertThrows(IllegalArgumentException.class, () ->
                 RetryPolicy.defaults().withMaxDelay(Duration.ofSeconds(Long.MAX_VALUE)));
+        // The budget must keep up with the ceiling (ADR-027): raise it first.
         assertEquals(Duration.ofMillis(Long.MAX_VALUE - 1),
-                RetryPolicy.defaults().withMaxDelay(Duration.ofMillis(Long.MAX_VALUE - 1)).maxDelay());
+                RetryPolicy.defaults()
+                        .withMaxTotalDelay(Duration.ofMillis(Long.MAX_VALUE - 1))
+                        .withMaxDelay(Duration.ofMillis(Long.MAX_VALUE - 1))
+                        .maxDelay());
+    }
+
+    @Test
+    void rejectsNullMaxTotalDelay() {
+        assertThrows(NullPointerException.class, () ->
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), null, 2.0,
+                        JitterStrategy.FULL, e -> true));
+    }
+
+    @Test
+    void rejectsZeroMaxTotalDelay() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ZERO, 2.0,
+                        JitterStrategy.FULL, e -> true));
+    }
+
+    @Test
+    void rejectsNegativeMaxTotalDelay() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofSeconds(-1), 2.0,
+                        JitterStrategy.FULL, e -> true));
+    }
+
+    @Test
+    void rejectsMaxTotalDelayBelowMaxDelay() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofSeconds(29), 2.0,
+                        JitterStrategy.FULL, e -> true));
+    }
+
+    @Test
+    void rejectsMaxTotalDelayNotRepresentableInMilliseconds() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofMillis(Long.MAX_VALUE), 2.0,
+                        JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsBackoffMultiplierBelowOne() {
         assertThrows(IllegalArgumentException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), 0.5,
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofMinutes(1), 0.5,
                         JitterStrategy.FULL, e -> true));
     }
 
     @Test
     void rejectsNullJitter() {
         assertThrows(NullPointerException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), 2.0,
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofMinutes(1), 2.0,
                         null, e -> true));
     }
 
     @Test
     void rejectsNullRetryable() {
         assertThrows(NullPointerException.class, () ->
-                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), 2.0,
+                new RetryPolicy(3, Duration.ofMillis(500), Duration.ofSeconds(30), Duration.ofMinutes(1), 2.0,
                         JitterStrategy.FULL, null));
     }
 
@@ -149,6 +190,7 @@ class RetryPolicyTest {
         assertEquals(5, q.maxAttempts());
         assertEquals(p.baseDelay(), q.baseDelay());
         assertEquals(p.maxDelay(), q.maxDelay());
+        assertEquals(p.maxTotalDelay(), q.maxTotalDelay());
         assertEquals(p.backoffMultiplier(), q.backoffMultiplier());
         assertEquals(p.jitter(), q.jitter());
         assertSame(p.retryable(), q.retryable());
@@ -169,6 +211,17 @@ class RetryPolicyTest {
         RetryPolicy q = p.withMaxDelay(Duration.ofMinutes(1));
         assertEquals(Duration.ofMinutes(1), q.maxDelay());
         assertEquals(p.maxAttempts(), q.maxAttempts());
+    }
+
+    @Test
+    void withMaxTotalDelayReplacesOnlyThatField() {
+        RetryPolicy p = RetryPolicy.defaults();
+        RetryPolicy q = p.withMaxTotalDelay(Duration.ofMinutes(5));
+        assertEquals(Duration.ofMinutes(5), q.maxTotalDelay());
+        assertEquals(p.maxDelay(), q.maxDelay());
+        assertEquals(p.maxAttempts(), q.maxAttempts());
+        assertThrows(IllegalArgumentException.class, () -> p.withMaxTotalDelay(Duration.ofSeconds(1)),
+                "a budget below maxDelay is rejected on the derived record too");
     }
 
     @Test
@@ -203,6 +256,37 @@ class RetryPolicyTest {
                 RetryPolicy.defaults().withBaseDelay(Duration.ZERO));
         assertThrows(NullPointerException.class, () ->
                 RetryPolicy.defaults().withJitter(null));
+    }
+
+    // --- builder (ADR-027)
+
+    @Test
+    void builderStartsFromTheDefaults() {
+        assertEquals(RetryPolicy.defaults(), RetryPolicy.builder().build());
+    }
+
+    @Test
+    void builderSetsEveryKnob() {
+        Predicate<FanarException> never = e -> false;
+        RetryPolicy p = RetryPolicy.builder()
+                .maxAttempts(5)
+                .baseDelay(Duration.ofMillis(200))
+                .maxDelay(Duration.ofSeconds(10))
+                .maxTotalDelay(Duration.ofSeconds(25))
+                .backoffMultiplier(3.0)
+                .jitter(JitterStrategy.EQUAL)
+                .retryable(never)
+                .build();
+        assertEquals(new RetryPolicy(5, Duration.ofMillis(200), Duration.ofSeconds(10), Duration.ofSeconds(25),
+                3.0, JitterStrategy.EQUAL, never), p);
+    }
+
+    @Test
+    void builderValidatesOnBuildLikeTheConstructor() {
+        assertThrows(IllegalArgumentException.class, () -> RetryPolicy.builder().maxAttempts(0).build());
+        assertThrows(IllegalArgumentException.class, () -> RetryPolicy.builder().maxTotalDelay(Duration.ofSeconds(1)).build(),
+                "below the default maxDelay of 30 s");
+        assertThrows(NullPointerException.class, () -> RetryPolicy.builder().retryable(null).build());
     }
 
     // --- isDefaultRetryable matrix (ADR-014)

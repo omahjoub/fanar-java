@@ -209,6 +209,38 @@ class FanarClientRetryIntegrationTest {
         assertEquals(1, server.hits());
     }
 
+    // --- total sleep budget (ADR-027) ---------------------------------------------------------
+
+    @Test
+    void retryAfterHintsBeyondTheTotalBudgetEndRetrying() {
+        // Two 429s each asking for 1 s: each within the 1 s ceiling, so ADR-025 alone would sleep
+        // both. A 1 s total budget admits the first hint (exactly the budget) and refuses the second
+        // — the exception surfaces after one retry, hint preserved, no further request is made.
+        server.enqueue(
+                Reply.of(429, "slow down", Map.of("Retry-After", "1")),
+                Reply.of(429, "slow down again", Map.of("Retry-After", "1")));
+        RecordingObservability obs = new RecordingObservability();
+        RetryPolicy budgeted = RetryPolicy.builder()
+                .maxDelay(Duration.ofSeconds(1))
+                .maxTotalDelay(Duration.ofSeconds(1))
+                .build();
+
+        long started = System.nanoTime();
+        FanarRateLimitException ex;
+        try (FanarClient client = client(budgeted, obs)) {
+            ex = assertThrows(FanarRateLimitException.class, () -> client.chat().send(ping()));
+        }
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
+
+        assertEquals(2, server.hits(), "one retry, then the budget ends it");
+        assertEquals(Duration.ofSeconds(1), ex.retryAfter(), "the refused hint is preserved");
+        assertTrue(elapsedMs >= 950, "the first hint must be slept, elapsed " + elapsedMs + " ms");
+        assertTrue(elapsedMs < 5_000, "the second must not, elapsed " + elapsedMs + " ms");
+        assertEquals(List.of("retry_attempt"), obs.events);
+        assertEquals(1, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
+        assertSame(ex, obs.errors.getFirst());
+    }
+
     // --- rate-limit visibility (ADR-026) ------------------------------------------------------
 
     @Test

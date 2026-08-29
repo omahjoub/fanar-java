@@ -248,7 +248,7 @@ class RetryInterceptorTest {
         };
         RetryPolicy policy = new RetryPolicy(
                 2,
-                Duration.ofNanos(1), Duration.ofNanos(1), 1.0,
+                Duration.ofNanos(1), Duration.ofNanos(1), Duration.ofNanos(1), 1.0,
                 JitterStrategy.FULL, RetryPolicy::isDefaultRetryable);
 
         new RetryInterceptor(policy, sleeper, throwingRng).intercept(baseRequest(), chain);
@@ -286,7 +286,7 @@ class RetryInterceptorTest {
         };
         RetryPolicy policy = new RetryPolicy(
                 2,
-                Duration.ofNanos(1), Duration.ofNanos(1), 1.0,
+                Duration.ofNanos(1), Duration.ofNanos(1), Duration.ofNanos(1), 1.0,
                 JitterStrategy.EQUAL, RetryPolicy::isDefaultRetryable);
 
         new RetryInterceptor(policy, sleeper, throwingRng).intercept(baseRequest(), chain);
@@ -429,6 +429,78 @@ class RetryInterceptorTest {
         assertSame(above, assertThrows(FanarQuotaExceededException.class, () ->
                 new RetryInterceptor(optIn, noSleep, deterministicRandom()).intercept(baseRequest(), beyond)));
         assertEquals(0, noSleep.sleepCount());
+    }
+
+    // --- total sleep budget (ADR-027)
+
+    @Test
+    void totalDelayBudgetExactlyReachedIsStillHonoured() {
+        RecordingChain chain = new RecordingChain(List.of(
+                new FanarOverloadedException("busy"),
+                new FanarOverloadedException("still busy"),
+                stubResponse()));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        RetryPolicy policy = RetryPolicy.builder()
+                .jitter(JitterStrategy.NONE)
+                .baseDelay(Duration.ofMillis(100))
+                .maxDelay(Duration.ofMillis(100))
+                .maxTotalDelay(Duration.ofMillis(200))
+                .build();
+
+        new RetryInterceptor(policy, sleeper, deterministicRandom()).intercept(baseRequest(), chain);
+
+        assertEquals(List.of(Duration.ofMillis(100), Duration.ofMillis(100)), sleeper.sleeps(),
+                "two sleeps summing to exactly the budget are both taken");
+        assertEquals(3, chain.calls());
+        assertEquals(2, chain.recorder().retryCount());
+    }
+
+    @Test
+    void totalDelayBudgetExceededAbortsBeforeSleeping() {
+        FanarOverloadedException second = new FanarOverloadedException("still busy");
+        RecordingChain chain = new RecordingChain(List.of(
+                new FanarOverloadedException("busy"),
+                second,
+                stubResponse()));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        RetryPolicy policy = RetryPolicy.builder()
+                .jitter(JitterStrategy.NONE)
+                .baseDelay(Duration.ofMillis(100))
+                .maxDelay(Duration.ofMillis(100))
+                .maxTotalDelay(Duration.ofMillis(150))
+                .build();
+
+        FanarOverloadedException thrown = assertThrows(FanarOverloadedException.class, () ->
+                new RetryInterceptor(policy, sleeper, deterministicRandom()).intercept(baseRequest(), chain));
+
+        assertSame(second, thrown, "the exception that would have been retried surfaces");
+        assertEquals(List.of(Duration.ofMillis(100)), sleeper.sleeps(),
+                "the second sleep would take the total to 200 ms > 150 ms: never started");
+        assertEquals(2, chain.calls(), "the attempt after the abort is never made");
+        assertEquals(List.of("retry_attempt"), chain.recorder().events(), "one retry happened, the abort is not one");
+        assertEquals(1, chain.recorder().retryCount(), "the exit is recorded like every other");
+    }
+
+    @Test
+    void retryAfterHintBeyondTheRemainingBudgetSurfacesWithTheHintPreserved() {
+        // Each hint is within maxDelay (30 s), so ADR-025 alone would sleep twice; the 30 s total
+        // budget admits the first 20 s hint and refuses the second (40 s > 30 s).
+        Duration hint = Duration.ofSeconds(20);
+        FanarRateLimitException second = new FanarRateLimitException("slow down again", hint);
+        RecordingChain chain = new RecordingChain(List.of(
+                new FanarRateLimitException("slow down", hint),
+                second,
+                stubResponse()));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        RetryPolicy policy = RetryPolicy.defaults().withMaxTotalDelay(Duration.ofSeconds(30));
+
+        FanarRateLimitException thrown = assertThrows(FanarRateLimitException.class, () ->
+                new RetryInterceptor(policy, sleeper, deterministicRandom()).intercept(baseRequest(), chain));
+
+        assertSame(second, thrown);
+        assertEquals(hint, thrown.retryAfter(), "hint preserved for caller-side scheduling");
+        assertEquals(List.of(hint), sleeper.sleeps(), "only the first hint was slept");
+        assertEquals(2, chain.calls());
     }
 
     // --- rate-limit visibility (ADR-026)

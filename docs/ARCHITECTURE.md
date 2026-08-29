@@ -208,7 +208,7 @@ Streamed TTS (`client.audio().speechStream(request)`) follows the same shape wit
 | JSON codec | `FanarJsonCodec` via `.jsonCodec(codec)` or `ServiceLoader` | `ServiceLoader` discovery; **loud error** at `build()` if none found |
 | Observability | `ObservabilityPlugin` via `.observability(plugin)` | No-op plugin |
 | Interceptors | `.addInterceptor(i)` (registration order = chain order) | `RetryInterceptor` (outermost; also the error boundary) + `BearerTokenInterceptor` (if apiKey set) |
-| Retry policy | `.retryPolicy(policy)` | `RetryPolicy.defaults()` — 3 attempts, exponential + full jitter, 30 s cap (also the `Retry-After` ceiling, ADR-025) |
+| Retry policy | `.retryPolicy(policy)` | `RetryPolicy.defaults()` — 3 attempts, exponential + full jitter, 30 s cap (also the `Retry-After` ceiling, ADR-025), 1 min total sleep budget per call (ADR-027); build variants with `RetryPolicy.builder()` |
 | User-Agent | `.userAgent(ua)` | `fanar-java/<version>` |
 | Default headers | `.defaultHeader(name, value)` (repeated) | none |
 
@@ -272,7 +272,7 @@ zone (ADR-018).
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
 | Composite observability | `qa.fanar.core.internal.observability.CompositeObservabilityPlugin` | **implemented** — produced by `ObservabilityPlugin.compose(...)`; fans out `start` / `attribute` / `event` / `error` / `child` to N children, merges `propagationHeaders` (last-write-wins on key collision) |
-| Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** — record + enum; validated at construction; `maxDelay` doubles as the `Retry-After` ceiling (ADR-025). The loop is `RetryInterceptor` below |
+| Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** — record + enum + `RetryPolicy.Builder`; validated at construction; `maxDelay` doubles as the `Retry-After` ceiling (ADR-025); `maxTotalDelay` budgets the sum of one call's sleeps (ADR-027). The loop is `RetryInterceptor` below |
 | HTTP transport | `qa.fanar.core.internal.transport` (`HttpTransport`, `DefaultHttpTransport`, `InterceptorChainImpl`, `ExceptionMapper`, `ErrorEnvelope`, `RateLimitHeaders`) | **implemented** — `RateLimitHeaders` is the one parser behind both `rateLimit()` and the `fanar.ratelimit.*` attributes (ADR-026) |
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |

@@ -10,6 +10,7 @@ fanar:
   #   max-attempts: 3
   #   initial-backoff: 500ms
   #   max-delay: 30s        # also the ceiling on honoured Retry-After hints (ADR-025)
+  #   max-total-delay: 1m   # budget for the sum of all sleeps within one call (ADR-027)
   wire-logging:
     level: BASIC   # NONE | BASIC | HEADERS | BODY — auto-wires the WireLoggingInterceptor
 

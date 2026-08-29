@@ -43,6 +43,10 @@ import qa.fanar.core.spi.ObservationHandle;
  *       sleep uses the hint instead of the computed back-off curve. A hint above {@code maxDelay}
  *       ends retrying immediately — no sleep, no burned attempt — and the exception surfaces with
  *       the hint preserved (ADR-025).</li>
+ *   <li>Never sleeps past {@link RetryPolicy#maxTotalDelay()} in total for one call: when the next
+ *       sleep — computed back-off or honoured hint — would push the cumulative sleep over the
+ *       budget, retrying ends without sleeping and the exception surfaces with the hint preserved
+ *       (ADR-027).</li>
  *   <li>Otherwise sleeps for {@code baseDelay * multiplier^(attempt-1)} capped at {@code maxDelay},
  *       with {@link JitterStrategy} applied (none / full / equal).</li>
  *   <li>Records {@link FanarObservationAttributes#HTTP_STATUS_CODE} for every response received
@@ -80,6 +84,7 @@ public final class RetryInterceptor implements Interceptor {
     @Override
     public HttpResponse<InputStream> intercept(HttpRequest request, Chain chain) {
         int attempt = 0;
+        Duration slept = Duration.ZERO;
         while (true) {
             attempt++;
             try {
@@ -97,11 +102,15 @@ public final class RetryInterceptor implements Interceptor {
                 if (attempt >= policy.maxAttempts()
                         || !policy.retryable().test(e)
                         || (hint != null && hint.compareTo(policy.maxDelay()) > 0)) {
-                    recordRetryCount(chain, attempt - 1);
-                    throw e;
+                    throw surfaced(chain, attempt, e);
+                }
+                Duration delay = hint != null ? hint : backoff(attempt);
+                if (slept.plus(delay).compareTo(policy.maxTotalDelay()) > 0) {
+                    throw surfaced(chain, attempt, e);
                 }
                 chain.observation().event("retry_attempt");
-                sleepOrAbort(hint != null ? hint : backoff(attempt));
+                sleepOrAbort(delay);
+                slept = slept.plus(delay);
             }
         }
     }
@@ -162,6 +171,12 @@ public final class RetryInterceptor implements Interceptor {
         if (window.policy() != null) {
             observation.attribute(FanarObservationAttributes.FANAR_RATELIMIT_POLICY, window.policy());
         }
+    }
+
+    /** Retrying ends here: record the exit and hand the exception back to be thrown. */
+    private static FanarException surfaced(Chain chain, int attempt, FanarException e) {
+        recordRetryCount(chain, attempt - 1);
+        return e;
     }
 
     private static void recordRetryCount(Chain chain, int retries) {

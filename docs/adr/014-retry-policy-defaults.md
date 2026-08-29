@@ -1,6 +1,6 @@
 # ADR-014 — Retry policy defaults
 
-- **Status**: Accepted (amended 2026-08-28 — see [Amendments](#amendments))
+- **Status**: Accepted (amended 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -150,6 +150,17 @@ as `onError` (the response body's `IOException`, unwrapped). The wording above i
 retry the handshake only, never re-request mid-stream — is unchanged and now proved by the seam-crossing tests
 named in each section. This is the 0.4.0 rule: an ADR names the `*IntegrationTest` that proves what it promises
 (CONTRIBUTING → Testing).
+
+### 2026-08-29 — a total sleep budget and a builder (0.4.0, ADR-027)
+
+The policy bounded each sleep and the number of attempts but not their sum. ADR-027 adds
+`maxTotalDelay` (default 1 min — the worst case the other defaults already allowed, so nothing
+changes at the defaults): a sleep that would push one call's cumulative sleep over the budget is
+never started, retrying ends and the exception surfaces with its hint preserved, mirroring the
+ADR-025 ceiling. The customization API gains `RetryPolicy.builder()` (from `defaults()`) and
+`withMaxTotalDelay`; the canonical constructor's arity changes — a pre-1.0 break under ADR-019,
+recorded in the changelog. The bounds that end retrying regardless of `retryable` are therefore
+three: `maxAttempts`, `maxDelay`, `maxTotalDelay`.
 
 ## References
 
