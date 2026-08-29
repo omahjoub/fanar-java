@@ -43,6 +43,15 @@ public interface Interceptor {
      * failures are wrapped into {@code qa.fanar.core.FanarTransportException} by the SDK's
      * transport layer before they reach interceptors.</p>
      *
+     * <p>What can come out of {@link Chain#proceed(HttpRequest)} as an exception is a
+     * {@code FanarTransportException} from the transport or whatever a later interceptor throws.
+     * HTTP error responses are <em>not</em> exceptions at this level: they return as responses
+     * with status ≥ 400 and become typed exceptions above, at the SDK's retry boundary.
+     * Exceptions propagate through interceptors <strong>unchanged</strong> — an implementation
+     * that wants to observe failures wraps {@code proceed} in {@code try}/{@code catch} (or
+     * {@code try}/{@code finally}), records, and rethrows the same instance; it must not swallow,
+     * wrap or substitute it.</p>
+     *
      * @param request the outbound HTTP request, possibly modified by earlier interceptors
      * @param chain   the remainder of the interceptor chain, terminating in the HTTP transport
      * @return the HTTP response seen by the caller of this interceptor

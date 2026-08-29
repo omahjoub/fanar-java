@@ -44,6 +44,11 @@ import qa.fanar.core.spi.Interceptor;
  * elided)} marker. Streaming responses ({@code text/event-stream}) are passed through without
  * draining so SSE chunks keep flowing to the consumer.</p>
  *
+ * <p>When the rest of the chain throws instead of answering — the transport could not connect or
+ * timed out, or a later interceptor threw — the interceptor logs
+ * {@code <-- failed <uri> (<ms>ms): <exception class: message>} through the same sink at the same
+ * level and rethrows the exception unchanged. It never swallows, wraps or substitutes it.</p>
+ *
  * <p>Thread-safe — a single instance backs every request on a {@code FanarClient}.</p>
  *
  * @author Oussama Mahjoub
@@ -92,8 +97,14 @@ public final class WireLoggingInterceptor implements Interceptor {
         long start = System.nanoTime();
         sink.accept(buildRequestBlock(request));
 
-        HttpResponse<InputStream> response = chain.proceed(request);
-        long durationMs = (System.nanoTime() - start) / 1_000_000L;
+        HttpResponse<InputStream> response;
+        try {
+            response = chain.proceed(request);
+        } catch (RuntimeException e) {
+            sink.accept(buildFailureBlock(request.uri(), elapsedMillis(start), e));
+            throw e;
+        }
+        long durationMs = elapsedMillis(start);
 
         if (level != Level.BODY) {
             sink.accept(buildResponseBlock(response, request.uri(), durationMs, null));
@@ -144,6 +155,19 @@ public final class WireLoggingInterceptor implements Interceptor {
             sb.append('\n').append('\n').append(body);
         }
         return sb.toString();
+    }
+
+    /**
+     * Build the failure side of an exchange: the rest of the chain threw instead of returning a
+     * response (the transport could not connect or timed out, or a later interceptor threw). One
+     * line — class and message, no stack trace: the exception itself is rethrown to the caller.
+     */
+    private static String buildFailureBlock(URI uri, long durationMs, RuntimeException e) {
+        return "<-- failed " + uri + " (" + durationMs + "ms): " + e;
+    }
+
+    private static long elapsedMillis(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 
     private void appendHeaders(StringBuilder sb, HttpHeaders headers, boolean isRequest) {

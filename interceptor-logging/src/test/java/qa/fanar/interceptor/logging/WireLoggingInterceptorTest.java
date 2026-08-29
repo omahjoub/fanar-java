@@ -24,6 +24,7 @@ import javax.net.ssl.SSLSession;
 
 import org.junit.jupiter.api.Test;
 
+import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
@@ -402,6 +403,53 @@ class WireLoggingInterceptorTest {
         assertDoesNotThrow(() -> i.intercept(
                 get("/v1/models"),
                 chain(req -> response(200, Map.of(), "{}"))));
+    }
+
+    // --- failure path: the rest of the chain throws -----------------------------------------
+
+    @Test
+    void failure_transportExceptionIsLoggedAndRethrownUnchanged() {
+        WireLoggingInterceptor i = build(WireLoggingInterceptor.Level.BASIC);
+        FanarTransportException boom = new FanarTransportException(
+                "HTTP request failed: Connection refused", new IOException("Connection refused"));
+
+        FanarTransportException thrown = assertThrows(FanarTransportException.class,
+                () -> i.intercept(get("/v1/models"), chain(req -> { throw boom; })));
+
+        assertSame(boom, thrown, "the exception must propagate unchanged — never wrapped or swallowed");
+        assertEquals(2, blocks.size(), "request block + failure block: " + blocks);
+        assertTrue(blocks.get(0).startsWith("--> GET"), blocks.get(0));
+        assertTrue(blocks.get(1).startsWith("<-- failed https://api.example.com/v1/models ("), blocks.get(1));
+        assertTrue(blocks.get(1).matches("(?s).*\\(\\d+ms\\): .*"),
+                "failure block carries the duration: " + blocks.get(1));
+        assertTrue(blocks.get(1).endsWith(
+                "qa.fanar.core.FanarTransportException: HTTP request failed: Connection refused"),
+                "failure block names the exception class and message: " + blocks.get(1));
+    }
+
+    @Test
+    void failure_downstreamInterceptorExceptionIsLoggedAtEveryLevel() {
+        WireLoggingInterceptor i = build(WireLoggingInterceptor.Level.BODY);
+        IllegalStateException boom = new IllegalStateException("cache poisoned");
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class,
+                () -> i.intercept(postJson("/v1/chat/completions", "{}"), chain(req -> { throw boom; })));
+
+        assertSame(boom, thrown);
+        assertEquals(2, blocks.size(), "request block + failure block: " + blocks);
+        assertTrue(blocks.get(0).contains("\n\n{}"), "BODY level still logs the request body: " + blocks.get(0));
+        assertTrue(blocks.get(1).startsWith("<-- failed https://api.example.com/v1/chat/completions ("), blocks.get(1));
+        assertTrue(blocks.get(1).endsWith("java.lang.IllegalStateException: cache poisoned"), blocks.get(1));
+    }
+
+    @Test
+    void none_failurePassesThroughSilently() {
+        WireLoggingInterceptor i = build(WireLoggingInterceptor.Level.NONE);
+        IllegalStateException boom = new IllegalStateException("boom");
+
+        assertSame(boom, assertThrows(IllegalStateException.class,
+                () -> i.intercept(get("/v1/models"), chain(req -> { throw boom; }))));
+        assertTrue(blocks.isEmpty(), "NONE level must emit nothing, failures included");
     }
 
     // --- helpers ---------------------------------------------------------------------------

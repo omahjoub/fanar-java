@@ -32,6 +32,11 @@ may break public API until 1.0.0 ships.
 
 ### Fixed
 
+- **`fanar-interceptor-logging`** — the wire log lost failures: when the rest of the chain threw
+  (connection refused, timeout, a later interceptor), `WireLoggingInterceptor` had logged the `-->`
+  block and nothing else. It now logs `<-- failed <uri> (<ms>ms): <exception class: message>` at the
+  configured level and rethrows the exception unchanged — never swallowed
+  ([ADR-012](docs/adr/012-interceptor-spi.md), amended 2026-08-29).
 - **docs** — a full live run spends 11 `Fanar-Aura-TTS-2` calls, not 14 (five speech cases × 2 codecs plus one
   shared STT source clip per JVM); `LiveAudioSpeechTest` and PROJECT_STATE corrected.
 
