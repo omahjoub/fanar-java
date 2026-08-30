@@ -1,32 +1,25 @@
 # Project state
 
-> **Snapshot — 2026-08-29.** Updated on every milestone. If this looks wrong or stale, that is
+> **Snapshot — 2026-08-30.** Updated on every milestone. If this looks wrong or stale, that is
 > the signal — update it in the same PR as whatever moved.
 
 ## Phase
 
-**0.3.0 released 2026-08-29** ([v0.3.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.3.0),
-GitHub Release, 10 artifacts). The release adds the
-rate-limit response-header contract and the retry fix it exposed — HTTP-status retry never fired
-through 0.2.0 because the facades mapped errors *after* the interceptor chain; mapping now happens
-at the retry boundary inside the chain, with `Retry-After` semantics per ADR-025 and a
-`fanar.retry.max-delay` knob in the starter. See [CHANGELOG](../CHANGELOG.md).
+**0.4.0 released 2026-08-30** ([v0.4.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.4.0),
+GitHub Release, 10 artifacts) — "proof over coverage". Every behaviour an ADR promises to a consumer
+is proved through the public API by a named seam-crossing `*IntegrationTest` (a rule in CONTRIBUTING,
+backed by the unpublished `test-support` fixture); what the live API actually does is recorded, dated
+and pinned by tests, in the [wire-observations ledger](WIRE_OBSERVATIONS.md); the wire log keeps
+failures; the retry boundary publishes the server's rate-limit window (`fanar.ratelimit.*` attributes,
+`RateLimitInfo` on both 429s — ADR-026) and stops sleeping past a total budget (`maxTotalDelay`,
+`RetryPolicy.builder()`, `fanar.retry.max-total-delay` — ADR-027, the release's one breaking change);
+the eight facades share one internal `Dispatcher`. See [CHANGELOG](../CHANGELOG.md).
 
-Unreleased on `main` (0.4.0-SNAPSHOT) — the 0.4.0 "proof over coverage" cycle. Landed so far: the
-seam-crossing `*IntegrationTest` layer (core retry/streaming/async, starter, Spring AI, the three
-observability adapters, wire logging), the unpublished `test-support` fixture module, a JUnit timeout
-backstop, the contributor rule that an ADR's consumer-observable promise is proved by a named
-integration test, and the dated [wire-observations ledger](WIRE_OBSERVATIONS.md) — what the live API
-does where it differs from the spec, each row pinned by a live test, plus the live-suite budget — and
-the wire-log throw path (a `<-- failed` line when the chain throws, exception rethrown unchanged;
-ADR-012 amended), and rate-limit visibility (ADR-026: the `fanar.ratelimit.*` observation attributes
-on every response that carries the headers, `RateLimitInfo` via `rateLimit()` on both 429 exceptions,
-Micrometer's cardinality rule), and the `RetryPolicy` total sleep budget + builder (ADR-027:
-`maxTotalDelay`, `fanar.retry.max-total-delay`; the canonical constructor's arity changed — the
-cycle's one breaking change), and the facade plumbing consolidation (the eight domain facades delegate
-chain assembly, transport attributes and the transport call to one internal `Dispatcher` — no behaviour
-change, ADR-018). Still to come in 0.4.0: live-suite budget hygiene + nightly run, Maven Central
-readiness.
+Unreleased on `main` (0.5.0-SNAPSHOT) — nothing yet. Two items from the 0.4.0 plan were deliberately
+left out and carry into the next cycle: the live-suite budget hygiene + nightly run (parked 2026-08-30
+pending a higher-quota API key requested from the Fanar team — if granted, only the nightly remains
+worth doing) and Maven Central readiness (blocked on the `qa.fanar` namespace, a Fanar-team question
+too; fallback `io.github.omahjoub`).
 
 ## Planned
 
@@ -34,7 +27,7 @@ readiness.
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
-- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with `FANAR_API_KEY` injected as a secret; PR builds stay offline. Budget constraint (observed 2026-08-28/29): `Fanar-Aura-TTS-2` allows 20 requests in any trailing 24 h (sliding window) and a full run spends 11 ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly must be the only full run within 24 h on that key.
+- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the six known-gated cases or stay red every night.
 
 ## Deferred (won't fit cleanly)
 
