@@ -18,6 +18,11 @@ may break public API until 1.0.0 ships.
   Pre-1.0 per [ADR-019](docs/adr/019-pre-10-stability-policy.md); see
   [ADR-027](docs/adr/027-retry-policy-builder-and-budget.md).
 
+- **`fanar-core`** (internal, no behaviour change) — the eight domain facades no longer each assemble the
+  interceptor chain, record the transport attributes and call the transport: that plumbing lives in one
+  `internal.dispatch.Dispatcher` (ADR-018 — internals are not a contract). `http.url` is now read from the
+  request the facade built rather than the facade's endpoint field; the two were always the same URI.
+
 ### Added
 
 - **`fanar-core`** — a total sleep budget for retries ([ADR-027](docs/adr/027-retry-policy-builder-and-budget.md)):

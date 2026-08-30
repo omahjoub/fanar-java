@@ -23,8 +23,10 @@ ADR-012 amended), and rate-limit visibility (ADR-026: the `fanar.ratelimit.*` ob
 on every response that carries the headers, `RateLimitInfo` via `rateLimit()` on both 429 exceptions,
 Micrometer's cardinality rule), and the `RetryPolicy` total sleep budget + builder (ADR-027:
 `maxTotalDelay`, `fanar.retry.max-total-delay`; the canonical constructor's arity changed — the
-cycle's one breaking change). Still to come in 0.4.0: facade plumbing consolidation, live-suite
-budget hygiene + nightly run, Maven Central readiness.
+cycle's one breaking change), and the facade plumbing consolidation (the eight domain facades delegate
+chain assembly, transport attributes and the transport call to one internal `Dispatcher` — no behaviour
+change, ADR-018). Still to come in 0.4.0: live-suite budget hygiene + nightly run, Maven Central
+readiness.
 
 ## Planned
 
