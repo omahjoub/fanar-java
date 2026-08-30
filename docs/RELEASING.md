@@ -32,9 +32,13 @@ NEXT=0.3.0-SNAPSHOT      # main's next development version
 ### 0 — Preflight (on `main`)
 
 - [ ] CI green on `main` (Java 21 + 25 matrix, JaCoCo 100 %, doclint, dep-analyze).
-- [ ] Live e2e run performed (`FANAR_API_KEY=… ./mvnw -pl e2e -am verify`) and every failure
-      triaged: known-gated reds (documented in the test Javadocs) are expected; anything new
-      gets fixed or explicitly accepted **before** releasing.
+- [ ] Live e2e run performed **on the release-candidate tree** — after the last code change that
+      will ship; an earlier run that predates it does not count (0.4.0 was tagged on a run one day
+      and four PRs old). Run `FANAR_API_KEY=… ./mvnw -pl e2e -am verify > tasks/live-<date>.log 2>&1`,
+      analyse the log against `docs/WIRE_OBSERVATIONS.md`, and triage every failure: the known-gated
+      reds listed in the ledger's budget section are expected; anything new gets fixed or explicitly
+      accepted **before** releasing. Mind the TTS window — a full run fits only ≥ 24 h after the
+      previous run's first TTS call.
 - [ ] GraalVM native smoke green (PR-time workflow on the last merged PR, or run the
       `graalvm.yml` dispatch).
 - [ ] `docs/PROJECT_STATE.md` reflects reality (its cadence rule: updated in the same PR as

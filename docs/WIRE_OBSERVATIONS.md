@@ -61,13 +61,13 @@ Pinning test classes, all under [`e2e/src/test/java/qa/fanar/e2e/`](../e2e/src/t
 | Date | Observed | Spec says | Consequence / pinned by |
 |---|---|---|---|
 | 2026-04-25 → 2026-08-29 | **History.** 2026-04-25: gated for the key — absent from the listing, calls answered 403 / 504 `timeout`. 2026-08-06: generation **works** (markdown-table poems with full tashkeel, poet / meter / rhyme header) while the model is still absent from `/v1/models`. Latency 6–13 s on 2026-08-06, 13–15 s per poem on 2026-08-29. | 50 requests/minute; no authorization note in the 2026-08 spec (the 2026-04 spec had one; `LivePoemsTest`'s javadoc records the old era). | Listing caveat: see [Models](#models--get-v1models). |
-| 2026-08-06, re-confirmed 2026-08-29 | **Nondeterministic verse miss**: identical requests (`"Write a poem about the sea"`) in one run went 422 → 200 → 200 → 422 (2026-08-06) and 422 → 200 → 200 → 422 → 200 → 200 (2026-08-29), the 422 being `code: "unprocessable"` / `"No suitable verses found for the given prompt."`, answered in 5.7–7.3 s. Diwan composes from a verse corpus and sometimes misses a prompt it served moments earlier. The miss is a post-admission 4xx: it carries the quota headers and counts against the 50/min window, but has no `x-id`. | — | The one tolerated *semantic* nondeterminism: `LivePoemsTest` retries **only** `FanarUnprocessableException`, up to 3× per test (`generate_returnsNonEmptyPoem`, `generate_asyncCompletesAgainstLiveInfra`); everything else fails loudly. A single Diwan 422 in an ad-hoc run is not an SDK regression. |
+| 2026-08-06, re-confirmed 2026-08-29 | **Nondeterministic verse miss**: identical requests (`"Write a poem about the sea"`) in one run went 422 → 200 → 200 → 422 (2026-08-06) and 422 → 200 → 200 → 422 → 200 → 200 (2026-08-29) — and 200 × 4 on 2026-08-30 (no miss at all, 11–15 s each) — the 422 being `code: "unprocessable"` / `"No suitable verses found for the given prompt."`, answered in 5.7–7.3 s. Diwan composes from a verse corpus and sometimes misses a prompt it served moments earlier. The miss is a post-admission 4xx: it carries the quota headers and counts against the 50/min window, but has no `x-id`. | — | The one tolerated *semantic* nondeterminism: `LivePoemsTest` retries **only** `FanarUnprocessableException`, up to 3× per test (`generate_returnsNonEmptyPoem`, `generate_asyncCompletesAgainstLiveInfra`); everything else fails loudly. A single Diwan 422 in an ad-hoc run is not an SDK regression. |
 
 ## Audio — speech `POST /v1/audio/speech` (`Fanar-Aura-TTS-2`)
 
 | Date | Observed | Spec says | Consequence / pinned by |
 |---|---|---|---|
-| 2026-04-25, re-confirmed 2026-08-29 | TTS works for the standard key (MP3 64 kbps 24 kHz mono / RIFF-WAVE PCM 16-bit 24 kHz; streamed chunks concatenate to a valid clip; `with_emotion` on `Radwa`); 0.8–2.4 s per call. | Code samples: "Text-to-Speech requires additional authorization and is not allowed by default." | Pinned by every `LiveAudioSpeechTest` case. |
+| 2026-04-25, re-confirmed 2026-08-29 and 2026-08-30 (fresh window: `remaining` 19 → 9, `reset` 86400 → 86369 across the run's 11 calls) | TTS works for the standard key (MP3 64 kbps 24 kHz mono / RIFF-WAVE PCM 16-bit 24 kHz; streamed chunks concatenate to a valid clip; `with_emotion` on `Radwa`); 0.8–2.4 s per call. | Code samples: "Text-to-Speech requires additional authorization and is not allowed by default." | Pinned by every `LiveAudioSpeechTest` case. |
 | 2026-08-28, re-confirmed 2026-08-29 | **The budget is a sliding 24 h window**: `ratelimit-policy: 20;w=86400`, `x-ratelimit-limit: 20`, `remaining` = 20 − calls in the trailing 24 h, `reset` = seconds until the oldest of them ages out — not a calendar day. On 2026-08-29 the run's first call read `remaining: 10` / `reset: 39128` (nine calls from the previous evening still inside the window) and its eleventh read `remaining: 0`. The 2026-04-25 belief that the audio endpoints "rate-limit fast when called in quick succession" was this window seen without reading the policy header. | `Fanar-Aura-TTS-2` — 20 requests/day. | No more than 20 TTS calls in any trailing 24 h — [Live-suite budget](#live-suite-budget). |
 | 2026-08-28 | **Exhausted window** (`x-ratelimit-remaining: 0`): the next call is **429**, envelope `code: "rate_limit_reached"` (not `exceeded_quota`), `retry-after: 28606` **equal to** `x-ratelimit-reset` (a countdown, ≈ 8 h), and **no `x-id`**. The first 429 ever captured on this key. | `retry-after` "counts down to a free slot" when your own quota ran out; `exceeded_quota` is documented but has never been observed. | Maps to `FanarRateLimitException` with `retryAfter()` ≈ `PT7H56M`; the hint exceeds the 30 s `maxDelay` ceiling, so `RetryInterceptor` surfaces it immediately (`fanar.retry_count=0`, ADR-025). Deliberately **not** asserted — provoking it burns the day's budget; recorded in `LiveRateLimitHeadersTest`'s javadoc. `LiveAudioSpeechTest` fails loudly on the second full run of a day: that is the budget, not the SDK. |
 | — | `with_emotion=true` on a voice that is not emotion-capable (or on `Fanar-Sadiq-TTS-1`) answers 422. | `AvailableVoice.emotion_capable`; `with_emotion` description. | **Spec claim, unverified** — `LiveAudioSpeechTest.speech_withEmotionOnCapableVoice` exercises only the allowed combination. |
@@ -132,7 +132,9 @@ auth/gate errors and — per the spec — keys with unlimited quota); `exceeded_
 throttled" variant of `retry-after`. Typed exposure: since 0.4.0 (ADR-026) the retry boundary publishes the headers
 as the `fanar.ratelimit.*` observation attributes on every response that carries them and both 429 exceptions carry
 them as `RateLimitInfo` (`rateLimit()`); the `Interceptor` SPI still sees them raw — `LiveRateLimitHeadersTest`
-asserts the headers and the attributes on the same counted request.
+asserts the headers and the attributes on the same counted request — verified live on the `v0.4.0` tree on 2026-08-30:
+80 of the run's 90 observed operations carried the four attributes, the 10 without being exactly the non-model calls
+(`/v1/models`, `/v1/tokens`, voices `GET`); no 4xx carried them.
 
 ## Live-suite budget
 
@@ -161,7 +163,7 @@ Rules that follow:
   touches, TTS and STT included.
 - Budget-free runs are what the planned `live-audio` tag is for (`-Dgroups=live -DexcludedGroups=live-audio`,
   Phase 7); until it lands, run individual classes.
-- Known-failing cases for the standard key, by design (6 per run, seen 2026-08-29): `LiveAudioVoicesTest.createVoice`
+- Known-failing cases for the standard key, by design (6 per run, seen 2026-08-29 and 2026-08-30): `LiveAudioVoicesTest.createVoice`
   and `.deleteVoice` (× 2 codecs — the `POST` 403) and `LiveChatCompletionsTest.conversation_sadiq2WithMadhab` (× 2 —
   the 422 gate). Anything else failing means something changed — and belongs in this ledger.
 
