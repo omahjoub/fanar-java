@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,15 +14,12 @@ import java.util.function.Supplier;
 
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.RetryPolicy;
-import qa.fanar.core.internal.retry.RetryInterceptor;
-import qa.fanar.core.internal.transport.BearerTokenInterceptor;
+import qa.fanar.core.internal.dispatch.Dispatcher;
 import qa.fanar.core.internal.transport.HttpTransport;
-import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.moderations.ModerationsClient;
 import qa.fanar.core.moderations.SafetyFilterRequest;
 import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
-import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.Interceptor;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
@@ -38,6 +34,11 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
  *
+ * <p>Request plumbing — chain assembly (retry → bearer token → user interceptors → transport),
+ * the {@code http.method} / {@code http.url} / {@code fanar.model} attributes and the trip to the
+ * transport — lives in {@link Dispatcher}; this class owns the endpoint, the wire format and the
+ * decoding.</p>
+ *
  * @author Oussama Mahjoub
  */
 public final class ModerationsClientImpl implements ModerationsClient {
@@ -47,8 +48,7 @@ public final class ModerationsClientImpl implements ModerationsClient {
 
     private final URI endpoint;
     private final FanarJsonCodec jsonCodec;
-    private final List<Interceptor> interceptors;
-    private final HttpTransport transport;
+    private final Dispatcher dispatcher;
     private final ObservabilityPlugin observability;
     private final Map<String, String> defaultHeaders;
     private final String userAgent;
@@ -65,15 +65,8 @@ public final class ModerationsClientImpl implements ModerationsClient {
             String userAgent) {
         this.endpoint = Objects.requireNonNull(baseUrl, "baseUrl").resolve(ENDPOINT);
         this.jsonCodec = Objects.requireNonNull(jsonCodec, "jsonCodec");
-        Objects.requireNonNull(apiKeySupplier, "apiKeySupplier");
-        Objects.requireNonNull(userInterceptors, "userInterceptors");
-        Objects.requireNonNull(retryPolicy, "retryPolicy");
-        List<Interceptor> chain = new ArrayList<>(userInterceptors.size() + 2);
-        chain.add(new RetryInterceptor(retryPolicy));
-        chain.add(new BearerTokenInterceptor(apiKeySupplier));
-        chain.addAll(userInterceptors);
-        this.interceptors = List.copyOf(chain);
-        this.transport = Objects.requireNonNull(transport, "transport");
+        // Retry → bearer token → user interceptors → transport: assembled by the Dispatcher.
+        this.dispatcher = new Dispatcher(transport, retryPolicy, apiKeySupplier, userInterceptors);
         this.observability = Objects.requireNonNull(observability, "observability");
         this.defaultHeaders = Map.copyOf(Objects.requireNonNull(defaultHeaders, "defaultHeaders"));
         this.userAgent = userAgent;
@@ -108,13 +101,7 @@ public final class ModerationsClientImpl implements ModerationsClient {
     }
 
     private HttpResponse<InputStream> dispatch(SafetyFilterRequest request, ObservationHandle obs) {
-        obs.attribute(FanarObservationAttributes.FANAR_MODEL, request.model().wireValue());
-        obs.attribute(FanarObservationAttributes.HTTP_METHOD, "POST");
-        obs.attribute(FanarObservationAttributes.HTTP_URL, endpoint.toString());
-
-        HttpRequest httpReq = buildHttpRequest(request, obs);
-        InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        return chain.proceed(httpReq);
+        return dispatcher.dispatch(buildHttpRequest(request, obs), obs, request.model().wireValue());
     }
 
     private HttpRequest buildHttpRequest(SafetyFilterRequest request, ObservationHandle obs) {

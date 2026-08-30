@@ -9,7 +9,6 @@ import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,10 +24,8 @@ import qa.fanar.core.audio.SpeechToTextResponse;
 import qa.fanar.core.audio.TextToSpeechRequest;
 import qa.fanar.core.audio.TranscriptionRequest;
 import qa.fanar.core.audio.VoiceResponse;
-import qa.fanar.core.internal.retry.RetryInterceptor;
-import qa.fanar.core.internal.transport.BearerTokenInterceptor;
+import qa.fanar.core.internal.dispatch.Dispatcher;
 import qa.fanar.core.internal.transport.HttpTransport;
-import qa.fanar.core.internal.transport.InterceptorChainImpl;
 import qa.fanar.core.internal.transport.MultipartBuilder;
 import qa.fanar.core.internal.transport.StreamFlag;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -52,6 +49,11 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
  *
+ * <p>Request plumbing — chain assembly (retry → bearer token → user interceptors → transport),
+ * the {@code http.method} / {@code http.url} / {@code fanar.model} attributes and the trip to the
+ * transport — lives in {@link Dispatcher}; this class owns the endpoint, the wire format and the
+ * decoding.</p>
+ *
  * @author Oussama Mahjoub
  */
 public final class AudioClientImpl implements AudioClient {
@@ -70,8 +72,7 @@ public final class AudioClientImpl implements AudioClient {
     private final URI speechEndpoint;
     private final URI transcriptionsEndpoint;
     private final FanarJsonCodec jsonCodec;
-    private final List<Interceptor> interceptors;
-    private final HttpTransport transport;
+    private final Dispatcher dispatcher;
     private final ObservabilityPlugin observability;
     private final Map<String, String> defaultHeaders;
     private final String userAgent;
@@ -91,15 +92,8 @@ public final class AudioClientImpl implements AudioClient {
         this.speechEndpoint = baseUrl.resolve(SPEECH_PATH);
         this.transcriptionsEndpoint = baseUrl.resolve(TRANSCRIPTIONS_PATH);
         this.jsonCodec = Objects.requireNonNull(jsonCodec, "jsonCodec");
-        Objects.requireNonNull(apiKeySupplier, "apiKeySupplier");
-        Objects.requireNonNull(userInterceptors, "userInterceptors");
-        Objects.requireNonNull(retryPolicy, "retryPolicy");
-        List<Interceptor> chain = new ArrayList<>(userInterceptors.size() + 2);
-        chain.add(new RetryInterceptor(retryPolicy));
-        chain.add(new BearerTokenInterceptor(apiKeySupplier));
-        chain.addAll(userInterceptors);
-        this.interceptors = List.copyOf(chain);
-        this.transport = Objects.requireNonNull(transport, "transport");
+        // Retry → bearer token → user interceptors → transport: assembled by the Dispatcher.
+        this.dispatcher = new Dispatcher(transport, retryPolicy, apiKeySupplier, userInterceptors);
         this.observability = Objects.requireNonNull(observability, "observability");
         this.defaultHeaders = Map.copyOf(Objects.requireNonNull(defaultHeaders, "defaultHeaders"));
         this.userAgent = userAgent;
@@ -111,8 +105,7 @@ public final class AudioClientImpl implements AudioClient {
     public VoiceResponse listVoices() {
         try (ObservationHandle obs = observability.start(OP_LIST)) {
             try {
-                HttpResponse<InputStream> response = dispatch(
-                        buildGet(voicesEndpoint, obs), voicesEndpoint, "GET", obs);
+                HttpResponse<InputStream> response = dispatcher.dispatch(buildGet(voicesEndpoint, obs), obs, null);
                 return decodeJson(response, VoiceResponse.class, "VoiceResponse");
             } catch (RuntimeException e) {
                 obs.error(e);
@@ -139,9 +132,8 @@ public final class AudioClientImpl implements AudioClient {
                 mb.addField("transcript", request.transcript());
                 byte[] body = mb.build();
 
-                HttpResponse<InputStream> response = dispatch(
-                        buildPost(voicesEndpoint, obs, mb.contentType(), body),
-                        voicesEndpoint, "POST", obs);
+                HttpResponse<InputStream> response = dispatcher.dispatch(
+                        buildPost(voicesEndpoint, obs, mb.contentType(), body), obs, null);
                 drain(response);
             } catch (RuntimeException e) {
                 obs.error(e);
@@ -165,8 +157,7 @@ public final class AudioClientImpl implements AudioClient {
             try {
                 URI endpoint = baseUrl.resolve(
                         VOICES_PATH + "/" + URLEncoder.encode(name, StandardCharsets.UTF_8));
-                HttpResponse<InputStream> response = dispatch(
-                        buildDelete(endpoint, obs), endpoint, "DELETE", obs);
+                HttpResponse<InputStream> response = dispatcher.dispatch(buildDelete(endpoint, obs), obs, null);
                 drain(response);
             } catch (RuntimeException e) {
                 obs.error(e);
@@ -196,7 +187,7 @@ public final class AudioClientImpl implements AudioClient {
                         .header("Accept", "audio/*")
                         .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                         .build();
-                HttpResponse<InputStream> response = dispatch(httpReq, speechEndpoint, "POST", obs);
+                HttpResponse<InputStream> response = dispatcher.dispatch(httpReq, obs, null);
                 return readBinary(response);
             } catch (RuntimeException e) {
                 obs.error(e);
@@ -224,7 +215,7 @@ public final class AudioClientImpl implements AudioClient {
                         .header("Accept", "audio/*")
                         .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                         .build();
-                HttpResponse<InputStream> response = dispatch(httpReq, speechEndpoint, "POST", obs);
+                HttpResponse<InputStream> response = dispatcher.dispatch(httpReq, obs, null);
                 return new AudioStreamPublisher(response.body());
             } catch (RuntimeException e) {
                 obs.error(e);
@@ -256,8 +247,7 @@ public final class AudioClientImpl implements AudioClient {
                         .header("Accept", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                         .build();
-                HttpResponse<InputStream> response = dispatch(
-                        httpReq, transcriptionsEndpoint, "POST", obs);
+                HttpResponse<InputStream> response = dispatcher.dispatch(httpReq, obs, null);
                 return decodeJson(response, SpeechToTextResponse.class, "SpeechToTextResponse");
             } catch (RuntimeException e) {
                 obs.error(e);
@@ -273,15 +263,6 @@ public final class AudioClientImpl implements AudioClient {
     }
 
     // --- shared dispatch -------------------------------------------------------------------
-
-    private HttpResponse<InputStream> dispatch(
-            HttpRequest httpReq, URI endpoint, String method, ObservationHandle obs) {
-        obs.attribute(FanarObservationAttributes.HTTP_METHOD, method);
-        obs.attribute(FanarObservationAttributes.HTTP_URL, endpoint.toString());
-
-        InterceptorChainImpl chain = new InterceptorChainImpl(interceptors, transport, obs);
-        return chain.proceed(httpReq);
-    }
 
     private HttpRequest buildGet(URI endpoint, ObservationHandle obs) {
         return applyCommonHeaders(HttpRequest.newBuilder(endpoint), obs)
