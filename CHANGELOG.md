@@ -9,6 +9,16 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-30
+
+"Proof over coverage": every behaviour an ADR promises to a consumer is now proved through the
+public API by a named seam-crossing test, what the live Fanar API actually does is recorded in a
+dated ledger, the wire log no longer loses failures, and the retry boundary both reports the
+server's rate-limit window and stops sleeping past a total budget. Pre-1.0
+([ADR-019](docs/adr/019-pre-10-stability-policy.md)): one breaking change, marked below. Not yet on
+Maven Central — install via `./mvnw install` from a clone, or download the artifacts attached to
+this release.
+
 ### Changed
 
 - **Breaking** — `RetryPolicy`'s canonical constructor gains a fourth `Duration`, `maxTotalDelay`,
@@ -17,7 +27,6 @@ may break public API until 1.0.0 ships.
   as the fourth positional argument. Deconstruction patterns over the record gain a component too.
   Pre-1.0 per [ADR-019](docs/adr/019-pre-10-stability-policy.md); see
   [ADR-027](docs/adr/027-retry-policy-builder-and-budget.md).
-
 - **`fanar-core`** (internal, no behaviour change) — the eight domain facades no longer each assemble the
   interceptor chain, record the transport attributes and call the transport: that plumbing lives in one
   `internal.dispatch.Dispatcher` (ADR-018 — internals are not a contract). `http.url` is now read from the
@@ -34,7 +43,6 @@ may break public API until 1.0.0 ships.
 - **`fanar-spring-boot-4-starter`** — `fanar.retry.max-total-delay` (default `1m`); the `RetryPolicy` bean
   is built through the builder, so a `max-delay` raised above the budget fails the context at startup
   ([ADR-020](docs/adr/020-spring-boot-4-starter.md), amended).
-
 - **`fanar-core`** — rate-limit visibility ([ADR-026](docs/adr/026-rate-limit-telemetry.md)): the retry boundary
   publishes `fanar.ratelimit.limit` / `.remaining` / `.reset` / `.policy` observation attributes from every response
   that carries Fanar's rate-limit headers (successes and 429s alike; the last attempt's values win), and both HTTP
@@ -72,7 +80,6 @@ may break public API until 1.0.0 ships.
   ([ADR-012](docs/adr/012-interceptor-spi.md), amended 2026-08-29).
 - **docs** — a full live run spends 11 `Fanar-Aura-TTS-2` calls, not 14 (five speech cases × 2 codecs plus one
   shared STT source clip per JVM); `LiveAudioSpeechTest` and PROJECT_STATE corrected.
-
 - **docs** — ADR-014 said a connection dying mid-stream surfaces as an `ErrorChunk`; it surfaces as
   `onError` on the subscriber (an `ErrorChunk` is a server-sent error frame). Corrected, amended and proved.
 
@@ -252,7 +259,8 @@ from a clone, or download the artifacts attached to this release.
   end-to-end since they shape the prompt text.
 - **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
 
-[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.4.0
 [0.3.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.3.0
 [0.2.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.2.0
 [0.1.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.1.0
