@@ -9,6 +9,17 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-15
+
+Full coverage of the published Fanar surface. The 2026-09 spec refresh is absorbed — a ninth
+domain facade, `client.sadiq().validate(...)`, verifies the Qur'anic verses and hadith quoted in
+arbitrary text — alongside a fix for an exception accessor that could never return a value, and a
+documentation correction: the chat endpoint does not *reject* user `tools`, it accepts and silently
+ignores them, which is a materially different thing for a caller to handle. Pre-1.0
+([ADR-019](docs/adr/019-pre-10-stability-policy.md)): **no breaking changes** this time. Not yet on
+Maven Central — install via `./mvnw install` from a clone, or download the artifacts attached to
+this release.
+
 ### Added
 
 - **`fanar-core`** — a ninth domain facade, `FanarClient.sadiq()`, over the new
@@ -344,7 +355,8 @@ from a clone, or download the artifacts attached to this release.
   end-to-end since they shape the prompt text.
 - **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
 
-[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.5.0
 [0.4.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.4.0
 [0.3.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.3.0
 [0.2.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.2.0
