@@ -47,6 +47,24 @@ may break public API until 1.0.0 ships.
   wire-observations ledger gains a `Sadiq validation` section — every row marked **spec claim,
   unverified** until the endpoint can be called — and the known-failing live set grows from 6 to 10
   cases per run.
+- **docs** — a corrected scope claim. PROJECT_STATE said Fanar's chat endpoint *rejects* user
+  `tools` / `tool_choice`; a 2026-09-15 live probe — the first time either was ever put on the wire,
+  the claim until then being a reading of the schema — shows it **accepts and silently ignores**
+  them: HTTP 200, `tool_calls` empty, the tool name absent from the body, and `prompt_tokens`
+  identical with and without the array, so the field is discarded before the model sees it.
+  No SDK behaviour changes and user tool calling stays out of scope, but the reason is now that a
+  caller gets **no** signal — which is what makes the silent degradation of Spring AI tool
+  callbacks (ADR-021, ADR-024) the correct description. The same probe settled the three
+  undocumented chat model ids found earlier that day: `Fanar-Agentic` and `Fanar-Sadiq-Agentic` are
+  gated for the standard key (422 "Model not authorized") and `Islamic-RAG` is an alias for
+  `Fanar-Sadiq`, so **no `ChatModel` constants are shipped for any of them** and the item moves from
+  Planned to Deferred. It also found that `Fanar` routes **by query**: a live-data prompt answers
+  `"model": "web_search"` with web `references`, an ordinary one `Fanar-C-2-27B` — so the
+  response `model` need not name a model at all, and `references` are not Sadiq-only.
+  [Ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions).
+- **docs** — six broken intra-document anchors fixed (two in the wire-observations ledger, four in
+  `GRAALVM.md`). `check-docs` validates that relative `.md` *files* resolve; it checks no anchors, so
+  these had accumulated silently. All 41 Markdown files now resolve every `#fragment` they link to.
 
 ### Fixed
 

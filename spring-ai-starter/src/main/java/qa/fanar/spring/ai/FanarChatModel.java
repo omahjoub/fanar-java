@@ -45,10 +45,12 @@ import qa.fanar.core.chat.UserMessage;
  *
  * <p>What the adapter does <em>not</em> do:</p>
  * <ul>
- *   <li><b>Tool calls.</b> Fanar's API rejects user-supplied tools (it returns server-internal
- *       Sadiq retriever telemetry as {@code tool_calls}, not user tools). If a {@link Prompt}
- *       carries tools, we simply do not forward them — Spring AI's tool-orchestration loop will
- *       see no tool-call response and fall through to the model's text reply.</li>
+ *   <li><b>Tool calls.</b> Fanar's API accepts user-supplied tools and silently ignores them
+ *       (observed 2026-09-15; the {@code tool_calls} it returns are server-internal Sadiq retriever
+ *       telemetry, not user tools). If a {@link Prompt} carries tools, we simply do not forward
+ *       them — Spring AI's tool-orchestration loop will see no tool-call response and fall
+ *       through to the model's text reply. Forwarding them would change nothing on the wire, so
+ *       dropping them here keeps the degradation visible in one place.</li>
  *   <li><b>Native structured output.</b> Fanar does not expose a {@code response_format} field,
  *       so {@link ChatOptions#getModel()}-level structured output options are ignored. Spring AI's
  *       prompt-engineering converters ({@code BeanOutputConverter}) still work — they shape the

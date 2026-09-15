@@ -1,6 +1,6 @@
 # ADR-021 — Spring AI 2.0 adapter
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-09-15 — see [Amendments](#amendments))
 - **Date**: 2026-04-27
 - **Deciders**: @omahjoub
 
@@ -40,8 +40,9 @@ Three open questions:
   GA drops or when a new milestone is required. The `spring-milestones` repository is added to
   the parent POM scoped to milestones only (`releases.enabled=false`) so we never accidentally
   pull a non-GA version of any other artifact.
-- **Tool calling and structured output: degrade silently.** Fanar rejects user `tools` /
-  `tool_choice` server-side. The chat adapter drops `ToolResponseMessage` from outbound prompts
+- **Tool calling and structured output: degrade silently.** Fanar's chat endpoint gives user `tools` /
+  `tool_choice` no effect (recorded here in 2026-04 as *rejects*; corrected to *accepts and silently
+  ignores* by the 2026-09-15 amendment below — the decision is unchanged, and better founded). The chat adapter drops `ToolResponseMessage` from outbound prompts
   and never emits `tool_calls` to consumers — Spring AI's tool-callback advisor sees no tool
   invocations and falls through to the model's text reply. Native `response_format` isn't on the
   Fanar wire spec; Spring AI's `BeanOutputConverter` still works because it shapes the prompt
@@ -68,6 +69,29 @@ Three open questions:
   until 2.0.0 GA stabilises. The adapter is small (~200 LOC), so the maintenance cost is bounded.
 - ⚠ `ModerationModel` and `EmbeddingModel` consumers won't find Fanar in the Spring AI provider
   catalog for those slots. Documented explicitly in `COMPATIBILITY.md` and the package-info.
+
+## Amendments
+
+### 2026-09-15 — The premise was wrong; the decision was right (0.5.0)
+
+This record justified dropping tool support with "Fanar rejects user `tools` / `tool_choice`
+server-side". That was inferred from `api-spec/openapi.json` having no such fields and was never
+put on the wire. The first live send shows the endpoint **accepts both and silently ignores them**:
+HTTP 200, `tool_calls` empty, the tool name absent from the body, and `prompt_tokens` identical with
+and without the array — so it is discarded at the FastAPI edge, never reaching the model. The spec
+agrees in hindsight: `ChatCompletionRequest` declares no `additionalProperties`, i.e. Pydantic's
+default `extra="ignore"`.
+
+**Nothing in the adapter changes**, and the decision is now better founded than when it was made.
+The adapter drops tools *client-side*, so it never depended on the server refusing them — and had
+it forwarded them instead, callers would have received a silent no-op indistinguishable from a model
+that simply chose not to call a tool. Dropping them locally is what makes the degradation observable
+at the one place a consumer can reason about it.
+
+Still unknown: the `Fanar-Agentic` and `Fanar-Sadiq-Agentic` ids, which the server accepts but gates
+for our key (422 "Model not authorized"). If an agentic variant does take user tools, this record
+and ADR-024 are the ones to revisit. Evidence:
+[wire observations](../WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions).
 
 ## References
 

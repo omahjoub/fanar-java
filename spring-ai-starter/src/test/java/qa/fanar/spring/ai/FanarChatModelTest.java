@@ -297,8 +297,9 @@ class FanarChatModelTest {
     @Test
     void toolMessagesAreSilentlyDropped() {
         // Spring AI's tool-callback advisor stack injects ToolResponseMessages into the prompt
-        // when a tool fires. Fanar's wire format rejects user-supplied tools, so the adapter
-        // skips them — the rest of the conversation still goes through.
+        // when a tool fires. Fanar's wire format has no slot for user-supplied tools — it accepts
+        // and silently ignores them (observed 2026-09-15) — so the adapter skips them and the rest
+        // of the conversation still goes through.
         server.createContext("/v1/chat/completions", exchange -> {
             capturedRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             byte[] body = okResponse("ok");

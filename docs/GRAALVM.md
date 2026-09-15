@@ -3,7 +3,7 @@
 This guide is structured for someone meeting `native-image` for the first time. It builds
 a mental model, then walks every command needed to reproduce the SDK's GraalVM smoke
 locally, then explains the iteration loop and the troubleshooting paths. If you've used
-`native-image` before, the [TL;DR](#tl-dr) section near the top is enough.
+`native-image` before, the [TL;DR](#tldr) section near the top is enough.
 
 ---
 
@@ -85,7 +85,7 @@ only when you specifically want to validate AOT behavior.
 |---|---|
 | Iterate on `Main.java` quickly | JIT — `./mvnw -pl e2e-graalvm -am package` then `java -jar e2e-graalvm/target/fanar-java-e2e-graalvm-*.jar --self-test` |
 | Verify the SDK still compiles to a working native binary | AOT — `./mvnw -Pnative -pl e2e-graalvm -am package` then `./e2e-graalvm/target/fanar-graalvm-smoke --self-test` |
-| Bootstrap reachability metadata for new reflective code | JIT under the tracing agent (see [Bootstrap loop](#bootstrap-loop)) |
+| Bootstrap reachability metadata for new reflective code | JIT under the tracing agent (see [Bootstrap loop](#bootstrap-loop--adding-metadata-when-you-add-reflective-code)) |
 | Run the live smoke against real Fanar | Either mode works; native gives you the real startup-time numbers |
 
 ---
@@ -244,7 +244,7 @@ of development.
 ~45 s round-trip. Reach for this when:
 
 - You added code that does reflection (records, `ServiceLoader`, resource lookups) —
-  see [Bootstrap loop](#bootstrap-loop) for the metadata workflow.
+  see [Bootstrap loop](#bootstrap-loop--adding-metadata-when-you-add-reflective-code) for the metadata workflow.
 - You changed something low-level (HTTP transport, codec, interceptor chain) and want
   to make sure native still works.
 - You're about to push a PR — CI will rebuild native anyway, but the local round-trip
@@ -463,7 +463,7 @@ the bootstrap pass picks up every metadata gap in one go. As of the current comm
 
 If you add a new code path that uses reflection (a new domain DTO, a new SPI consumer,
 a new dynamic proxy), extend the corresponding section of `Main.selfTest()` and rerun
-the [Bootstrap loop](#bootstrap-loop).
+the [Bootstrap loop](#bootstrap-loop--adding-metadata-when-you-add-reflective-code).
 
 ## What live mode exercises
 
