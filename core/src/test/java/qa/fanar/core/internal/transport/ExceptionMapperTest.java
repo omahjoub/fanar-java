@@ -21,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import qa.fanar.core.ContentFilterType;
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarAuthorizationException;
 import qa.fanar.core.FanarClientClosedRequestException;
@@ -335,6 +336,67 @@ class ExceptionMapperTest {
             public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
         });
         assertInstanceOf(FanarInternalServerException.class, ex);
+    }
+
+    // --- content-filter type (ADR-006 amendment 2026-09-15)
+    //
+    // Through 0.4.0 filterType() was dead API: ErrorEnvelope dropped the envelope's `type` member,
+    // so no server response could reach it. These pin the wiring; the seam-crossing proof that it
+    // survives facade -> chain -> transport is FanarClientErrorEnvelopeIntegrationTest.
+
+    @Test
+    void contentFilterEnvelopeCarriesItsType() {
+        String body = "{\"error\":{\"code\":\"content_filter\",\"message\":\"blocked\","
+                + "\"status\":400,\"param\":null,\"type\":\"safety\"}}";
+        FanarException ex = ExceptionMapper.map(response(400, body, Map.of()));
+        assertEquals(ContentFilterType.SAFETY, ((FanarContentFilterException) ex).filterType());
+    }
+
+    @Test
+    void unknownCodeOn400CarriesTheTypeThroughTheStatusFallback() {
+        // The envelope parses but its code is unknown, so routing falls back to HTTP status —
+        // the second of the two sites that build a FanarContentFilterException.
+        String body = "{\"error\":{\"code\":\"flux_capacitor\",\"message\":\"blocked\","
+                + "\"status\":400,\"type\":\"blocklist\"}}";
+        FanarException ex = ExceptionMapper.map(response(400, body, Map.of()));
+        assertEquals(ContentFilterType.BLOCKLIST, ((FanarContentFilterException) ex).filterType());
+    }
+
+    @Test
+    void unknownFilterTypeValueDecodesPermissively() {
+        // ADR-015: a wire value we ship no constant for must decode, not break the envelope.
+        String body = "{\"error\":{\"code\":\"content_filter\",\"message\":\"blocked\","
+                + "\"type\":\"policy_violation\"}}";
+        FanarException ex = ExceptionMapper.map(response(400, body, Map.of()));
+        assertEquals(ContentFilterType.of("policy_violation"),
+                ((FanarContentFilterException) ex).filterType());
+    }
+
+    @Test
+    void absentNullAndBlankTypeAllMeanNoFilterType() {
+        String head = "{\"error\":{\"code\":\"content_filter\",\"message\":\"blocked\"";
+        assertNull(filterTypeOf(head + "}}"), "absent");
+        assertNull(filterTypeOf(head + ",\"type\":null}}"), "JSON null");
+        assertNull(filterTypeOf(head + ",\"type\":\"  \"}}"), "blank");
+    }
+
+    @Test
+    void aBodyThatIsNotAnEnvelopeMeansNoFilterType() {
+        assertNull(filterTypeOf("blocked"));
+    }
+
+    @Test
+    void nonFilterEnvelopeDropsTheType() {
+        // ErrorContentFilterType is a content-filter discriminator by name and by enum; ADR-006
+        // keeps metadata on the subtype it belongs to, so a type on any other code has nowhere to go.
+        String body = "{\"error\":{\"code\":\"unprocessable\",\"message\":\"bad shape\","
+                + "\"param\":\"messages\",\"type\":\"safety\"}}";
+        assertInstanceOf(FanarUnprocessableException.class,
+                ExceptionMapper.map(response(422, body, Map.of())));
+    }
+
+    private static ContentFilterType filterTypeOf(String body) {
+        return ((FanarContentFilterException) ExceptionMapper.map(response(400, body, Map.of()))).filterType();
     }
 
     // --- helpers

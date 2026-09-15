@@ -10,6 +10,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
+import qa.fanar.core.ContentFilterType;
 import qa.fanar.core.ErrorCode;
 import qa.fanar.core.FanarAuthenticationException;
 import qa.fanar.core.FanarAuthorizationException;
@@ -39,6 +40,23 @@ import qa.fanar.core.RateLimitInfo;
  * masquerading as a {@link FanarContentFilterException}. When the body is anything else (blank,
  * HTML from an intermediary, truncated JSON) or carries an unknown code, the HTTP status decides.</p>
  *
+ * <p>The envelope's {@code type} member becomes the {@link ContentFilterType} on
+ * {@link FanarContentFilterException}, on both routes that build one — the typed
+ * {@code content_filter} code and the HTTP-400 fallback. Mapping is permissive (ADR-015): a value
+ * this SDK ships no constant for decodes into a {@code ContentFilterType} carrying the new wire
+ * string. Absent, JSON-{@code null} and blank all mean "the server provided none" and yield
+ * {@code null} (ADR-006 amendment 2026-09-15).</p>
+ *
+ * <p>The two routes treat {@code type} differently on purpose. {@link #byCode} drops it for every
+ * non-filter code, because a code this SDK recognises is a <em>better</em> signal than the status
+ * and it says the error is not a content filter. {@link #byStatus} has no such signal — an
+ * unrecognised code leaves only HTTP 400, which this ADR maps to content filtering — so the
+ * envelope's {@code type} is the best information available and is carried, at exactly the trust
+ * level the same route already extends to the envelope's {@code message}. The cost is that a future
+ * 400-level code this SDK has not learned yet, arriving with a {@code type}, surfaces as a
+ * {@code FanarContentFilterException} reporting that subtype; the coarse 400 → content-filter
+ * mapping is the older half of that, and is ADR-006's to revisit.</p>
+ *
  * <p>Reads and closes the response body. The exception message is the envelope's {@code message}
  * when present, the raw body text otherwise, falling back to a canonical status description when
  * both are blank. The {@code Retry-After} header is carried on both HTTP 429 subtypes
@@ -64,13 +82,17 @@ public final class ExceptionMapper {
         String detail = detail(envelope, body, status);
 
         ErrorCode code = envelope == null ? null : tryFromWireValue(envelope.code());
-        return code != null ? byCode(code, detail, response) : byStatus(status, detail, response);
+        ContentFilterType filterType = filterType(envelope);
+        return code != null
+                ? byCode(code, detail, filterType, response)
+                : byStatus(status, detail, filterType, response);
     }
 
     /** One subtype per {@link ErrorCode} (ADR-006); the server's typed code is authoritative. */
-    private static FanarException byCode(ErrorCode code, String detail, HttpResponse<InputStream> response) {
+    private static FanarException byCode(ErrorCode code, String detail, ContentFilterType filterType,
+                                         HttpResponse<InputStream> response) {
         return switch (code) {
-            case CONTENT_FILTER         -> new FanarContentFilterException(detail);
+            case CONTENT_FILTER         -> new FanarContentFilterException(detail, filterType);
             case INVALID_AUTHENTICATION -> new FanarAuthenticationException(detail);
             case INVALID_AUTHORIZATION  -> new FanarAuthorizationException(detail);
             case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, parseRetryAfter(response), rateLimit(response));
@@ -87,9 +109,10 @@ public final class ExceptionMapper {
         };
     }
 
-    private static FanarException byStatus(int status, String detail, HttpResponse<InputStream> response) {
+    private static FanarException byStatus(int status, String detail, ContentFilterType filterType,
+                                           HttpResponse<InputStream> response) {
         return switch (status) {
-            case 400 -> new FanarContentFilterException(detail);
+            case 400 -> new FanarContentFilterException(detail, filterType);
             case 401 -> new FanarAuthenticationException(detail);
             case 403 -> new FanarAuthorizationException(detail);
             case 404 -> new FanarNotFoundException(detail);
@@ -111,6 +134,19 @@ public final class ExceptionMapper {
             return envelope.message();
         }
         return body.isBlank() ? defaultReason(status) : body;
+    }
+
+    /**
+     * The envelope's content-filter subtype, or {@code null} when the server provided none —
+     * no envelope, no {@code type} member, a JSON {@code null}, or a blank string. The blank case
+     * follows the same rule {@link #detail} already applies to {@code message}: a blank member
+     * carries no information, so it reads as absent rather than as a {@code ContentFilterType("")}.
+     */
+    private static ContentFilterType filterType(ErrorEnvelope envelope) {
+        if (envelope == null || envelope.type() == null || envelope.type().isBlank()) {
+            return null;
+        }
+        return ContentFilterType.of(envelope.type());
     }
 
     private static ErrorCode tryFromWireValue(String wireValue) {

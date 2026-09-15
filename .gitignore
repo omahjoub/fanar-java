@@ -48,3 +48,4 @@ replay_pid*
 # LLM
 CLAUDE.md
 .claude
+/tasks/

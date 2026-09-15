@@ -1,23 +1,34 @@
 package qa.fanar.core.internal.transport;
 
 /**
- * The typed Fanar error envelope: {@code {"error":{"code":"…","message":"…","status":N}}}.
+ * The typed Fanar error envelope:
+ * {@code {"error":{"code":"…","message":"…","status":N,"param":"…","type":"…"}}}.
  *
  * <p>Parsed by a small hand-rolled scanner rather than the {@link
  * qa.fanar.core.spi.FanarJsonCodec} SPI: codec implementations reflect over target types, and
  * this package is deliberately not exported (ADR-018), so a codec running as a JPMS module could
- * not access an envelope DTO defined here. The envelope is a three-field, spec-pinned shape; the
- * scanner is strict about JSON syntax but any deviation from the expected shape yields
- * {@code null}, letting the {@link ExceptionMapper} fall back to HTTP-status routing.</p>
+ * not access an envelope DTO defined here. The envelope is a five-member, spec-pinned shape; the
+ * scanner is strict about JSON syntax, and a body that is not a well-formed envelope — or carries
+ * no usable {@code code} — yields {@code null}, letting the {@link ExceptionMapper} fall back to
+ * HTTP-status routing. An individual member whose <em>type</em> is not what the spec declares is
+ * read as absent rather than failing the parse; see {@code stringOrNull()}.</p>
+ *
+ * <p>Members are kept as their raw wire strings — mapping {@code code} to {@code ErrorCode} and
+ * {@code type} to {@code ContentFilterType} is {@link ExceptionMapper}'s job, so that an unknown
+ * value is a routing decision there rather than a parse failure here (ADR-015). {@code status} is
+ * still skipped: HTTP already carries it, and the mapper's fallback reads it from the response.</p>
  *
  * <p>Internal (ADR-018).</p>
  *
  * @param code    the wire value of the error code; never {@code null} (a parse without a code
  *                yields no envelope)
  * @param message the human-readable server message, or {@code null} when absent
+ * @param param   the request field the error is attributed to, or {@code null}; spec-nullable and
+ *                parsed but not yet surfaced on the public API (ADR-006 amendment 2026-09-15)
+ * @param type    the wire value of the content-filter subtype, or {@code null}; spec-nullable
  * @author Oussama Mahjoub
  */
-record ErrorEnvelope(String code, String message) {
+record ErrorEnvelope(String code, String message, String param, String type) {
 
     /**
      * Parse an error-response body into an envelope.
@@ -56,6 +67,8 @@ record ErrorEnvelope(String code, String message) {
         ErrorEnvelope parseEnvelope() {
             String code = null;
             String message = null;
+            String param = null;
+            String type = null;
             ws();
             expect('{');
             ws();
@@ -75,8 +88,10 @@ record ErrorEnvelope(String code, String message) {
                                 expect(':');
                                 ws();
                                 switch (errorKey) {
-                                    case "code" -> code = string();
-                                    case "message" -> message = string();
+                                    case "code" -> code = stringOrNull();
+                                    case "message" -> message = stringOrNull();
+                                    case "param" -> param = stringOrNull();
+                                    case "type" -> type = stringOrNull();
                                     default -> skipValue();
                                 }
                             } while (commaOrEnd('}'));
@@ -90,7 +105,7 @@ record ErrorEnvelope(String code, String message) {
             if (i != s.length()) {
                 throw new MalformedException();
             }
-            return code == null ? null : new ErrorEnvelope(code, message);
+            return code == null ? null : new ErrorEnvelope(code, message, param, type);
         }
 
         private void ws() {
@@ -130,6 +145,30 @@ record ErrorEnvelope(String code, String message) {
             }
             expect(close);
             return false;
+        }
+
+        /**
+         * A string member, or {@code null} when the value is anything else.
+         *
+         * <p>Every envelope member is read through this, because only {@code code} is load-bearing:
+         * it picks the exception subtype (ADR-006), and it would be a poor trade to lose that
+         * routing because an auxiliary member arrived with an unexpected JSON type. {@code param}
+         * and {@code type} are declared nullable by the spec and were both observed {@code null}
+         * on the wire (2026-09-15 403, WIRE_OBSERVATIONS) — reading those with {@link #string()}
+         * throws, which discards the <em>whole</em> envelope and silently drops the response to
+         * HTTP-status routing.</p>
+         *
+         * <p>Delegating the non-string case to {@link #skipValue()} keeps the scanner just as
+         * strict about JSON <em>syntax</em> (an unbalanced container or a bad escape still fails
+         * the parse) while tolerating a <em>type</em> we did not expect. A non-string {@code code}
+         * still yields no envelope, so status routing takes over exactly as before.</p>
+         */
+        private String stringOrNull() {
+            if (peek() == '"') {
+                return string();
+            }
+            skipValue();
+            return null;
         }
 
         private String string() {

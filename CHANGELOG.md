@@ -9,6 +9,34 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`fanar-core`** — `FanarContentFilterException.filterType()` was **dead public API**: it could
+  never be non-`null` for any exception the SDK produced. The error-envelope parser read only
+  `code` and `message`, so the spec's `type` member was discarded before the exception was built,
+  and both sites that construct the exception used the 1-arg constructor. The public
+  `ContentFilterType` constants had no code path that could produce them, while the Javadoc and
+  [ADR-006](docs/adr/006-unchecked-exception-hierarchy.md)'s own example read
+  `showRefusalUi(e.filterType())`. The envelope's `type` now reaches `filterType()` on both routes
+  — the typed `content_filter` code and the HTTP-400 fallback — mapped permissively per
+  [ADR-015](docs/adr/015-dto-conventions.md), with absent / JSON-`null` / blank all yielding
+  `null`. Additive under [ADR-019](docs/adr/019-pre-10-stability-policy.md); no signature changed.
+
+  Note that a live probe on 2026-09-15 found Fanar's moderation refuses **inside a 200**, in
+  ordinary assistant text — no `content_filter` error, no `FinishReason.CONTENT_FILTER`, no
+  `RefusalPart` — and that `type` is `null` on every error envelope captured so far. Handle refusals
+  in the response body; this exception and a populated `filterType()` are a bonus, not a contract.
+  See the [wire-observations ledger](docs/WIRE_OBSERVATIONS.md#error-envelope-shape). The fix makes
+  the accessor honest, not the server more forthcoming.
+
+- **`fanar-core`** (internal) — the envelope parser tolerates a non-string value in any member,
+  reading it as absent instead of failing the parse. `param` and `type` are spec-nullable and were
+  both observed `null` on the wire; reading them with the plain string reader threw, which discarded
+  the whole envelope and silently dropped the response to HTTP-status routing. Only `code` is
+  load-bearing, and a non-string `code` still yields no envelope, so status routing takes over as
+  before; strictness about JSON *syntax* is unchanged. `param` is now parsed but not surfaced on the
+  public API — see PROJECT_STATE for the deferred decision.
+
 ## [0.4.0] - 2026-08-30
 
 "Proof over coverage": every behaviour an ADR promises to a consumer is now proved through the

@@ -80,6 +80,67 @@ class ErrorEnvelopeTest {
         assertEquals("Not found", ErrorEnvelope.tryParse("{\"error\":{\"code\":\"Not found\"}}").code());
     }
 
+    // --- the spec's nullable members (ADR-006 amendment 2026-09-15)
+
+    @Test
+    void parsesParamAndType() {
+        ErrorEnvelope e = ErrorEnvelope.tryParse("""
+                {"error":{"code":"content_filter","message":"blocked","status":400,\
+                "param":"messages","type":"safety"}}""");
+        assertEquals("content_filter", e.code());
+        assertEquals("blocked", e.message());
+        assertEquals("messages", e.param());
+        assertEquals("safety", e.type());
+    }
+
+    @Test
+    void parsesTheLive403ErrorObject() {
+        // Observed 2026-09-15 (WIRE_OBSERVATIONS): all five spec members present, param and type
+        // both null. This is the shape that makes stringOrNull() load-bearing — read with string(),
+        // it fails the parse and silently drops a typed 403 to HTTP-status routing.
+        //
+        // The members are verbatim; the {"error":{…}} wrapper is ADR-006's documented envelope, NOT
+        // something the captured body confirmed — the bug report quoted the inner object alone.
+        // Confirming the wrapper is an open question for the live probe (WIRE_OBSERVATIONS).
+        ErrorEnvelope e = ErrorEnvelope.tryParse("""
+                {"error":{"code":"invalid_authorization","message":"Invalid authorization",\
+                "status":403,"param":null,"type":null}}""");
+        assertEquals("invalid_authorization", e.code());
+        assertEquals("Invalid authorization", e.message());
+        assertNull(e.param());
+        assertNull(e.type());
+    }
+
+    @Test
+    void jsonNullReadsAsAbsentInEveryMember() {
+        ErrorEnvelope e = ErrorEnvelope.tryParse(
+                "{\"error\":{\"code\":\"conflict\",\"message\":null,\"param\":null,\"type\":null}}");
+        assertEquals("conflict", e.code());
+        assertNull(e.message());
+        assertNull(e.param());
+        assertNull(e.type());
+    }
+
+    @Test
+    void anUnexpectedTypeInAnAuxiliaryMemberCostsThatMemberOnly() {
+        // Only `code` is load-bearing — it picks the exception subtype. A message/param/type that
+        // arrives as a number, object or array reads as absent rather than discarding the envelope
+        // and dropping the response to HTTP-status routing.
+        ErrorEnvelope e = ErrorEnvelope.tryParse(
+                "{\"error\":{\"code\":\"conflict\",\"message\":123,\"param\":[1,2],\"type\":{\"a\":\"b\"}}}");
+        assertEquals("conflict", e.code());
+        assertNull(e.message());
+        assertNull(e.param());
+        assertNull(e.type());
+    }
+
+    @Test
+    void jsonNullCodeYieldsNoEnvelope() {
+        // Tolerated by the reader, then rejected by the same rule that rejects a missing code —
+        // so the outcome is unchanged, the parse just no longer throws to get there.
+        assertNull(ErrorEnvelope.tryParse("{\"error\":{\"code\":null,\"message\":\"m\"}}"));
+    }
+
     // --- shape deviations → null (mapper falls back to status routing)
 
     @ParameterizedTest(name = "[{index}] {0}")
