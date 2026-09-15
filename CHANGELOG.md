@@ -9,6 +9,40 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Added
+
+- **`fanar-core`** — a ninth domain facade, `FanarClient.sadiq()`, over the new
+  `POST /v1/sadiq/validate` endpoint: `SadiqClient.validate(...)` / `.validateAsync(...)` with the
+  records `SadiqValidationRequest` (`model` + `text`) and `SadiqValidationResponse` (`id` + `text`)
+  in the new exported package `qa.fanar.core.sadiq`. Given arbitrary prose it returns the text with
+  verified Qur'anic verses replaced by the authenticated ayah, wrapped in
+  `<quran_start>` / `<quran_end>` and cited to quran.com, and verified hadith wrapped in
+  `<hadith_start>` / `<hadith_end>` and cited to sunnah.com; **quotations it cannot confirm come back
+  plain and untagged**. `text()` is the wire string verbatim — the SDK does not parse the markup,
+  which stays a downstream concern ([ADR-028](docs/adr/028-sadiq-validation-facade.md), ADR-002).
+  `model` is a `ChatModel` rather than a new value class, following `TokenizationRequest`: the
+  endpoint's only model, `Fanar-Sadiq-2`, is already a chat model. The endpoint requires additional
+  authorization, so its live cases fail loudly until the key is upgraded — observed 2026-09-15:
+  HTTP **403** `invalid_authorization`. That is an *endpoint-level* gate, distinct from the
+  *model-level* 422 `unprocessable` the same `Fanar-Sadiq-2` answers on chat; the endpoint check
+  short-circuits, so the two authorizations are independent. Both codes are proved routed by
+  envelope code against a scripted server.
+- **Spec** — `api-spec/openapi.json` and its YAML twin refreshed to the 2026-09 Fanar spec:
+  **12 → 13 operations, 97 → 100 schemas** (paths 11 → 12), `info.version` still 1.0.0. Additive
+  only — no path, schema or field removed or changed. Besides the new endpoint: the `X-Revised-Input`
+  response-header description on `POST /v1/audio/speech` now covers hadith detection and states that
+  hadith tags and the quran.com / sunnah.com links are stripped before synthesis (the SDK does not
+  surface that header today — see [PROJECT_STATE](docs/PROJECT_STATE.md)), and `info.termsOfService`
+  moved to `https://api.fanar.qa/terms-of-service`.
+
+### Changed
+
+- **docs** — ADR-011, ADR-015 and ADR-016 amended (dated) for the ninth domain: facades map 1:1 to
+  domains, so a new OpenAPI tag gets a new facade rather than a method on `chat()`. The
+  wire-observations ledger gains a `Sadiq validation` section — every row marked **spec claim,
+  unverified** until the endpoint can be called — and the known-failing live set grows from 6 to 10
+  cases per run.
+
 ## [0.4.0] - 2026-08-30
 
 "Proof over coverage": every behaviour an ADR promises to a consumer is now proved through the

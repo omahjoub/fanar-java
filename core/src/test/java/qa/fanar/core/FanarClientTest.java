@@ -456,6 +456,21 @@ class FanarClientTest {
         }
     }
 
+    // --- Sadiq facade ------------------------------------------------------------------------
+
+    @Test
+    void sadiqReturnsNonNullSameInstance() {
+        try (FanarClient client = FanarClient.builder()
+                .apiKey("sk_test")
+                .jsonCodec(dummyCodec())
+                .build()) {
+            qa.fanar.core.sadiq.SadiqClient s1 = client.sadiq();
+            qa.fanar.core.sadiq.SadiqClient s2 = client.sadiq();
+            assertNotNull(s1);
+            assertSame(s1, s2);
+        }
+    }
+
     // --- Lifecycle --------------------------------------------------------------------------
 
     @Test

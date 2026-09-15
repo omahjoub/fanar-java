@@ -1,6 +1,6 @@
 # Project state
 
-> **Snapshot — 2026-08-30.** Updated on every milestone. If this looks wrong or stale, that is
+> **Snapshot — 2026-09-15.** Updated on every milestone. If this looks wrong or stale, that is
 > the signal — update it in the same PR as whatever moved.
 
 ## Phase
@@ -13,10 +13,15 @@ and pinned by tests, in the [wire-observations ledger](WIRE_OBSERVATIONS.md); th
 failures; the retry boundary publishes the server's rate-limit window (`fanar.ratelimit.*` attributes,
 `RateLimitInfo` on both 429s — ADR-026) and stops sleeping past a total budget (`maxTotalDelay`,
 `RetryPolicy.builder()`, `fanar.retry.max-total-delay` — ADR-027, the release's one breaking change);
-the eight facades share one internal `Dispatcher`. See [CHANGELOG](../CHANGELOG.md).
+the eight facades share one internal `Dispatcher` (nine on `main`, see below). See [CHANGELOG](../CHANGELOG.md).
 
-Unreleased on `main` (0.5.0-SNAPSHOT) — nothing yet. Two items from the 0.4.0 plan were deliberately
-left out and carry into the next cycle: the live-suite budget hygiene + nightly run (parked 2026-08-30
+Unreleased on `main` (0.5.0-SNAPSHOT) — the **2026-09 spec refresh** is absorbed: one new operation
+(12 → 13; schemas 97 → 100) becomes a **ninth domain facade**, `client.sadiq().validate(...)` over
+`POST /v1/sadiq/validate`, verifying the Qur'anic verses and hadith quoted in arbitrary text and
+returning them tagged and cited. The returned text is the wire string verbatim — the SDK does not
+parse the markup (ADR-028). The endpoint requires additional authorization, so its live cases fail
+loudly until the key is upgraded; both plausible gate codes are proved routed against a scripted
+server. Two items from the 0.4.0 plan were deliberately left out and carry into the next cycle: the live-suite budget hygiene + nightly run (parked 2026-08-30
 pending a higher-quota API key requested from the Fanar team — if granted, only the nightly remains
 worth doing) and Maven Central readiness (blocked on the `qa.fanar` namespace, a Fanar-team question
 too; fallback `io.github.omahjoub`).
@@ -24,10 +29,11 @@ too; fallback `io.github.omahjoub`).
 ## Planned
 
 - **Maven Central publication** — Sonatype account, GPG signing, release workflow, version-bump policy. (Intro email to the Fanar team sent 2026-05-01; awaiting Sonatype-path pointer.)
+- **Surface `X-Revised-Input` from `POST /v1/audio/speech`** — the 2026-09 spec expanded the header to cover hadith and to state that tags and citation links are stripped before synthesis, but `speech()` returns `byte[]` and drops every response header. Exposing it changes the return type or adds a sibling method, and should follow ADR-026's principle that response metadata travels on observations and exceptions rather than on DTOs. Deferred out of the spec sync as its own decision (ADR-028, Alternatives).
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
-- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the six known-gated cases or stay red every night.
+- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the ten known-gated cases (six, plus four for the gated validation endpoint since 2026-09-15) or stay red every night.
 
 ## Deferred (won't fit cleanly)
 

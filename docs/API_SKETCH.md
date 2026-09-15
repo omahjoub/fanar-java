@@ -273,6 +273,15 @@ client.poems().generate(PoemRequest.of(PoemModel.FANAR_DIWAN, "Write a poem abou
 // Moderation (returns safety + cultural-awareness scores)
 client.moderation().send(ModerationRequest.of(ModerationModel.FANAR_GUARD_2, "prompt", "response"));
 
+// Qur'an + hadith quotation validation. Verified verses come back as the authenticated ayah
+// wrapped in <quran_start>…<quran_end> with a [surah:ayah](quran.com) reference; verified hadith
+// in <hadith_start>…<hadith_end> with a [collection:number](sunnah.com) reference. Quotations that
+// cannot be confirmed come back plain and untagged — that absence is the signal to act on.
+// text() is the wire string verbatim: the SDK never parses the markup (ADR-028).
+// Requires additional authorization on the API key.
+SadiqValidationResponse validated = client.sadiq().validate(
+    SadiqValidationRequest.of(ChatModel.FANAR_SADIQ_2, someAnswerText));
+
 // Tokenization
 client.tokens().count(TokenizationRequest.of("some text", ChatModel.FANAR_S_1_7B));
 

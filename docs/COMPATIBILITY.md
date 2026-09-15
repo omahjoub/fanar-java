@@ -29,6 +29,7 @@ The tables below follow the spec. Where the live API was observed to differ — 
 | Tokenization                    |   ✅   | `POST /v1/tokens` — token count and `max_request_tokens` per model                                        |
 | Retrieval-Augmented Generation  | ✅ ⭐ | Native via `Fanar-Sadiq` / `Fanar-Sadiq-2` — Islamic-only, with authenticated source references; Sadiq-2 adds madhab-aware filtering (details below) |
 | Moderation                      | ✅ ⭐ | `POST /v1/moderations` — returns a safety score **and** a cultural-awareness score                         |
+| Qur'an + hadith validation      | 🟡 ⭐ | `POST /v1/sadiq/validate` — verifies quotations in arbitrary text against the authenticated corpora; requires additional authorization |
 | Thinking / reasoning            | 🟡 ⭐ | Two coexisting protocols (flag + first-class message roles) + `reasoning_tokens` accounted in usage        |
 | Tool calls (client-declared)    |   🟡   | The stream emits tool-call and tool-result events, but the request has no `tools` / `tool_choice` parameter — tool invocation is server-initiated only |
 | Error model                     |   ✅   | Typed `ErrorCode` enum, routed from the error envelope's `code` with HTTP-status fallback (content-filter, rate-limit, exceeded-quota, no-longer-supported, client-closed-request, …) |
@@ -60,11 +61,12 @@ Signals with **no counterpart** in the generic LLM vocabulary — the reason thi
 - **Islamic RAG** — `message.references[]` = `{number, source, content}`; sources include `quran`, `tafsir`, `sunnah`, `dorar`, `islamweb*`, `islam_qa`, `islamonline`, `shamela`.
 - **Scope knobs** for the RAG models — by book (`book_names`), by source (`preferred_sources` / `exclude_sources` / `filter_sources`), by madhab (`madhab`: `all` / `hanafi` / `maliki` / `shafii` / `hanbali`, honoured by `Fanar-Sadiq-2`), and a `restrict_to_islamic` guardrail that rejects non-Islamic prompts server-side.
 - **Custom persona** — free-form `persona` text controlling the assistant's voice and identity on `Fanar-Sadiq`.
+- **Quotation verification as an endpoint** — `POST /v1/sadiq/validate` takes any prose and returns it with verified Qur'anic verses replaced by the authenticated ayah, wrapped in `<quran_start>` / `<quran_end>` and cited to quran.com, and verified hadith wrapped in `<hadith_start>` / `<hadith_end>` and cited to sunnah.com. **Quotations it cannot confirm come back plain and untagged — that absence is the signal callers act on.** No generic LLM API has an equivalent.
 - **Emotional TTS** — `with_emotion` synthesis on emotion-capable voices (`Abdulrahman`, `Radwa`).
 - **Culturally-aligned prompt revision** — image generation auto-revises prompts for style, quality, and cultural alignment (server default on), reporting `revised` / `revised_prompt` per image.
 - **Bilingual progress events** mid-stream — `ProgressChunk.progress.message = {en, ar}`.
 - **Cultural-awareness moderation score**, separate from the standard safety score.
-- **Quranic TTS with validated reciters** — `quran_reciter ∈ {abdul-basit, maher-al-muaiqly, mahmoud-al-husary}`; the endpoint may return an `X-Revised-Input` header when the recitation text was normalized.
+- **Quranic TTS with validated reciters** — `quran_reciter ∈ {abdul-basit, maher-al-muaiqly, mahmoud-al-husary}`; on `Fanar-Sadiq-TTS` the endpoint may return an `X-Revised-Input` header carrying the text after Qur'an **and hadith** validation — verses tagged and normalized, hadith tags and the quran.com / sunnah.com links stripped, so it reflects exactly what reached the speech backend. The SDK does not surface this header today: `speech()` returns `byte[]` (see [PROJECT_STATE](PROJECT_STATE.md) — planned).
 - **Two thinking protocols** — the `enable_thinking` flag and the role-based `thinking` / `thinking_user` protocol coexist.
 - **Refusal content part** — assistants can return structured `refusal` parts, not only filtered errors.
 - **Translation preprocessing modes** — `default`, `preserve_html`, `preserve_whitespace`, `preserve_whitespace_and_html`.

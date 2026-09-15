@@ -121,7 +121,7 @@ info:
     omitted for API keys with unlimited quota.</p>
 
     </details>
-  termsOfService: https://fanar.qa/terms-of-services
+  termsOfService: https://api.fanar.qa/terms-of-service
   contact:
     name: Fanar Support
     url: https://fanar.qa/
@@ -784,14 +784,18 @@ paths:
                 type: string
                 format: uuid
             X-Revised-Input:
-              description: The processed input text after Quran validation and tagging. This
-                header is only present when using the Fanar-Sadiq-TTS model. The
-                validator identifies Quranic verses in the input and wraps them
-                with XML-style tags (e.g., `<quran_start>`, `<quran_end>`) for
-                proper handling during text-to-speech processing. It may also
-                apply corrections such as diacritical marks normalization or
-                verse formatting. If no Quranic content was detected or no
-                modifications were needed, this header will be absent.
+              description: The processed input text after Quran and hadith validation and
+                tagging. This header is only present when using the
+                Fanar-Sadiq-TTS model. The validator identifies Quranic verses
+                and hadith in the input; verses are wrapped with XML-style tags
+                (e.g., `<quran_start>`, `<quran_end>`) for proper handling
+                during text-to-speech processing, and corrections such as
+                diacritical marks normalization or verse formatting may be
+                applied. Hadith tags and the markdown reference links the
+                validator adds (quran.com / sunnah.com) are stripped before
+                synthesis, so this header reflects the exact text sent to the
+                speech backend. If no Qur'anic verses or hadith were detected or
+                no modifications were needed, this header will be absent.
               schema:
                 type: string
           content:
@@ -2937,6 +2941,221 @@ paths:
 
             print(response.json())  # Print the safety and cultural awareness
             scores
+  /v1/sadiq/validate:
+    post:
+      tags:
+        - Sadiq
+      summary: Validate Text
+      description: "Detects and verifies Qur'an and hadith quotations inside arbitrary
+        text. Send a block of text — an LLM answer, a user message, an article —
+        and it comes back with the Qur'anic verses and hadith tagged and linked
+        to their canonical sources. Quotations that cannot be confirmed are
+        returned as plain, untagged text, which is the signal callers act
+        on.<br/><br/>Verified Qur'anic verses are replaced with authenticated
+        Quran text wrapped in `<quran_start>` / `<quran_end>` with a
+        `[surah:ayah](quran.com)` markdown reference; verified hadith are
+        wrapped in `<hadith_start>` / `<hadith_end>` with a
+        `[collection:number](sunnah.com)` reference. To render, strip the tags
+        and keep the links.<br/><br/>Example — input:<br/><code>قال الله تعالى:
+        إن الصلاة تنهى عن الفحشاء والمنكر. وقال النبي صلى الله عليه وسلم: إنما
+        الأعمال بالنيات.</code><br/><br/>Output text:<br/><code>قال الله تعالى:
+        &lt;quran_start&gt;ٱتْلُ مَآ أُوحِىَ إِلَيْكَ مِنَ ٱلْكِتَـٰبِ وَأَقِمِ
+        ٱلصَّلَوٰةَ ۖ إِنَّ ٱلصَّلَوٰةَ تَنْهَىٰ عَنِ ٱلْفَحْشَآءِ وَٱلْمُنكَرِ
+        ۗ وَلَذِكْرُ ٱللَّهِ أَكْبَرُ ۗ وَٱللَّهُ يَعْلَمُ مَا تَصْنَعُونَ
+        [٤٥](https://quran.com/29/45)&lt;quran_end&gt; وقال النبي صلى الله عليه
+        وسلم: &lt;hadith_start&gt;إنما الأعمال بالنيات&lt;hadith_end&gt;
+        [riyadussalihin:1](https://sunnah.com/riyadussalihin:1)</code><br/><br/\
+        >The partially quoted verse is replaced with the full authenticated ayah
+        and cited; the hadith is tagged and cited. An unverifiable quotation
+        would come back untagged.<br/><br/>This endpoint requires additional
+        authorization and is not allowed by default. Please contact <a
+        href='mailto:support@fanar.qa'>support@fanar.qa</a>."
+      operationId: validate_text_v1_sadiq_validate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SadiqValidationRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SadiqValidationResponse"
+        "401":
+          description: Invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: invalid_authentication
+                  message: Invalid authentication
+                  status: 401
+        "403":
+          description: Invalid authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: invalid_authorization
+                  message: Invalid authorization
+                  status: 403
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: Not found
+                  message: Not found
+                  status: 404
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: conflict
+                  message: Conflict
+                  status: 409
+        "410":
+          description: No longer supported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: no_longer_supported
+                  message: No longer supported
+                  status: 410
+        "413":
+          description: Request entity too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: too_large
+                  message: Request entity too large
+                  status: 413
+        "422":
+          description: Unprocessable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: unprocessable
+                  message: Unprocessable
+                  status: 422
+        "429":
+          description: Rate limit reached or Exceeded quota
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: exceeded_quota
+                  message: Exceeded quota
+                  status: 429
+        "499":
+          description: Client closed request before completion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: client_closed_request
+                  message: Client closed request before completion
+                  status: 499
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: internal_server_error
+                  message: Internal server error
+                  status: 500
+        "503":
+          description: Service overloaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: overloaded
+                  message: Service overloaded
+                  status: 503
+        "504":
+          description: Request timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: timeout
+                  message: Request timed out
+                  status: 504
+      security:
+        - Bearer: []
+      x-codeSamples:
+        - lang: Curl
+          label: cURL
+          source: >
+            curl -X POST "https://api.fanar.qa/v1/sadiq/validate" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer YOUR_API_KEY" \
+              -d '{
+                "model": "Fanar-Sadiq-2",
+                "text": "قال الله تعالى: إن الصلاة تنهى عن الفحشاء والمنكر. وقال النبي صلى الله عليه وسلم: إنما الأعمال بالنيات."
+              }'
+        - lang: Python
+          label: Python - requests
+          source: >
+            # Quran & hadith validation requires additional authorization and is
+            not allowed by default.
+
+
+            import requests
+
+
+            headers = {
+                "Authorization": "Bearer YOUR_API_KEY",
+                "Content-Type": "application/json",
+            }
+
+
+            json_data = {
+                "model": "Fanar-Sadiq-2",
+                "text": "قال الله تعالى: إن الصلاة تنهى عن الفحشاء والمنكر. وقال النبي صلى الله عليه وسلم: إنما الأعمال بالنيات.",
+            }
+
+
+            response = requests.post("https://api.fanar.qa/v1/sadiq/validate",
+            headers=headers, json=json_data)
+
+
+            print(response.json())
   /v1/tokens:
     post:
       tags:
@@ -5149,6 +5368,50 @@ components:
         - duration
         - text
       title: STTSegement
+    SadiqValidationModels:
+      type: string
+      enum:
+        - Fanar-Sadiq-2
+      title: SadiqValidationModels
+    SadiqValidationRequest:
+      properties:
+        model:
+          $ref: "#/components/schemas/SadiqValidationModels"
+          description: The model to use for the validation.
+        text:
+          type: string
+          title: Text
+          description: Input text to be checked for Quranic verses and hadith quotations.
+      type: object
+      required:
+        - model
+        - text
+      title: SadiqValidationRequest
+      example:
+        model: Fanar-Sadiq-2
+        text: "قال الله تعالى: إن الصلاة تنهى عن الفحشاء والمنكر. وقال النبي صلى الله
+          عليه وسلم: إنما الأعمال بالنيات."
+    SadiqValidationResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: A unique identifier for this validation request.
+        text:
+          type: string
+          title: Text
+          description: "The input text with verified quotations tagged and referenced:
+            Quranic verses are replaced with authenticated Quran text wrapped in
+            `<quran_start>`/`<quran_end>` followed by a
+            `[surah:ayah](quran.com)` markdown reference, and hadith are wrapped
+            in `<hadith_start>`/`<hadith_end>` followed by a
+            `[collection:number](sunnah.com)` reference. Quotations that cannot
+            be verified are returned as plain, untagged text."
+      type: object
+      required:
+        - id
+        - text
+      title: SadiqValidationResponse
     SafetyFilterRequest:
       properties:
         model:

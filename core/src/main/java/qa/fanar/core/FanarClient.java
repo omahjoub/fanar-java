@@ -21,6 +21,7 @@ import qa.fanar.core.internal.images.ImagesClientImpl;
 import qa.fanar.core.internal.moderations.ModerationsClientImpl;
 import qa.fanar.core.internal.models.ModelsClientImpl;
 import qa.fanar.core.internal.poems.PoemsClientImpl;
+import qa.fanar.core.internal.sadiq.SadiqClientImpl;
 import qa.fanar.core.internal.tokens.TokensClientImpl;
 import qa.fanar.core.internal.translations.TranslationsClientImpl;
 import qa.fanar.core.internal.transport.DefaultHttpTransport;
@@ -28,6 +29,7 @@ import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.moderations.ModerationsClient;
 import qa.fanar.core.models.ModelsClient;
 import qa.fanar.core.poems.PoemsClient;
+import qa.fanar.core.sadiq.SadiqClient;
 import qa.fanar.core.tokens.TokensClient;
 import qa.fanar.core.translations.TranslationsClient;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -38,9 +40,9 @@ import qa.fanar.core.spi.ObservabilityPlugin;
  * Main entry point for the Fanar Java SDK.
  *
  * <p>Construct via {@link #builder()}, use try-with-resources for lifecycle, and access domain
- * facades through the accessor methods — today only {@link #chat()}; other domains
- * ({@code audio}, {@code images}, {@code translations}, etc.) land in subsequent PRs as their
- * DTOs arrive.</p>
+ * facades through the accessor methods — one per Fanar domain: {@link #chat()}, {@link #audio()},
+ * {@link #images()}, {@link #translations()}, {@link #poems()}, {@link #moderations()},
+ * {@link #sadiq()}, {@link #tokens()} and {@link #models()} (ADR-016, ADR-028).</p>
  *
  * <pre>{@code
  * try (FanarClient client = FanarClient.builder()
@@ -51,9 +53,6 @@ import qa.fanar.core.spi.ObservabilityPlugin;
  *     ChatResponse response = client.chat().send(chatRequest);
  * }
  * }</pre>
- *
- * <p>This is the first-pass contract surface (ADR-016). The domain facades' methods currently
- * throw {@link UnsupportedOperationException}; the transport layer arrives in a follow-up PR.</p>
  *
  * <h2>Lifecycle</h2>
  * <p>If the caller supplied an {@link HttpClient} via {@link Builder#httpClient(HttpClient)},
@@ -103,6 +102,7 @@ public final class FanarClient implements AutoCloseable {
     private final PoemsClient poemsClient;
     private final ImagesClient imagesClient;
     private final AudioClient audioClient;
+    private final SadiqClient sadiqClient;
     private volatile boolean closed = false;
 
     private FanarClient(Builder b) {
@@ -228,6 +228,16 @@ public final class FanarClient implements AutoCloseable {
                 this.retryPolicy,
                 this.defaultHeaders,
                 this.userAgent);
+        this.sadiqClient = new SadiqClientImpl(
+                this.baseUrl,
+                this.jsonCodec,
+                this.apiKeySupplier,
+                this.interceptors,
+                transport,
+                this.observability,
+                this.retryPolicy,
+                this.defaultHeaders,
+                this.userAgent);
     }
 
     private static Supplier<String> resolveApiKey(Builder b) {
@@ -296,6 +306,11 @@ public final class FanarClient implements AutoCloseable {
     /** Audio facade — voice CRUD, TTS speech, STT transcription. */
     public AudioClient audio() {
         return audioClient;
+    }
+
+    /** Sadiq facade — verify the Qur'anic verses and hadith quoted inside a block of text. */
+    public SadiqClient sadiq() {
+        return sadiqClient;
     }
 
     /**

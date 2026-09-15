@@ -1,6 +1,6 @@
 # ADR-015 — Hand-written DTO conventions
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-09-15 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -129,3 +129,15 @@ enforced by code review, not automation.
 - [`api-spec/openapi.json`](../../api-spec/openapi.json)
 - Effective Java (Bloch), Item 55 — "Return optionals judiciously"
 - JSpecify annotations project
+
+## Amendments
+
+### 2026-09-15 — Nine functional domains; no value class for a reused model (0.5.0)
+
+The 2026-09 spec refresh takes the schema count this record cites to ~100 across **nine**
+functional domains (`sadiq` joins the eight). It also settles a question this record left implicit:
+the spec's `SadiqValidationModels` is a string enum, which the "open value-class record" rule would
+normally turn into a new type — but its only value, `Fanar-Sadiq-2`, is already a `ChatModel`
+constant. The rule is therefore stated as it has always been practised: **a domain owns a model
+value class when its models are not chat models**; when they are, it reuses `ChatModel`, as
+`TokenizationRequest` does. `SadiqValidationRequest` takes a `ChatModel`. See ADR-028 clause 2.

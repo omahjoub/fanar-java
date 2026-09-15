@@ -244,6 +244,22 @@
   "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
 },
 {
+  "name":"qa.fanar.core.sadiq.SadiqValidationRequest",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"model","parameterTypes":[] }, {"name":"text","parameterTypes":[] }]
+},
+{
+  "name":"qa.fanar.core.sadiq.SadiqValidationResponse",
+  "allDeclaredFields":true,
+  "allRecordComponents":true,
+  "queryAllDeclaredMethods":true,
+  "queryAllDeclaredConstructors":true,
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
+},
+{
   "name":"qa.fanar.core.tokens.TokenizationRequest",
   "allDeclaredFields":true,
   "allRecordComponents":true,

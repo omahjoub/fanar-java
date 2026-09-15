@@ -33,6 +33,7 @@ Pinning test classes, all under [`e2e/src/test/java/qa/fanar/e2e/`](../e2e/src/t
 [`LiveTranslationsTest`](../e2e/src/test/java/qa/fanar/e2e/translations/LiveTranslationsTest.java),
 [`LiveModerationsTest`](../e2e/src/test/java/qa/fanar/e2e/moderations/LiveModerationsTest.java),
 [`LiveTokensTest`](../e2e/src/test/java/qa/fanar/e2e/tokens/LiveTokensTest.java),
+[`LiveSadiqValidateTest`](../e2e/src/test/java/qa/fanar/e2e/sadiq/LiveSadiqValidateTest.java),
 [`LiveRateLimitHeadersTest`](../e2e/src/test/java/qa/fanar/e2e/transport/LiveRateLimitHeadersTest.java).
 
 ## Chat completions — `POST /v1/chat/completions`
@@ -106,6 +107,20 @@ Pinning test classes, all under [`e2e/src/test/java/qa/fanar/e2e/`](../e2e/src/t
 Not covered live: `Fanar-Oryx-IVU-2` (image understanding — the code samples say gated; no live case) and
 `Fanar-Sadiq-TTS-1` (Quranic TTS — absent from the listing; no live case).
 
+## Sadiq validation — `POST /v1/sadiq/validate` (`Fanar-Sadiq-2`)
+
+New in the 2026-09 spec refresh (operations 12 → 13). First called 2026-09-15 with the standard key:
+the endpoint is gated and answers 403, so the request path is observed but the success path is not.
+
+| Date | Observed | Spec says | Consequence / pinned by |
+|---|---|---|---|
+| 2026-09-15 | **The endpoint gate answers HTTP 403**, envelope verbatim: `{"error": {"code": "invalid_authorization", "message": "Invalid authorization", "status": 403, "param": null, "type": null}}` — byte-identical in shape to the voices `POST` gate ([Audio voices](#audio--voices-get--post--delete-v1audiovoices)). The request body `{"model":"Fanar-Sadiq-2","text":"…"}` is accepted up to the authorization check, so a 403 here is **not** a wire-format problem. | Endpoint declares 403 `invalid_authorization`; "requires additional authorization and is not allowed by default." | **Spec confirmed** — the one case so far where the spec's stated code beat the prior-art guess. Surfaces as `FanarAuthorizationException` by envelope-code routing (ADR-006). `LiveSadiqValidateTest` (4 cases) fails loudly until the key is upgraded: expected, not a flake. |
+| 2026-09-15 | **Endpoint-level and model-level gating are distinct mechanisms with different wire shapes.** The same model, `Fanar-Sadiq-2`, answers **422** `unprocessable` / "Model not authorized" through chat ([Chat](#chat--post-v1chatcompletions), 2026-08-06) but **403** `invalid_authorization` here. The endpoint check runs first and short-circuits, so whether the *model* gate would also fire on this endpoint is still unknown — one authorization can be granted without the other. | The spec distinguishes neither, and uses the same "requires additional authorization" wording for both. | **Never infer one gate's code from the other's**, even for the same model. `FanarClientSadiqValidationIntegrationTest` scripts both codes and asserts each routes by its own envelope code, so a later change of mechanism is already covered. |
+| 2026-09-15 | No `x-id` and **no rate-limit headers** on the 403 — consistent with the [transport-level table](#transport-level-rate-limit-headers-and-x-id): these are rejections *before* admission, so the 4 live cases cost an admission check and **do not consume** `Fanar-Sadiq-2`'s 50/min budget. Latency 500–751 ms; `fanar.retry_count=0` (403 is not retryable). | Rate-limit headers documented on "every rate-limited response". | Confirms the existing pre-admission rule on a third endpoint. Budget table below assumes 0 consumed. |
+| — | The tag and citation format of a **successful** validation (`<quran_start>` / `<hadith_start>` wrapping, `[surah:ayah](quran.com)` / `[collection:number](sunnah.com)` references, untagged fallback for unverifiable quotations), and whether the response `id` correlates with `x-id`. | Endpoint description + `SadiqValidationResponse`. | **Spec claim, unverified** — no 200 has been seen. The SDK returns `text` verbatim and never parses the markup (ADR-028 clause 3), so a change in tag vocabulary cannot break decoding, but it will silently change what callers see. |
+| — | Verified Qur'anic verses are returned as the full authenticated ayah wrapped in `<quran_start>` / `<quran_end>` with a `[surah:ayah](quran.com)` reference; verified hadith wrapped in `<hadith_start>` / `<hadith_end>` with a `[collection:number](sunnah.com)` reference; **unverifiable quotations return plain and untagged**. | Endpoint description + `SadiqValidationResponse.text`. | **Spec claim, unverified.** The SDK returns `text` verbatim and never parses the markup (ADR-028 clause 3), so a change in tag vocabulary cannot break decoding — but it will silently change what callers see. |
+| — | Whether the response `id` correlates with the `x-id` header, and whether rate-limit headers are present (the request names a model, so they should be — unlike `/v1/tokens`). | Not stated. | **Unverified** — capture on the first authorized call. |
+
 ## Transport level: rate-limit headers and `x-id`
 
 Documented by the 2026-08-27 spec refresh (`info.description`); verified 2026-08-27 (curl), 2026-08-28
@@ -152,6 +167,7 @@ is synthesised once per JVM). The earlier "14 TTS calls per run" figure (2026-08
 | `Fanar-Shaheen-MT-1` | 20/day | 4 | `LiveTranslationsTest` 2 cases × 2 codecs | 5 |
 | `Fanar-Oryx-IVU-2`, `Fanar-Sadiq-TTS-1` | 20/day | 0 | no live case | — |
 | chat models, `Fanar-Guard-2`, `Fanar-Diwan` | 50/min | ≈ 60 chat; 4 per other model (Diwan up to 3× on verse misses) | `LiveChatCompletionsTest`, `LiveModerationsTest`, `LivePoemsTest`, `LiveTokensTest`, `LiveModelsTest` | not a constraint for a sequential run |
+| `Fanar-Sadiq-2` (validation) | 50/min | 4 | `LiveSadiqValidateTest` 2 cases × 2 codecs — all 4 rejected at the endpoint gate (403), confirmed 2026-09-15 to carry no rate-limit headers, so they consume **0** of the budget | not a constraint |
 
 Rules that follow:
 
@@ -163,9 +179,13 @@ Rules that follow:
   touches, TTS and STT included.
 - Budget-free runs are what the planned `live-audio` tag is for (`-Dgroups=live -DexcludedGroups=live-audio`,
   Phase 7); until it lands, run individual classes.
-- Known-failing cases for the standard key, by design (6 per run, seen 2026-08-29 and 2026-08-30): `LiveAudioVoicesTest.createVoice`
-  and `.deleteVoice` (× 2 codecs — the `POST` 403) and `LiveChatCompletionsTest.conversation_sadiq2WithMadhab` (× 2 —
-  the 422 gate). Anything else failing means something changed — and belongs in this ledger.
+- Known-failing cases for the standard key, by design — **10 per run** since 2026-09-15 (6 seen 2026-08-29
+  and 2026-08-30, + 4 with the new validation endpoint), counted from the code:
+  `LiveAudioVoicesTest.createVoice` + `.deleteVoice` (2 methods × 2 codecs = 4 — the `POST` 403),
+  `LiveChatCompletionsTest.conversation_sadiq2WithMadhab` (1 × 2 = 2 — the 422 model gate), and
+  `LiveSadiqValidateTest.validate_tagsVerifiedQuotations` + `.validate_asyncCompletesAgainstLiveInfra`
+  (2 × 2 = 4 — the endpoint gate, code not yet observed).
+  Anything else failing means something changed — and belongs in this ledger.
 
 ## Adding an observation
 

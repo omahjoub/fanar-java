@@ -41,6 +41,8 @@ import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.poems.PoemGenerationRequest;
 import qa.fanar.core.poems.PoemGenerationResponse;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.SadiqValidationRequest;
+import qa.fanar.core.sadiq.SadiqValidationResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.ObservabilityPlugin;
 import qa.fanar.core.spi.ObservationHandle;
@@ -106,6 +108,7 @@ public final class Main {
         decodeModerations(codec);
         decodeTranslations(codec);
         decodePoems(codec);
+        decodeSadiqValidation(codec);
         decodeImages(codec);
         decodeAudioVoices(codec);
         decodeAudioStt(codec);
@@ -117,6 +120,7 @@ public final class Main {
         encodeSafetyFilterRequest(codec);
         encodeTranslationRequest(codec);
         encodePoemGenerationRequest(codec);
+        encodeSadiqValidationRequest(codec);
         encodeImageGenerationRequest(codec);
         encodeTextToSpeechRequest(codec);
         encodeTranscriptionRequest(codec);
@@ -125,7 +129,7 @@ public final class Main {
         exerciseObservabilityPlugins();
         exerciseInterceptors();
 
-        System.out.println("self-test OK: 9 decode probes + 9 encode probes, "
+        System.out.println("self-test OK: 10 decode probes + 10 encode probes, "
                 + "4 obs plugins exercised, wire interceptor instantiated");
     }
 
@@ -181,6 +185,14 @@ public final class Main {
                 PoemGenerationResponse.class);
         require("req_1".equals(r.id()), "poem id");
         require("the sea".equals(r.poem()), "poem text");
+    }
+
+    private static void decodeSadiqValidation(FanarJsonCodec codec) throws IOException {
+        SadiqValidationResponse r = codec.decode(
+                bytes("{\"id\":\"req_1\",\"text\":\"<quran_start>x<quran_end> [2:255](q)\"}"),
+                SadiqValidationResponse.class);
+        require("req_1".equals(r.id()), "sadiq validation id");
+        require(r.text().contains("<quran_start>"), "sadiq validation text");
     }
 
     private static void decodeImages(FanarJsonCodec codec) throws IOException {
@@ -257,6 +269,12 @@ public final class Main {
         byte[] body = encode(codec, PoemGenerationRequest.of(
                 PoemModel.FANAR_DIWAN, "the sea"));
         require(body.length > 0, "poems encode");
+    }
+
+    private static void encodeSadiqValidationRequest(FanarJsonCodec codec) throws IOException {
+        byte[] body = encode(codec, SadiqValidationRequest.of(
+                ChatModel.FANAR_SADIQ_2, "a verse"));
+        require(body.length > 0, "sadiq validation encode");
     }
 
     private static void encodeImageGenerationRequest(FanarJsonCodec codec) throws IOException {
@@ -376,6 +394,7 @@ public final class Main {
             runProbe("moderations",   () -> liveModerations(client));
             runProbe("translations",  () -> liveTranslations(client));
             runProbe("poems",         () -> livePoems(client));
+            runProbe("sadiq.validate", () -> liveSadiqValidate(client));
             runProbe("images",        () -> liveImages(client));
             runProbe("audio.voices",  () -> liveAudioVoices(client));
             byte[] wav = runWithResult("audio.speech", () -> liveAudioSpeech(client));
@@ -441,6 +460,14 @@ public final class Main {
         PoemGenerationResponse r = client.poems().generate(
                 PoemGenerationRequest.of(PoemModel.FANAR_DIWAN, "Write a poem about the sea"));
         System.out.println("  poems: id=" + r.id() + " poemLen=" + r.poem().length());
+    }
+
+    private static void liveSadiqValidate(FanarClient client) {
+        // Gated: Fanar-Sadiq-2 requires additional authorization. runProbe swallows the typed
+        // FanarException and continues the walk, so an un-upgraded key still completes the probe.
+        SadiqValidationResponse r = client.sadiq().validate(
+                SadiqValidationRequest.of(ChatModel.FANAR_SADIQ_2, "Validate this text."));
+        System.out.println("  sadiq.validate: id=" + r.id() + " textLen=" + r.text().length());
     }
 
     private static void liveImages(FanarClient client) {
