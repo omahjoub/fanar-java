@@ -70,6 +70,17 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
    `LiveSadiqValidateTest` fails loudly until the key is upgraded; its caveat is written from the
    2026-09-15 observation, not a prediction (`tasks/lessons.md`, 0.2.0 cycle).
 
+5. **No framework-adapter work.** The Spring Boot 4 starter contributes a single `FanarClient`
+   bean (plus `FanarJsonCodec` and `RetryPolicy`), never one bean per domain, so `sadiq()` is
+   reachable through it by construction — a new core domain needs no auto-configuration change, no
+   property, and no per-facade bean or test (no starter test asserts a facade today; the only
+   facade calls there are incidental to the retry seam test and the health indicator). The Spring AI
+   starter gets **no adapter**: Spring AI has no model interface for quotation verification, and
+   inventing one would be a Fanar-shaped API wearing a framework's name — the line ADR-024 draws.
+   Consumers use `FanarClient.sadiq()` directly, as `FanarTranscriptionModel`'s javadoc already
+   tells them to do for SRT transcription. Recorded in `COMPATIBILITY.md` §3 next to the
+   `ModerationModel` gap, which is the same situation for the same reason.
+
 ## Alternatives considered
 
 - **`validate()` as a method on `ChatClient`.** *Rejected*: different path prefix, unrelated DTO
@@ -148,6 +159,8 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
 - ADR-016 FanarClient builder and domain facades (amended 2026-09-15: a ninth facade; the 1:1
   tag ↔ facade mapping is the rule)
 - ADR-019 Pre-1.0 stability policy (additive; 0.5.0, never a patch)
+- ADR-020 Spring Boot 4 starter shape (one `FanarClient` bean; no per-domain beans)
+- ADR-021 Spring AI 2.0 adapter / ADR-024 Spring AI vendor options (why no validation adapter)
 - ADR-026 Rate-limit telemetry (the precedent that response metadata stays off DTOs)
 - [COMPATIBILITY](../COMPATIBILITY.md) §1 capability table, §3 "what still belongs downstream"
 - [WIRE_OBSERVATIONS](../WIRE_OBSERVATIONS.md) — the `Fanar-Sadiq-2` gate (2026-08-06) and the

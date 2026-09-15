@@ -37,6 +37,11 @@ may break public API until 1.0.0 ships.
 
 ### Changed
 
+- **`fanar-spring-boot-4-starter` / `fanar-spring-ai-starter`** — no change required, by design.
+  The SB4 starter contributes a single `FanarClient` bean rather than one per domain, so
+  `sadiq()` is reachable through it with no extra configuration. Spring AI gets no adapter: it
+  has no model interface for quotation verification, so consumers call `FanarClient.sadiq()`
+  directly — recorded in `COMPATIBILITY.md` §3 beside the `ModerationModel` gap.
 - **docs** — ADR-011, ADR-015 and ADR-016 amended (dated) for the ninth domain: facades map 1:1 to
   domains, so a new OpenAPI tag gets a new facade rather than a method on `chat()`. The
   wire-observations ledger gains a `Sadiq validation` section — every row marked **spec claim,

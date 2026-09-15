@@ -104,7 +104,7 @@ Compose any combination via `ObservabilityPlugin.compose(slf4j, otel, micrometer
 
 | Adapter | Module | What it adds |
 |---|---|---|
-| Spring Boot 4 | `fanar-spring-boot-4-starter` | `@AutoConfiguration` + typed `fanar.*` properties + auto-wired `Interceptor` / `ObservabilityPlugin` beans + `FanarHealthIndicator` (when `spring-boot-health` is on the classpath). Wire-logging interceptor enabled via `fanar.wire-logging.level`. |
+| Spring Boot 4 | `fanar-spring-boot-4-starter` | `@AutoConfiguration` + typed `fanar.*` properties + auto-wired `Interceptor` / `ObservabilityPlugin` beans + `FanarHealthIndicator` (when `spring-boot-health` is on the classpath). Wire-logging interceptor enabled via `fanar.wire-logging.level`. It contributes a **single `FanarClient` bean**, not one bean per domain, so every facade — `sadiq()` included — is reachable from it with no extra configuration and a new core domain needs no starter change. |
 | Spring AI 2.0 | `fanar-spring-ai-starter` | `ChatModel` + `StreamingChatModel` + `ImageModel` + `TextToSpeechModel` + `TranscriptionModel` adapters layered on top of the SB4 starter. Memory + RAG advisors compose via Spring AI's `ChatClient`; we don't expose memory primitives in core. |
 
 ### Framework adapters — planned
@@ -116,6 +116,7 @@ Compose any combination via `ObservabilityPlugin.compose(slf4j, otel, micrometer
 ### Deferred — Spring AI gaps with rationale
 
 - **`ModerationModel`** — Fanar returns continuous `safety` + `culturalAwareness` scores; Spring AI's surface expects 16 category booleans (`Categories.isHate()` etc.). A best-effort mapping would always report all categories `false`, misleading consumers. Use `FanarClient.moderations()` directly.
+- **Qur'an + hadith validation** — Spring AI has no model interface for quotation verification, so there is no slot to adapt `POST /v1/sadiq/validate` into; inventing one would be a Fanar-shaped API wearing a framework's name (ADR-024 draws that line). Use `FanarClient.sadiq().validate(...)` directly — the starter's `FanarClient` bean already exposes it. It composes naturally with the Spring AI `ChatModel` as a post-processing step: generate, then validate the answer's quotations.
 - **`EmbeddingModel`** — Fanar has no embeddings endpoint at all (the ❌ in §1 above). RAG users bring their own embedder (`spring-ai-openai`, `spring-ai-transformers`, etc.).
 - **Native chat structured output** — Fanar exposes no `response_format` field. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work end-to-end since they shape the prompt text, not a model flag.
 - **User-supplied tool calling** — Fanar rejects user `tools` / `tool_choice` server-side. Spring AI's tool-callback advisors degrade silently in our adapter (we drop `ToolResponseMessage` from outbound prompts and never emit `tool_calls` to consumers).
