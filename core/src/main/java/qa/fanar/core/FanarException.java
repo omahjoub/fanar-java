@@ -16,7 +16,7 @@ import java.util.Objects;
  * <pre>{@code
  * switch (e) {
  *     case FanarTransportException t      -> retryTransport(t);
- *     case FanarContentFilterException cf -> showRefusalUi(cf.filterType());
+ *     case FanarContentFilterException cf -> showRefusalUi(cf.filterType());  // nullable
  *     case FanarClientException c         -> log.warn("client error", c);
  *     case FanarServerException s         -> backoffAndRetry(s);
  * }
