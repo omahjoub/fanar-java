@@ -36,6 +36,8 @@ import qa.fanar.core.models.ModelsResponse;
 import qa.fanar.core.poems.PoemGenerationRequest;
 import qa.fanar.core.poems.PoemGenerationResponse;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.SadiqValidationRequest;
+import qa.fanar.core.sadiq.SadiqValidationResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.tokens.TokenizationRequest;
 import qa.fanar.core.tokens.TokenizationResponse;
@@ -253,6 +255,31 @@ class AdapterParityTest {
                 "PoemGenerationResponse decoded by both adapters must be record-equal");
         assertEquals("req_1", decoded3.id());
         assertEquals("البحر يهدر بأمواجه", decoded3.poem());
+    }
+
+    @Test
+    void sadiqValidationRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        SadiqValidationRequest req = SadiqValidationRequest.of(
+                ChatModel.FANAR_SADIQ_2, "قال الله تعالى");
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "SadiqValidationRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Sadiq-2", shape3.get("model"));
+        assertEquals("قال الله تعالى", shape3.get("text"));
+    }
+
+    @Test
+    void sadiqValidationResponseDecodesIdenticallyAcrossAdapters() throws IOException {
+        String wire = "{\"id\":\"req_1\",\"text\":\"<quran_start>x<quran_end> "
+                + "[45](https://quran.com/29/45) <hadith_start>y<hadith_end>\"}";
+        SadiqValidationResponse decoded2 = jackson2.decode(bytes(wire), SadiqValidationResponse.class);
+        SadiqValidationResponse decoded3 = jackson3.decode(bytes(wire), SadiqValidationResponse.class);
+        assertEquals(decoded2, decoded3,
+                "SadiqValidationResponse decoded by both adapters must be record-equal");
+        assertEquals("req_1", decoded3.id());
+        assertTrue(decoded3.text().contains("<quran_start>"), "tags must survive decoding unparsed");
+        assertTrue(decoded3.text().contains("<hadith_start>"), "hadith tags must survive too");
     }
 
     @Test

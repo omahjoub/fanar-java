@@ -9,7 +9,7 @@ the links for depth.
 ## Fanar — the platform
 
 - **Fanar** — Qatar's Arabic-centric multimodal AI platform. Hosts all the models below. Base URL `https://api.fanar.qa`.
-- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 12 endpoints, 15 models.
+- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 13 endpoints, 15 models.
 - **OpenAI-compatible** — Fanar's chat endpoint accepts OpenAI-style request shapes. This SDK still exists because Fanar offers capabilities OpenAI does not (see [Compatibility matrix](COMPATIBILITY.md)).
 
 ## Fanar models

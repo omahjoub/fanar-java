@@ -24,6 +24,7 @@ module qa.fanar.core {
     exports qa.fanar.core.poems;
     exports qa.fanar.core.images;
     exports qa.fanar.core.audio;
+    exports qa.fanar.core.sadiq;
 
     // ServiceLoader contract: FanarClient discovers a FanarJsonCodec implementation at runtime
     // unless the caller passes one via FanarClient.Builder.jsonCodec(...). The two shipped

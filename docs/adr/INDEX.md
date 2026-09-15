@@ -34,6 +34,7 @@ Every ADR follows an extended Michael Nygard template:
 - [015 — Hand-written DTO conventions](015-dto-conventions.md)
 - [016 — FanarClient builder and domain facades](016-fanarclient-builder-domain-facades.md)
 - [023 — Streaming TTS via Flow.Publisher&lt;byte[]&gt;](023-streaming-tts-via-flow-publisher.md)
+- [028 — Qur'an and hadith validation: a ninth domain facade](028-sadiq-validation-facade.md)
 
 ### Transport and serialization
 

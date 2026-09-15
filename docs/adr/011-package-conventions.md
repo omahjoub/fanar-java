@@ -1,6 +1,6 @@
 # ADR-011 — Package conventions
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-09-15 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -105,3 +105,15 @@ artifact renames the package with it, never one without the other.
 - ADR-015 Hand-written DTO conventions
 - ADR-018 Internals are not a contract
 - [`docs/JAVA_LIBRARY_BEST_PRACTICES.md`](../JAVA_LIBRARY_BEST_PRACTICES.md) § JLBP-2, § JLBP-5, § JLBP-6, § JLBP-19, § JLBP-20
+
+## Amendments
+
+### 2026-09-15 — A ninth domain subpackage, `sadiq` (0.5.0)
+
+The 2026-09 spec refresh adds `POST /v1/sadiq/validate` under a new `Sadiq` OpenAPI tag, so the
+"8 functional domains" this record enumerates become **nine**: chat, audio, images, translations,
+poems, moderation, sadiq, tokens, models. `qa.fanar.core.sadiq` is exported and
+`qa.fanar.core.internal.sadiq` is not, exactly as the convention prescribes — the addition is the
+mechanical one this record's Consequences anticipated ("adding a new Fanar domain is mechanical:
+new subpackage under the top-level root"), and it needed no change to the convention itself.
+See ADR-028.

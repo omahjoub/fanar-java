@@ -198,7 +198,7 @@ Expected output:
 [main] ERROR fanar.smoke.op - failed after 0ms attrs={k=v}
 java.lang.IllegalStateException: smoke-error
         …
-self-test OK: 9 decode probes + 9 encode probes, 4 obs plugins exercised, wire interceptor instantiated
+self-test OK: 10 decode probes + 10 encode probes, 4 obs plugins exercised, wire interceptor instantiated
 ```
 
 The `smoke-error` lines are intentional — the self-test deliberately calls

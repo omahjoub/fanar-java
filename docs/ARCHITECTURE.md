@@ -1,6 +1,6 @@
 # Architecture
 
-> OpenAPI 3.1.0 — 12 endpoints, 15 models
+> OpenAPI 3.1.0 — 13 endpoints, 15 models
 
 ---
 
@@ -22,6 +22,7 @@
 | POST   | `/v1/translations`         | Translation | JSON          |
 | POST   | `/v1/poems/generations`    | Poetry      | JSON          |
 | POST   | `/v1/moderations`          | Safety      | JSON          |
+| POST   | `/v1/sadiq/validate`       | Sadiq       | JSON          |
 | POST   | `/v1/tokens`               | Utility     | JSON          |
 | GET    | `/v1/models`               | Utility     | JSON          |
 
@@ -267,7 +268,7 @@ zone (ADR-018).
 | Domain DTOs — chat value classes | `qa.fanar.core.chat.{ChatModel, Source, ImageDetail, FinishReason, BookName, Madhab}` | **implemented** — open value-class records with constants + permissive `of(String)`; `BookName` carries 572 inline `KNOWN` entries from `BookNamesEnum` |
 | `ChatRequest` (+ `Builder`) | `qa.fanar.core.chat.ChatRequest` | **implemented** (33-component record, fluent builder) |
 | `ChatResponse` + response types | `qa.fanar.core.chat.{ChatResponse, ChatChoice, ChatMessage, Reference, FinishReason, ResponseContent, TextContent, ImageContent, AudioContent, CompletionUsage, CompletionTokensDetails, PromptTokensDetails, ChoiceLogprobs, TokenLogprob, TopLogprob}` | **implemented** |
-| Other domain DTOs + clients | `qa.fanar.core.<audio\|images\|translations\|poems\|moderations\|tokens\|models>` | **implemented** — per-domain client interface, open value-class records, and DTOs; each surfaced via `client.audio()` / `.images()` / `.translations()` / `.poems()` / `.moderations()` / `.tokens()` / `.models()`. Audio additionally exposes a sealed `SpeechToTextResponse` with text / srt / json variants, the rich voice-catalogue records `AvailableVoice` / `VoiceType`, and streamed TTS via `speechStream(...)` → `Flow.Publisher<byte[]>` (ADR-023). |
+| Other domain DTOs + clients | `qa.fanar.core.<audio\|images\|translations\|poems\|moderations\|sadiq\|tokens\|models>` | **implemented** — per-domain client interface, open value-class records, and DTOs; each surfaced via `client.audio()` / `.images()` / `.translations()` / `.poems()` / `.moderations()` / `.sadiq()` / `.tokens()` / `.models()`. Sadiq validates the Qur'anic verses and hadith quoted in arbitrary text and returns them tagged and referenced — the returned text is the wire string verbatim, never parsed by the SDK (ADR-028). Audio additionally exposes a sealed `SpeechToTextResponse` with text / srt / json variants, the rich voice-catalogue records `AvailableVoice` / `VoiceType`, and streamed TTS via `speechStream(...)` → `Flow.Publisher<byte[]>` (ADR-023). |
 | Sealed `StreamEvent` hierarchy | `qa.fanar.core.chat.{StreamEvent, TokenChunk, ToolCallChunk, ToolResultChunk, ProgressChunk, DoneChunk, ErrorChunk, ChoiceToken, ChoiceToolCall, ChoiceToolResult, ChoiceFinal, ChoiceError, ProgressMessage, FunctionData, ToolCallData, ToolResultData}` | **implemented** |
 | Extension SPIs | `qa.fanar.core.spi` | **implemented** (FanarJsonCodec, Interceptor+Chain, ObservabilityPlugin, ObservationHandle, FanarObservationAttributes) |
 | Default no-op observability | `qa.fanar.core.internal.observability` | **implemented** (NoopObservabilityPlugin, NoopObservationHandle) |
@@ -275,7 +276,7 @@ zone (ADR-018).
 | Retry policy (public) | `qa.fanar.core.RetryPolicy` + `qa.fanar.core.JitterStrategy` | **implemented** — record + enum + `RetryPolicy.Builder`; validated at construction; `maxDelay` doubles as the `Retry-After` ceiling (ADR-025); `maxTotalDelay` budgets the sum of one call's sleeps (ADR-027). The loop is `RetryInterceptor` below |
 | HTTP transport | `qa.fanar.core.internal.transport` (`HttpTransport`, `DefaultHttpTransport`, `InterceptorChainImpl`, `ExceptionMapper`, `ErrorEnvelope`, `RateLimitHeaders`) | **implemented** — `RateLimitHeaders` is the one parser behind both `rateLimit()` and the `fanar.ratelimit.*` attributes (ADR-026) |
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
-| Request dispatcher | `qa.fanar.core.internal.dispatch.Dispatcher` | **implemented** — the plumbing the eight facades share: assembles the chain once (retry → bearer token → user interceptors → transport), records `fanar.model` / `http.method` / `http.url` per call and runs `InterceptorChainImpl`; a facade owns only its endpoint, wire format and decoding (0.4.0, internal refactor under ADR-018) |
+| Request dispatcher | `qa.fanar.core.internal.dispatch.Dispatcher` | **implemented** — the plumbing the nine facades share: assembles the chain once (retry → bearer token → user interceptors → transport), records `fanar.model` / `http.method` / `http.url` per call and runs `InterceptorChainImpl`; a facade owns only its endpoint, wire format and decoding (0.4.0, internal refactor under ADR-018) |
 | SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |
 | Audio stream publisher | `qa.fanar.core.internal.audio.AudioStreamPublisher` | **implemented** — `SseStreamPublisher`'s structural twin minus frame assembly; emits opaque `byte[]` chunks for streamed TTS (ADR-023); `stream:true` spliced via the shared `internal.transport.StreamFlag` helper |
 | Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — the SDK's error boundary (maps 4xx/5xx to the typed hierarchy inside the chain, ADR-012 amendment) and retry loop: exponential back-off with configurable jitter, `Retry-After` honoured on both 429 subtypes up to `maxDelay` (a longer hint ends retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` events, `http.status_code` per attempt, `fanar.retry_count` on every exit and the `fanar.ratelimit.*` window from any response carrying the headers (last attempt wins, ADR-026), injectable `Sleeper`+`RandomGenerator`. Proved end to end by `FanarClientRetryIntegrationTest` (core), `FanarAutoConfigurationRetryIntegrationTest` (starter), `FanarChatModelRetryIntegrationTest` (Spring AI), the three `*ObservabilityPluginIntegrationTest`s and `WireLoggingInterceptorIntegrationTest` |
@@ -291,7 +292,7 @@ zone (ADR-018).
 | Spring AI 2.0 image adapter | `qa.fanar.spring.ai.FanarImageModel` | **implemented** — `ImageModel`; maps `ImagePrompt` onto `ImageGenerationRequest`, joins multi-message prompts with newlines, returns `b64Json` |
 | Spring AI 2.0 audio adapters | `qa.fanar.spring.ai.FanarTextToSpeechModel`, `FanarTranscriptionModel` | **implemented** — TTS satisfies `StreamingTextToSpeechModel` by wrapping the one-shot result as a single-element `Flux`; STT reads bytes from Spring's `Resource`, infers `Content-Type` from filename extension, always requests text format; TTS streams for real via `speechStream` and honours `FanarTextToSpeechOptions` (`withEmotion`, `quranReciter`) |
 | Spring AI 2.0 auto-configuration | `qa.fanar.spring.ai.FanarSpringAiAutoConfiguration` | **implemented** — registers all four model beans `@ConditionalOnMissingBean` so users override per slot; activates after `FanarAutoConfiguration` |
-| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **shipped** — `fanar-core` carries reflect-config + resource-config metadata for the 32 domain records the JSON codec touches (plus 6 codec helper types); both JSON adapters carry adapter-specific metadata; obs / interceptor modules don't need any (no reflection) |
+| Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **shipped** — `fanar-core` carries reflect-config + resource-config metadata for the 34 domain records the JSON codec touches (plus 6 codec helper types); both JSON adapters carry adapter-specific metadata; obs / interceptor modules don't need any (no reflection) |
 
 ---
 
