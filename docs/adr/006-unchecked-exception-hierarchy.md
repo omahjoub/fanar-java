@@ -1,6 +1,6 @@
 # ADR-006 — Unchecked exception hierarchy
 
-- **Status**: Accepted (amended 2026-08-05, 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
+- **Status**: Accepted (amended 2026-08-05, 2026-08-28, 2026-08-29 and 2026-09-15 — see [Amendments](#amendments))
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -44,7 +44,7 @@ try {
 } catch (FanarRateLimitException e) {
     backoff(e.retryAfter());
 } catch (FanarContentFilterException e) {
-    showRefusalUi(e.filterType());
+    showRefusalUi(e.filterType());   // nullable — see the 2026-09-15 amendment
 } catch (FanarException e) {
     log.error("Fanar call failed", e);
 }
@@ -125,6 +125,92 @@ The deferral above ends with ADR-026: both 429 subtypes gain `rateLimit()`, a nu
 `fanar.ratelimit.*` observation attributes. New constructor overloads carry it; the existing ones
 delegate with `null` — additive under ADR-019. `reset` is the wait until one slot frees in a
 sliding window, never a boundary ([WIRE_OBSERVATIONS](../WIRE_OBSERVATIONS.md)).
+
+### 2026-09-15 — the envelope's `type` reaches `filterType()` (0.5.0)
+
+`FanarContentFilterException.filterType()` had been **dead public API since this ADR shipped**: it
+could not be non-`null` for any exception the SDK produced. `ErrorEnvelope` was a two-member record
+(`code`, `message`), so the spec's `status`, `param` and `type` all fell through to `skipValue()`,
+and both sites that build the exception — the typed `content_filter` route and the HTTP-400 fallback
+— called the 1-arg constructor. The public three-constant `ContentFilterType` therefore had no code
+path that could produce it, while this ADR's own worked example above read
+`showRefusalUi(e.filterType())`.
+
+It survived the 100 % coverage gate exactly as the dead retry path did in 0.2.0: `FanarExceptionTest`
+built the exception directly with the 2-arg constructor, and `ExceptionMapperTest` asserted only the
+exception *class* per envelope code, never the accessor. Neither test crossed the seam where the
+wiring lives.
+
+The mapper now reads `type` off the envelope and passes it to the 2-arg constructor at both sites.
+Mapping is permissive per ADR-015 — a value the SDK ships no constant for decodes into a
+`ContentFilterType` carrying the new wire string rather than failing; absent, JSON-`null` and blank
+all mean "the server provided none" and yield `null`. A `type` on a non-filter code is dropped: this
+ADR keeps metadata on the subtype it belongs to, and `ErrorContentFilterType` is a content-filter
+discriminator by name and by enum.
+
+The envelope parser also became tolerant **per member**, which is load-bearing rather than
+defensive. `param` and `type` are declared nullable by the spec and were both observed `null` on the
+wire (2026-09-15 403, [WIRE_OBSERVATIONS](../WIRE_OBSERVATIONS.md)); reading them with the parser's
+plain string reader throws, which discards the *whole* envelope and silently drops the response to
+HTTP-status routing. Adding the naive `case "type" -> type = string()` would have regressed a path
+that worked.
+
+The tolerance is deliberately wider than `null`: a member whose value is any non-string reads as
+absent, by delegating to the scanner's existing `skipValue()`. Only `code` is load-bearing — it
+picks the subtype — and losing that routing because an auxiliary member arrived with an unexpected
+JSON type is a poor trade. Strictness about JSON *syntax* is unchanged: an unbalanced container or a
+bad escape still fails the parse, and a non-string `code` still yields no envelope, so status
+routing takes over exactly as before.
+
+`param` is now parsed but deliberately **not surfaced**. It belongs on `Error`, i.e. on every
+exception, so a `FanarException.param()` accessor would mean new constructor overloads down all
+fifteen leaf subtypes — a large public-API grid spent on a field observed once, as `null`. Parsing
+it now makes the later surface decision cheap; it is tracked in
+[PROJECT_STATE](../PROJECT_STATE.md) as Planned.
+
+Additive under ADR-019: no signature changed, and an accessor that could only return `null` can now
+also return a value.
+
+The two routes treat `type` differently on purpose. `byCode` drops it for every non-filter code: a
+recognised code is a better signal than the status, and it says the error is not a content filter.
+`byStatus` has no such signal — an unrecognised code leaves only HTTP 400, which this ADR maps to
+content filtering — so the envelope's `type` is the best information available and is carried, at
+the trust level that route already extends to the envelope's `message`. The cost: a future
+400-level code the SDK has not learned yet, arriving with a `type`, surfaces as a
+`FanarContentFilterException` reporting that subtype. The coarse 400 → content-filter mapping is the
+older half of that and is this ADR's to revisit, not this amendment's.
+
+**Proved by** `FanarClientErrorEnvelopeIntegrationTest` (core, `@Tag("integration")`) — the envelope
+reaching `filterType()` through `FanarClient.builder()` → chain → transport → `ScriptedHttpServer`,
+on both construction sites, plus the JSON-`null` regression guard. Units: `ErrorEnvelopeTest`
+(`parsesParamAndType`, `parsesTheLive403ErrorObject`, `jsonNullReadsAsAbsentInEveryMember`),
+`ExceptionMapperTest` (the content-filter-type block).
+
+**Confirmed live, same day.** A targeted probe (four chat calls) settled three things this amendment
+had to assume. The envelope *is* wrapped in `{"error":{…}}` and typed-code routing demonstrably fires
+against real Fanar — a gated-model 422 came back as `{"error":{"code":"unprocessable","message":"Model
+not authorized","status":422,"param":null,"type":null}}` and was routed through `byCode`. That had
+never been proved: every error the live suite provokes (401, the Diwan 422, the Sadiq-2 422) maps to
+the same exception under envelope *and* status routing, so a total parse failure would have been
+invisible.
+
+Two findings cut against the feature this amendment fixes, and both belong here rather than in a
+changelog note:
+
+1. **Fanar's moderation does not use this error path at all.** Two prompts written to trip a safety
+   layer both returned **HTTP 200** with the model declining in ordinary `TextContent` — no
+   `content_filter` 400, no `FinishReason.CONTENT_FILTER`, no `RefusalPart`. So
+   `FanarContentFilterException` may never be constructed in practice, and `filterType()` with it.
+   The accessor is now correct rather than dead, which is worth having; it is not, on current
+   evidence, worth building refusal handling on.
+2. **A second error shape exists that this ADR does not model.** Request-validation failures bypass
+   the envelope entirely and return FastAPI's `{"detail":[{"loc":["body","model"],"msg":…}]}`, which
+   `tryParse` rejects, so routing falls back to HTTP status and the exception message becomes the raw
+   JSON blob. Correct subtype, unreadable message — a candidate for its own cycle.
+
+Both are dated rows in [WIRE_OBSERVATIONS](../WIRE_OBSERVATIONS.md). Together they also settle the
+`param` question above: it is `null` on every envelope captured, and the errors that *would* name an
+offending field don't use the envelope — they name it in FastAPI's `loc`.
 
 ## References
 
