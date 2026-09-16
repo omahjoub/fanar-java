@@ -185,12 +185,24 @@ def _ancestors(path: str):
 
 
 def check_readme_versions(tracked: set[str]) -> list[str]:
-    """The README's quick-start snippets must name the version the reactor is actually on."""
+    """The README's quick-start snippets must name the version the reactor is actually on.
+
+    Only while the reactor is on a SNAPSHOT. The README tracks *main's development version*
+    (`RELEASING.md` step 7 bumps it to the next snapshot after a release), so on a release
+    branch — where `versions:set` has deliberately dropped the `-SNAPSHOT` — the two are
+    supposed to disagree, and the release commit is scoped to poms plus the changelog anyway.
+    Enforcing it there fails the release PR for doing exactly what the runbook asks.
+    """
     pom = open(os.path.join(REPO, "pom.xml"), encoding="utf-8").read()
     m = POM_VERSION.search(pom)
     if not m:
         return ["pom.xml: could not read the reactor version — check-docs needs updating"]
     expected = m.group(1).strip()
+
+    if not expected.endswith("-SNAPSHOT"):
+        print(f"README versions: skipped — reactor is on {expected}, a release version. "
+              f"The README tracks main's snapshot; step 7 realigns it.")
+        return []
 
     readme = open(os.path.join(REPO, "README.md"), encoding="utf-8").read()
     problems = []
@@ -199,7 +211,8 @@ def check_readme_versions(tracked: set[str]) -> list[str]:
             if found.strip() != expected:
                 problems.append(
                     f"README.md:{n}: quick-start shows <version>{found}</version> but the "
-                    f"reactor is on {expected} (docs/RELEASING.md step 7)"
+                    f"reactor is on {expected} — realign it (docs/RELEASING.md step 7 bumps "
+                    f"these after a release)"
                 )
     return problems
 

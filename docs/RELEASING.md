@@ -76,6 +76,10 @@ git push -u origin release/$VERSION
 ```
 
 - [ ] The commit touches only poms + `CHANGELOG.md` (add paths explicitly — never `git add -A`).
+      The one admitted exception is a fix for a release surprise — something that only fails once
+      the release branch exists. Those ride in this PR along with the runbook change that stops
+      them recurring, rather than waiting for a follow-up (`CLAUDE.md`: a release surprise fixes
+      the runbook in the same PR).
 
 ### 3 — Dry-run the release workflow
 
@@ -125,13 +129,24 @@ git push -u origin bump/$NEXT
 - [ ] Update `docs/PROJECT_STATE.md` (move the release from *Planned*, refresh the snapshot
       date and phase) — can ride in the bump-back PR.
 - [ ] Bump the README quick-start version snippets to `$NEXT` — four `<version>` blocks that track
-      `main`'s snapshot. `check-docs` fails if they drift, so a miss turns up in CI — fix it here
-      rather than on a red `main`.
+      `main`'s snapshot. `check-docs` enforces this **only while the reactor is on a `-SNAPSHOT`**,
+      so a miss turns up in CI on `main` — fix it here rather than on a red `main`. The check is
+      deliberately skipped on a release branch, where the reactor is `$VERSION` and the README is
+      still on the old snapshot by design; it prints a line saying so.
 - [ ] Delete the `release/$VERSION` branch (the tag preserves the commit).
 - [ ] Optional smoke: clone at the tag and `./mvnw install`, or resolve an attached jar into a
       scratch project.
 
 ## Troubleshooting
+
+**`check-docs` fails the release PR on the README version snippets.** Fixed 2026-09-16 during the
+0.6.0 release, kept here because the shape recurs: a gate that compares a doc against the reactor
+version must ask *which* version the doc is supposed to track. The README tracks `main`'s
+development snapshot, so on a release branch — where `versions:set` has just dropped the
+`-SNAPSHOT` — it is correct for them to disagree, and the release commit is scoped to poms plus
+the changelog anyway. The check now enforces only while the reactor is on a `-SNAPSHOT`. If you
+see this failure again, the check regressed; do not "fix" it by editing the README on the release
+branch.
 
 - **Pom-guard failure** ("pom.xml version is 'X-SNAPSHOT' but the release expects 'X'"): the
   `versions:set` commit is missing from the ref being released. The workflow's error message

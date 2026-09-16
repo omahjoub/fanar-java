@@ -9,6 +9,19 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-16
+
+A reconciliation release. Every document in this repository was checked against the code rather
+than against other documents, and the disagreements turned out to be defects more often than
+drift: streaming never worked under GraalVM native-image, the Spring AI starter was published but
+absent from the BOM in every release to date, the Spring Boot starter could not be placed on the
+module path at all, an unmapped HTTP status surfaced as a fabricated `500`, and an observability
+plugin could fail the call it was observing. All 29 ADRs now match the code and none carries an
+amendment. Pre-1.0, so the observation-name and streaming-observation changes below break without
+a deprecation cycle ([ADR-019](docs/adr/019-pre-10-stability-policy.md)); see **Changed** for
+migration notes. Not yet on Maven Central — jars are attached to the GitHub Release
+([ADR-029](docs/adr/029-publication-target.md)).
+
 ### Added
 
 - **`fanar-core`** — `qa.fanar.core.Streams`, a blocking bridge from the streaming surface to a
@@ -529,7 +542,8 @@ from a clone, or download the artifacts attached to this release.
   end-to-end since they shape the prompt text.
 - **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
 
-[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.6.0
 [0.5.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.5.0
 [0.4.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.4.0
 [0.3.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.3.0
