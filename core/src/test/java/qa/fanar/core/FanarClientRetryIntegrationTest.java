@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>This is the seam the unit tests cannot see. {@code RetryInterceptorTest} proves the loop on
  * outcomes it is handed and the facade tests prove mapping with retries disabled; only a test
  * that crosses facade → chain → transport can prove that an error response actually reaches the
- * retry decision — which through 0.2.0 it never did (ADR-012 amendment, 2026-08-28). Every ADR-014
+ * retry decision — which through 0.2.0 it never did (ADR-012). Every ADR-014
  * / ADR-025 promise a consumer can observe is asserted here: retry on 5xx, {@code Retry-After}
  * honoured up to {@code maxDelay}, abort above it with the hint preserved, quota not retried but
  * hinted, non-retryable errors not retried, attempts exhausted → last error, and user interceptors
@@ -176,7 +176,7 @@ class FanarClientRetryIntegrationTest {
 
     @Test
     void userInterceptorsSeeRawErrorResponses() {
-        // ADR-012 amendment: mapping happens at the retry boundary, outside user interceptors,
+        // ADR-012: mapping happens at the retry boundary, outside user interceptors,
         // so logging / capture interceptors keep observing 4xx/5xx as responses.
         server.enqueue(Reply.of(503, "busy"), ok());
         List<Integer> seen = new CopyOnWriteArrayList<>();

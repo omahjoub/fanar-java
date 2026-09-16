@@ -385,7 +385,9 @@
           `-Ppublish` adds the -sources.jar and -javadoc.jar that a published artifact needs.
           Kept out of the default build so `./mvnw verify` stays fast: a full javadoc run is
           slower than everything else in this reactor combined, and it proves nothing a
-          contributor needs proved on every commit. The release workflow enables it.
+          contributor needs proved on every commit. Enabled manually for now: the GitHub-Release
+          flow does not ship these jars, and wiring it into `release.yml` waits on the publication
+          target (ADR-029).
 
           Modules that are never published (samples, e2e, e2e-graalvm, test-support) opt out with
           maven.source.skip / maven.javadoc.skip next to their existing maven.deploy.skip.

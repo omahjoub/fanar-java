@@ -30,7 +30,7 @@ All errors surface as **unchecked exceptions** under a single root:
 public abstract sealed class FanarException extends RuntimeException
         permits FanarClientException, FanarServerException, FanarTransportException, FanarContentFilterException { … }
 
-// 4xx — the request as sent was rejected. Never retried by default.
+// 4xx — the request as sent was rejected.
 public abstract sealed class FanarClientException extends FanarException { … }
 
 // 5xx — the server failed. Retried by default.
@@ -70,7 +70,8 @@ Two leaves exist that no `ErrorCode` names:
   either would be a lie a caller cannot detect.
 
 **The branch invariant is load-bearing, not cosmetic.** `RetryPolicy.isDefaultRetryable` switches on
-the branch, so which side of the 4xx/5xx line a status lands on decides whether it is retried. An
+the branch, so which side of the 4xx/5xx line a status lands on is what the retry policy reads
+(ADR-014 owns that policy, including the two statuses it exempts). An
 unmodelled 4xx filed under `FanarServerException` would be retried three times with backoff and
 reported to the caller as a server fault — which is what the SDK did before the `Unexpected*` leaves
 existed, for every status outside the declared set.

@@ -11,7 +11,7 @@ some use an explicit `.api` subpackage, some use annotation-driven visibility. T
 user mental model, IDE navigation, and the line between contract (stable) and implementation (refactorable).
 
 Fanar's OpenAPI spec describes roughly a hundred schemas across nine functional domains (chat, audio, images, translations, poems,
-moderation, tokens, models). Whatever package structure we adopt will host roughly that many DTO types plus the
+moderations, sadiq, tokens, models). Whatever package structure we adopt will host roughly that many DTO types plus the
 facades, exception hierarchy, and SPI interfaces.
 
 ## Decision
@@ -93,6 +93,11 @@ artifact renames the package with it, never one without the other.
   scalability as Fanar adds domains.
 - Sealed-interface variants (e.g., `StreamEvent` permits) live in the same subpackage — domain-grouped, not
   collected in a "union" subpackage. Minor aesthetic call.
+- Because module names track artifact ids, `fanar-json-jackson2` and `fanar-json-jackson3` yield
+  module names ending in a digit, and javac warns `module name component jackson2 should avoid
+  terminal digits` for each. The warning is accepted rather than worked around: renaming the module
+  to silence it would break the 1:1 correspondence above, and javac only warns. These are the two
+  expected warnings a clean `verify` emits.
 
 ### Neutral
 - The `.internal.*` subtree is an anti-contract (ADR-018); it exists for organizational clarity, not external

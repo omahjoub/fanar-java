@@ -68,15 +68,31 @@ Path 3 is not "edit sixteen POMs". ADR-011 and JLBP-6 make artifact id and packa
 and the reason they do applies here with force: a package named `qa.fanar.*` claims a domain we do
 not control, which is the same objection that blocks the groupId. Measured blast radius:
 
+Measured 2026-09-16 on branch `docs` (the footnote below reproduces every row):
+
 | | Count |
 |---|---|
 | POMs declaring `<groupId>qa.fanar</groupId>` | 16 |
-| Java files under `qa/fanar/**` | 371 |
-| Files mentioning `qa.fanar` at all | 425 |
+| Java files under `qa/fanar/**` | 378 |
+| Files mentioning `qa.fanar` at all | 434 |
 | `exports qa.fanar.*` clauses in `module-info.java` | 17 |
 | `META-INF/services` descriptors naming SPI types | 2 |
 | GraalVM reachability-metadata files naming classes | 4 |
 | Spring `AutoConfiguration.imports` files | 2 |
+
+<details><summary>Commands behind the table</summary>
+
+```bash
+git ls-files '*pom.xml' | xargs grep -l '<groupId>qa.fanar</groupId>' | wc -l
+git ls-files | grep -c 'qa/fanar/.*\.java$'
+git grep -l 'qa\.fanar' | wc -l
+git grep -c '^\s*exports qa\.fanar' -- '*module-info.java' | awk -F: '{n+=$2} END {print n}'
+git ls-files | grep -c 'META-INF/services/'
+git ls-files | grep -c 'META-INF/native-image/.*\.json$'
+git ls-files | grep -c 'AutoConfiguration.imports$'
+```
+
+</details>
 
 Mechanical, but it touches the two categories that fail *silently* rather than at compile time —
 `META-INF/services` and the native-image metadata name classes as strings, so a missed rename
@@ -131,7 +147,7 @@ Deliberately **not** done, because the path decides them: `distributionManagemen
   Central was ours to arrange.
 
 ### Negative / Trade-offs
-- Path 3 costs a rename across 425 files, two of whose categories fail silently. Accepted: it is a
+- Path 3 costs a rename across 434 files, two of whose categories fail silently. Accepted: it is a
   single mechanical change, it is cheap only before 1.0, and the GraalVM self-test plus the codec
   `ServiceLoader` assertion cover the silent-failure classes.
 - Until the decision lands, the SDK stays un-resolvable. Mitigated by GitHub Packages being

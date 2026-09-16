@@ -45,7 +45,9 @@ public interface ObservationHandle extends AutoCloseable {
 ### Shape rules
 
 - **One plugin per `FanarClient`**. Unlike interceptors (which chain), observability has a single implementation slot.
-- **`AutoCloseable` lifecycle**. The SDK opens observations with try-with-resources; `close()` is idempotent.
+- **`AutoCloseable` lifecycle**. The SDK closes every handle it opens: a one-shot call with
+  try-with-resources, a streaming call when the publisher reaches its terminal signal (see below).
+  `close()` is idempotent.
 - **Standardized operation names**, shaped `fanar.<domain>.<operation>` — `fanar.chat.send`,
   `fanar.models.list`, `fanar.moderations.score`, and so on for every facade. A streaming variant
   appends `.stream` (`fanar.chat.stream`, `fanar.audio.speech.stream`) so its metrics separate from
@@ -114,7 +116,8 @@ public interface ObservationHandle extends AutoCloseable {
 ### Positive
 - Unified metrics+tracing matches where the industry is converging (OpenTelemetry, Micrometer `Observation`).
 - Zero deps in core (JLBP-1).
-- `AutoCloseable` + try-with-resources is natural Java; idempotent `close()` is safe under all exception paths.
+- `AutoCloseable` is natural Java; idempotent `close()` is safe under all exception paths, which is
+  what lets a streaming publisher own the handle without risking a double close.
 - Nested observations (`child(...)`) leave room for phase-level insight without forcing callers to
   orchestrate spans themselves.
 - The adapter modules (`fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer`) are thin wrappers

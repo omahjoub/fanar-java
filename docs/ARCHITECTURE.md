@@ -143,7 +143,7 @@ ChatClient (domain facade)                                                 qa.fa
     │
     │  validate → pick endpoint → start observation
     ▼
-ObservabilityPlugin.start("fanar.chat")  ──────►  ObservationHandle   (AutoCloseable)
+ObservabilityPlugin.start("fanar.chat.send")  ─────►  ObservationHandle   (AutoCloseable)
     │
     │  encode body via FanarJsonCodec, build HttpRequest, attach propagationHeaders()
     ▼
@@ -225,7 +225,7 @@ runtime types — all seams use JDK types or our own interfaces (ADR-003, ADR-00
 FanarException               (sealed, unchecked)
 ├── FanarTransportException  (wraps IOException / InterruptedException from transport)
 ├── FanarContentFilterException
-├── FanarClientException     (sealed 4xx — never retried by default)
+├── FanarClientException     (sealed 4xx)
 │   ├── FanarAuthenticationException
 │   ├── FanarAuthorizationException
 │   ├── FanarQuotaExceededException
@@ -236,7 +236,7 @@ FanarException               (sealed, unchecked)
 │   ├── FanarGoneException
 │   ├── FanarClientClosedRequestException
 │   └── FanarUnexpectedClientException     (a 4xx the wire contract does not declare)
-└── FanarServerException     (sealed 5xx — retried by default)
+└── FanarServerException     (sealed 5xx)
     ├── FanarRateLimitException
     ├── FanarOverloadedException
     ├── FanarTimeoutException
@@ -296,7 +296,7 @@ zone (ADR-018).
 | SLF4J observability adapter | `qa.fanar.obs.slf4j.Slf4jObservabilityPlugin` | **implemented** — one structured log line per operation through SLF4J at `DEBUG` (success) / `ERROR` (failure); per-operation logger names (`fanar.chat.send`, `fanar.audio.speech`, ...); attribute filter / redactor knobs via builder; `provided`-scope SLF4J |
 | OpenTelemetry observability adapter | `qa.fanar.obs.otel.OpenTelemetryObservabilityPlugin` | **implemented** — one OTel span per operation, typed attribute dispatch (long / double / boolean / String), W3C `traceparent` injection via `propagationHeaders()`, parent-child via captured context (survives virtual-thread async hops); attribute filter / redactor knobs; `provided`-scope OpenTelemetry API |
 | Micrometer observability adapter | `qa.fanar.obs.micrometer.MicrometerObservabilityPlugin` | **implemented** — one Micrometer `Observation` per operation; attributes → low-cardinality `KeyValue`s for metric tags, except the unbounded `fanar.ratelimit.remaining` / `.reset` (high-cardinality by default, `highCardinalityKeys(Predicate)` to change — ADR-026); backend (metrics / tracing) wired by the consuming application's `ObservationRegistry`; `provided`-scope `micrometer-observation` |
-| Wire logging interceptor | `qa.fanar.interceptor.logging.WireLoggingInterceptor` | **implemented** — OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`), SLF4J sink at `fanar.wire`, configurable header redaction (default `Authorization`), body byte cap, streaming-aware (skips `text/event-stream` bodies), `<-- failed <uri> (<ms>ms): <exception>` when the chain throws — rethrown unchanged (ADR-012 amendment 2026-08-29); `provided`-scope SLF4J |
+| Wire logging interceptor | `qa.fanar.interceptor.logging.WireLoggingInterceptor` | **implemented** — OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`), SLF4J sink at `fanar.wire`, configurable header redaction (default `Authorization`), body byte cap, streaming-aware (skips `text/event-stream` bodies), `<-- failed <uri> (<ms>ms): <exception>` when the chain throws — rethrown unchanged (ADR-012); `provided`-scope SLF4J |
 | Spring Boot 4 auto-configuration | `qa.fanar.spring.boot.v4.FanarAutoConfiguration` + `FanarProperties` | **implemented** — typed `fanar.*` `@ConfigurationProperties` record (api-key, base-url, timeouts, retry, wire-logging level), `FanarClient` bean with auto-wired `Interceptor` + `ObservabilityPlugin` via `ObjectProvider`, default Jackson 3 codec |
 | Spring Boot 4 health indicator | `qa.fanar.spring.boot.v4.FanarHealthIndicator` + `FanarHealthAutoConfiguration` | **implemented** — `AbstractHealthIndicator` calling `models().list()`; activates only when `spring-boot-health` is on the classpath (`provided + optional`); UP carries model count + request id, DOWN carries error class + HTTP status; gated by `management.health.fanar.enabled` |
 | Spring AI 2.0 chat adapter | `qa.fanar.spring.ai.FanarChatModel` | **implemented** — `ChatModel` + `StreamingChatModel`; maps `Prompt` / `ChatOptions` onto `ChatRequest` (pass `FanarChatOptions` for the Fanar-only knobs — persona, madhab, thinking, RAG scoping, vLLM sampling; ADR-024), bridges `Flow.Publisher<StreamEvent>` to `Flux<ChatResponse>`, drops TOOL messages and `ProgressChunk` / `ToolCallChunk` / `ToolResultChunk` (Fanar's tool calls are server-internal Sadiq retriever telemetry, not user tools) |

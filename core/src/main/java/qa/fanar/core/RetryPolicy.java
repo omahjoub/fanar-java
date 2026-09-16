@@ -147,8 +147,9 @@ public record RetryPolicy(
 
     /**
      * Canonical retryable-exception matrix. All transient server-side errors and transport-level
-     * failures are retryable; all deterministic client-side errors and content-filter rejections
-     * are not.
+     * failures are retryable; deterministic client-side errors and content-filter rejections are
+     * not, with one documented exception — HTTP 408 and 425 are client-class by number but mean
+     * "try again", so they are retried (ADR-014).
      *
      * <p>Implemented as an exhaustive pattern-match on the sealed {@link FanarException} hierarchy.
      * If a future release adds a new top-level branch to that hierarchy, the compiler flags this

@@ -373,7 +373,7 @@ class ExceptionMapperTest {
         assertInstanceOf(FanarInternalServerException.class, ex);
     }
 
-    // --- content-filter type (ADR-006 amendment 2026-09-15)
+    // --- content-filter type (ADR-006)
     //
     // Through 0.4.0 filterType() was dead API: ErrorEnvelope dropped the envelope's `type` member,
     // so no server response could reach it. These pin the wiring; the seam-crossing proof that it

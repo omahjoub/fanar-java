@@ -47,7 +47,10 @@ may break public API until 1.0.0 ships.
   `<img src>`, and the README's version snippets against the reactor version. `check-build` is new
   and guards three invariants a green build otherwise hides — the BOM managing exactly the published
   library modules, every class named as a *string* in `META-INF/services` or the GraalVM metadata
-  resolving to a real source file, and no published module opting out of the coverage gate.
+  resolving to a real source file, and no published module opting out of the coverage gate. The
+  services check includes the descriptor's **filename**, which is itself the service-interface FQN:
+  a rename reaches it through neither the compiler nor a find-and-replace over file contents, and
+  missing it costs a consumer "no `FanarJsonCodec` on the classpath" at runtime.
 - **docs** — [ADR-029](docs/adr/029-publication-target.md) (*Proposed*) records the publication
   decision and the constraint that shapes it: `groupId` is `qa.fanar`, reverse-DNS for `fanar.qa`,
   and Sonatype Central verifies a namespace by proving control of the domain — which is the Fanar

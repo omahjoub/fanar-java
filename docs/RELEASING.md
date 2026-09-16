@@ -31,8 +31,8 @@ NEXT=0.7.0-SNAPSHOT      # main's next development version
 
 ### 0 — Preflight (on `main`)
 
-- [ ] CI green on `main` — both jobs: `test` (Java 21 + 25 matrix, JaCoCo 100 %, doclint,
-      dep-analyze) **and** `check-docs`.
+- [ ] CI green on `main` — all three jobs: `test` (Java 21 + 25 matrix, JaCoCo 100 %, doclint,
+      dep-analyze), `check-docs` **and** `check-build`.
 - [ ] Live e2e run performed **on the release-candidate tree** — after the last code change that
       will ship; an earlier run that predates it does not count (0.4.0 was tagged on a run one day
       and four PRs old). Run `mkdir -p tasks && FANAR_API_KEY=… ./mvnw -pl e2e -am verify > "tasks/live-$(date +%F).log" 2>&1`,
@@ -125,7 +125,8 @@ git push -u origin bump/$NEXT
 - [ ] Update `docs/PROJECT_STATE.md` (move the release from *Planned*, refresh the snapshot
       date and phase) — can ride in the bump-back PR.
 - [ ] Bump the README quick-start version snippets to `$NEXT` — four `<version>` blocks that track
-      `main`'s snapshot. Nothing checks them, and they have gone stale before.
+      `main`'s snapshot. `check-docs` fails if they drift, so a miss turns up in CI — fix it here
+      rather than on a red `main`.
 - [ ] Delete the `release/$VERSION` branch (the tag preserves the commit).
 - [ ] Optional smoke: clone at the tag and `./mvnw install`, or resolve an attached jar into a
       scratch project.

@@ -89,6 +89,10 @@ No callback-builder API (`onToken`, `onProgress`, …) is provided.
 
 - `StreamsTest` — the bridge: ordering, one-item-ahead demand, close-cancels-the-subscription,
   and failures surfacing from the consuming operation with checked exceptions wrapped.
+- `FanarClientStreamsIntegrationTest` — the bridge against the real publisher and transport:
+  abandoning the stream early (`findFirst`) cancels the subscription and releases the HTTP
+  response, and a fully consumed stream closes on the completion path instead. `StreamsTest`
+  drives a hand-rolled publisher, which has no response to release.
 - `SseStreamPublisherTest` — the publisher's own contract (demand, cancellation, terminal signals).
 - `FanarClientRetryIntegrationTest.streamingHandshakeIsRetriedThroughThePublicApi` — the handshake
   retry posture through the public API.

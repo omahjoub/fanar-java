@@ -80,7 +80,7 @@ class ErrorEnvelopeTest {
         assertEquals("Not found", ErrorEnvelope.tryParse("{\"error\":{\"code\":\"Not found\"}}").code());
     }
 
-    // --- the spec's nullable members (ADR-006 amendment 2026-09-15)
+    // --- the spec's nullable members (ADR-006)
 
     @Test
     void parsesParamAndType() {

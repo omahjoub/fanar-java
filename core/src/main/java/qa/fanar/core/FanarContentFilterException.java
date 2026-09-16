@@ -10,7 +10,7 @@ package qa.fanar.core;
  *
  * <p><strong>This exception may never reach you, and {@code filterType()} may never be populated.</strong>
  * Through 0.4.0 the accessor was dead API — the envelope parser dropped the member before the
- * exception was built (fixed 2026-09-15, ADR-006 amendment). It is wired now, but a live probe the
+ * exception was built (fixed 2026-09-15, ADR-006). It is wired now, but a live probe the
  * same day found that Fanar's moderation refuses <em>inside a 200</em>, in ordinary assistant text:
  * prompts written to trip a safety layer returned a normal {@code TextContent} decline, with no
  * {@code content_filter} error, no {@link qa.fanar.core.chat.FinishReason#CONTENT_FILTER} and no

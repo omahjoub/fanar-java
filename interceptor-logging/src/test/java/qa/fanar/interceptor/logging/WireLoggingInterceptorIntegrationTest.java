@@ -27,10 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The wire logger inside the <em>real</em> chain: registered through {@code FanarClient.builder()
  * .addInterceptor(...)}, so it sits below the SDK's retry boundary and sees every attempt as raw
- * HTTP — the 503 body included — while the caller only sees the decoded success (ADR-012 amendment,
- * 2026-08-28). When the chain below it throws — the transport cannot connect, or a later
+ * HTTP — the 503 body included — while the caller only sees the decoded success (ADR-012).
+ * When the chain below it throws — the transport cannot connect, or a later
  * interceptor throws — it logs a {@code <-- failed} line on every attempt and the exception reaches
- * the caller unchanged (ADR-012 amendment, 2026-08-29). The unit test proves the formatting on
+ * the caller unchanged (ADR-012). The unit test proves the formatting on
  * synthetic exchanges; this proves the placement.
  */
 @Tag("integration")

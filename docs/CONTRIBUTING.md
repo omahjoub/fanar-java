@@ -18,7 +18,7 @@ Then, before you touch a live test or interpret one: **[Wire observations](WIRE_
 ledger of what the live API actually does where it differs from the spec, plus the live-suite budget. Nothing else
 records that, and [Testing](#testing) below assumes you have read it.
 
-That is a few hours of reading, not a coffee break — the ADRs alone are twenty-eight records. Read 1–3 first and
+That is a few hours of reading, not a coffee break — the ADRs alone are the largest block. Read 1–3 first and
 the rest when you need them; every document says at the top who it is for.
 
 ## Local setup
@@ -32,9 +32,10 @@ cd fanar-java
 ```
 
 `verify` passes with two expected compiler warnings — `module name component jackson2 should avoid terminal digits`
-and the same for `jackson3`. The module names match their artifact ids (ADR-011) and javac only warns, so the
-warning is accepted rather than worked around. If the build fails, or warns about anything else, that is a bug —
-please open an issue.
+and the same for `jackson3`. The module names match their artifact ids, so renaming to silence the warning would
+break that correspondence; ADR-011 records the trade-off. The build also emits routine maven-shade warnings from
+`e2e-graalvm` (overlapping `MANIFEST.MF`, empty jar) and one `[WARNING]` line per skipped live test. If the build
+fails, that is a bug — please open an issue.
 
 ### Running one module only
 

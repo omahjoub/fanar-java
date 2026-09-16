@@ -87,6 +87,10 @@ The slot remains single; the SPI shape unchanged.
 - `CompositeObservabilityPluginTest` — fan-out across the whole handle lifecycle, and the
   containment rules: a throwing child neither fails the caller nor silences its siblings, a child
   that throws on `start` or returns `null` gets a silent slot.
+- `FanarClientObservabilityIsolationIntegrationTest.aBrokenPluginDoesNotBlindAHealthyOneComposedAfterIt`
+  — the same containment through the public API and a real request, for a genuine composite of
+  two. The other cases in that class cover the single-plugin routes, where `compose(single)`
+  unwraps and the client's own wrapper is what contains the failure.
 
 ## References
 

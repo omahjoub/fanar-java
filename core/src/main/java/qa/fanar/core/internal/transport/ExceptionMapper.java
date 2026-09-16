@@ -47,7 +47,7 @@ import qa.fanar.core.RateLimitInfo;
  * {@code content_filter} code and the HTTP-400 fallback. Mapping is permissive (ADR-015): a value
  * this SDK ships no constant for decodes into a {@code ContentFilterType} carrying the new wire
  * string. Absent, JSON-{@code null} and blank all mean "the server provided none" and yield
- * {@code null} (ADR-006 amendment 2026-09-15).</p>
+ * {@code null} (ADR-006).</p>
  *
  * <p>The two routes treat {@code type} differently on purpose. {@link #byCode} drops it for every
  * non-filter code, because a code this SDK recognises is a <em>better</em> signal than the status

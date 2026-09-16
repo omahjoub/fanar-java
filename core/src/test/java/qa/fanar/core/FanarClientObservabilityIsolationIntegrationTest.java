@@ -40,8 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * plugin was installed — a lone plugin was unguarded while two composed plugins were guarded, which
  * is precisely backwards (ADR-013, ADR-022).</p>
  *
- * <p>Both installation routes are covered: a plugin set directly, and one supplied through
- * {@link ObservabilityPlugin#compose}, which returns a single plugin unwrapped.</p>
+ * <p>All three installation routes are covered: a plugin set directly, one supplied through
+ * {@link ObservabilityPlugin#compose} (which returns a single plugin unwrapped), and a genuine
+ * composite of two, where a broken child must not blind a healthy sibling.</p>
  */
 @Tag("integration")
 class FanarClientObservabilityIsolationIntegrationTest {
@@ -85,6 +86,39 @@ class FanarClientObservabilityIsolationIntegrationTest {
         try (FanarClient client = client(ObservabilityPlugin.compose(new Exploding()))) {
             assertDoesNotThrow(() -> client.chat().send(ping()));
         }
+        assertEquals(1, server.hits());
+    }
+
+    @Test
+    void aBrokenPluginDoesNotBlindAHealthyOneComposedAfterIt() {
+        // The half of ADR-022 a consumer can observe: compose(a, b) takes the composite path,
+        // where compose(single) unwraps. One dead backend must cost only its own telemetry.
+        server.enqueue(Reply.json(200, RESPONSE));
+        List<String> calls = new CopyOnWriteArrayList<>();
+
+        ObservabilityPlugin healthy = operationName -> {
+            calls.add("start:" + operationName);
+            return new ObservationHandle() {
+                @Override public ObservationHandle attribute(String k, Object v) { calls.add("attribute:" + k); return this; }
+                @Override public ObservationHandle event(String n) { return this; }
+                @Override public ObservationHandle error(Throwable t) { return this; }
+                @Override public ObservationHandle child(String n) { return this; }
+                @Override public Map<String, String> propagationHeaders() { return Map.of(); }
+                @Override public void close() { calls.add("close"); }
+            };
+        };
+
+        try (FanarClient client = client(ObservabilityPlugin.compose(new Exploding(), healthy))) {
+            ChatResponse r = assertDoesNotThrow(() -> client.chat().send(ping()),
+                    "a throwing child must not reach the caller");
+            assertEquals("resp-1", r.id());
+        }
+
+        assertTrue(calls.contains("start:fanar.chat.send"),
+                "the healthy plugin is still started despite the broken one preceding it: " + calls);
+        assertTrue(calls.contains("attribute:fanar.model"),
+                "and still receives attributes after the broken one threw: " + calls);
+        assertTrue(calls.contains("close"), "and is still closed: " + calls);
         assertEquals(1, server.hits());
     }
 

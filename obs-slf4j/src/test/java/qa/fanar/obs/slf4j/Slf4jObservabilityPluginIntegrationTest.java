@@ -69,7 +69,7 @@ class Slf4jObservabilityPluginIntegrationTest {
                 "the retry_attempt event is logged as it happens: " + calls);
         LogCall closed = calls.stream().filter(c -> c.is("debug", "ok in {}ms attrs={}")).findFirst()
                 .orElseThrow(() -> new AssertionError("no success line logged on close: " + calls));
-        assertTrue(closed.loggerName().startsWith("fanar.chat"), "logger is the operation name: " + closed.loggerName());
+        assertEquals("fanar.chat.send", closed.loggerName(), "logger is the operation name");
         Map<?, ?> attrs = (Map<?, ?>) closed.args()[2];
         assertEquals(1, attrs.get("fanar.retry_count"));
         assertEquals(200, attrs.get("http.status_code"), "last attempt's status wins");

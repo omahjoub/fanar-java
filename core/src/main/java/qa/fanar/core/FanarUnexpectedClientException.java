@@ -10,7 +10,10 @@ package qa.fanar.core;
  * <p>{@link #code()} is {@code null} because no Fanar {@link ErrorCode} describes the response;
  * {@link #httpStatus()} is the status as received, never a substitute. Like every
  * {@link FanarClientException} it is <em>not</em> retried by default — retrying a request the
- * other side rejected changes nothing.</p>
+ * other side rejected changes nothing — with two exceptions carried by this type: HTTP
+ * {@code 408} (request timeout) and {@code 425} (too early), which are client-class by number but
+ * mean "try again". Fanar declares neither, so they only arrive from an intermediary such as a
+ * proxy or gateway (ADR-014).</p>
  *
  * @author Oussama Mahjoub
  */

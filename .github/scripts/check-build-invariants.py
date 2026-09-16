@@ -134,7 +134,16 @@ def _named_classes(path: str) -> list[str]:
     """Class names a metadata file asserts, restricted to ones we could have renamed."""
     full = os.path.join(REPO, path)
     names: list[str] = []
+    if not os.path.exists(full):
+        # Tracked but absent from disk: a rename that was not staged. Report it rather than
+        # dying with a traceback in a CI log.
+        return ["<missing file>"]
     if "/META-INF/services/" in path:
+        # The descriptor's *filename* is the service interface's FQN, and a rename reaches it
+        # through neither the compiler nor a find-and-replace over file contents. Miss it and
+        # ServiceLoader finds nothing, which surfaces as "no FanarJsonCodec on the classpath"
+        # in a consumer's process — the exact failure this check exists to prevent.
+        names.append(os.path.basename(path))
         for line in open(full, encoding="utf-8"):
             line = line.strip()
             if line and not line.startswith("#"):

@@ -386,8 +386,8 @@ FanarClient client = FanarClient.builder()
     .build();
 ```
 
-The default plugin is a no-op. The SDK emits one observation per semantic operation (`fanar.chat`,
-`fanar.audio.speech`, etc.) with standardized attribute names defined in `FanarObservationAttributes`.
+The default plugin is a no-op. The SDK emits one observation per semantic operation
+(`fanar.chat.send`, `fanar.audio.speech`, etc.) with standardized attribute names defined in `FanarObservationAttributes`.
 Three adapters ship: `fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer`. Combine them via
 `ObservabilityPlugin.compose(slf4j, otel, micrometer)` — single slot, fan-out semantics.
 
