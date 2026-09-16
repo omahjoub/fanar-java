@@ -26,9 +26,11 @@ rate-limit window (ADR-026) and stops sleeping past a total budget (ADR-027, tha
 breaking change).
 
 **Open on `main` (0.6.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
-verse-match tolerance on the 2026-09-15 run, so a full live run now produces **11** failures — the
-ten gated by design plus that one (miss rate by date: 0/4 → 2/6 → 4/7, one way). Either the retry
-budget rises or `LivePoemsTest` joins the known-failing list; deferred 2026-09-16 until the upgraded
+verse-match tolerance on the 2026-09-15 run, so a full live run produces **10 failures, or 11 when
+a run's Diwan misses concentrate on one case** — the ten gated by design, plus that one. Miss rate
+by date: 2/4, 2/6, 0/4, 4/7, 4/8 — high, but not trending; 2026-09-15 and 2026-09-16 both saw four
+misses and only the first failed, because three landed on one case. Either the retry budget rises or
+`LivePoemsTest` joins the known-failing list; deferred 2026-09-16 until the upgraded
 API key lands, which turns the ten gated failures green and rewrites the list in the same pass. The
 [ledger](WIRE_OBSERVATIONS.md#live-suite-budget) records 11 until then. Also carried: the live-suite nightly and the
 publication decision ([ADR-029](adr/029-publication-target.md)), both waiting on the Fanar team.
