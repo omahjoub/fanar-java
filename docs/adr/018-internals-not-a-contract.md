@@ -30,7 +30,9 @@ JLBP-7; API stability per JLBP-10.
 
 ### Internal implementation
 
-- Everything under `qa.fanar.*.internal.*` (note the wildcard — every module has its own `.internal.*` subtree).
+- Everything under `qa.fanar.*.internal.*`. The wildcard is the rule, not a description of today's
+  tree: `core` is the only module with an `.internal.*` subtree so far, because it is the only one
+  big enough to need the split. A module gets one when it has implementation worth hiding.
 - **Not exported** via `module-info.java`.
 - May be rewritten, replaced, or deleted in any release without deprecation. Not a contract.
 
@@ -67,9 +69,10 @@ When adding code to `fanar-core`, the decision process is:
 ## Consequences
 
 ### Positive
-- Every provisional implementation decision (all 16 prior ADRs) can be revisited without breaking downstream. We
-  gain the freedom to evolve. Example: ADR-017 SSE parser can move from line-based to byte-level reactive, or to a
-  third-party library, with zero downstream impact.
+- Every provisional implementation decision can be revisited without breaking downstream. Example:
+  the SSE parser (ADR-017) can move to byte-level reactive, or to a third-party library, with zero
+  downstream impact — and the request plumbing every facade shares was in fact extracted into an
+  internal `Dispatcher` after the facades shipped, which this rule is what made possible.
 - Semver means what it says. "No breaking changes in a minor release" is enforceable at the module boundary, not a
   reviewer vigilance exercise.
 - New contributors have a clear rule for placement: default-internal, justify-public. Faster code reviews, less
@@ -83,8 +86,8 @@ When adding code to `fanar-core`, the decision process is:
   for that consumer.
 
 ### Neutral
-- The rule is uniform across every module in the reactor (today: core, two Jackson adapters, BOM; tomorrow: more
-  adapters, starters, extensions).
+- The rule is uniform across every module in the reactor — the codecs, the observability adapters,
+  the interceptor, the starters — not a special case for core.
 
 ## References
 

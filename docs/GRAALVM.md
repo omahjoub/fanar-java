@@ -9,21 +9,24 @@ locally, then explains the iteration loop and the troubleshooting paths. If you'
 
 ## What this validates
 
-The README promises *"GraalVM native-image workloads — reflection-free by design, ready
-for serverless and edge."* The `e2e-graalvm` module backs that promise: every PR build
+The project targets GraalVM native-image as a first-class shape (`README.md`, ADR-009). The `e2e-graalvm` module backs that promise: every PR build
 compiles the SDK to a single native binary and verifies the binary works. If a new
 reflective access creeps in without metadata, the build fails before it reaches users.
 
 What "works" means concretely:
 
-- The binary starts in ~30 ms (vs ~3 s for the JVM-mode equivalent).
-- It uses ~50 MB RSS (vs ~500 MB).
-- Every Fanar domain (chat, models, tokens, moderations, translations, poems, images,
-  audio) decodes its responses correctly.
+- The binary starts in milliseconds rather than the JVM's seconds, and holds a fraction of
+  its memory. (Orders of magnitude, not measurements — nothing in this repo records a dated
+  benchmark, so treat the shape as the claim and measure your own workload.)
+
+- Every Fanar domain (chat, models, tokens, moderations, translations, poems, Sadiq
+  validation, images, audio) decodes its responses correctly.
 - Every observability adapter (SLF4J, OTel, Micrometer, the composite that fans them out)
   runs without crashing.
-- Every typed Fanar exception (auth, timeout, rate limit, …) is reachable from the
-  binary's exception-mapping path.
+- The typed `FanarException` hierarchy is reachable from the binary's error path. The
+  live walk prints whichever exceptions the server actually returns — authorization on a
+  gated domain, rate limiting on a spent audio budget — and continues past them. The
+  offline self-test makes no HTTP call, so it exercises no mapping at all.
 
 ---
 
@@ -63,8 +66,8 @@ to native code as they execute.       code for every reachable
 Behaves like any other JVM.           method, plus an embedded
                                       tiny VM (SubstrateVM).
 
-  Startup: ~3 s                          Startup: ~30 ms
-  Memory:  ~500 MB                       Memory:  ~50 MB
+  Startup: seconds                       Startup: milliseconds
+  Memory:  hundreds of MB                Memory:  tens of MB
   Picks up source changes               Frozen at build time
   every time you rebuild?                once compiled —
   Yes, after `mvn package`.              you must rerun
@@ -228,7 +231,7 @@ You're editing `Main.java` (or any code under `e2e-graalvm/`). Two scenarios:
 
 ```bash
 ./mvnw -pl e2e-graalvm -am package -DskipTests
-java -jar e2e-graalvm/target/fanar-java-e2e-graalvm-0.1.0-SNAPSHOT.jar --self-test
+java -jar e2e-graalvm/target/fanar-java-e2e-graalvm-*.jar --self-test
 ```
 
 Picks up source changes after every `mvn package`. ~5 s round-trip. Use this for 99%
@@ -353,9 +356,13 @@ the agent again and merge the new entries.
 
 `.github/workflows/graalvm.yml` has two jobs:
 
-- **`native-smoke`** — runs on every PR that touches `core`, `json-jackson3`,
-  `e2e-graalvm`, the parent pom, or this workflow file. Builds the native binary and
-  runs `--self-test`. ~3 minutes on free-tier runners. PR-level regression gate.
+- **`native-smoke`** — runs on a PR that touches `core`, `json-jackson3`, any `obs-*`
+  adapter, `interceptor-logging`, `e2e-graalvm`, the parent pom, or this workflow file;
+  also on a `workflow_dispatch` with `action: self-test`. Builds the native binary and
+  runs `--self-test`. **It has no `push` trigger and the path filter is strict**, so a PR
+  outside those paths produces no check — which looks exactly like "nothing failed". When
+  you need the gate (a release preflight, say), confirm a run exists rather than assuming
+  a green tick.
 - **`bootstrap`** — `workflow_dispatch` only, with `action: bootstrap`. Runs the JIT
   fat jar under the tracing agent against the live API (uses the `FANAR_API_KEY` repo
   secret), uploads the captured `metadata-out/` directory as a workflow artifact.
@@ -409,9 +416,12 @@ The provider's `META-INF/services/<interface>` file isn't being included. Add it
 }
 ```
 
-The SDK's existing metadata already lists the `FanarJsonCodec` ServiceLoader file plus
-SLF4J's, OTel's `ContextStorageProvider`, and `java.time.zone.ZoneRulesProvider`. If
-you need to add a new ServiceLoader interface, this is where it goes.
+The SDK's existing metadata lists SLF4J's `SLF4JServiceProvider`, OTel's
+`ContextStorageProvider`, `java.lang.System$LoggerFinder`,
+`java.time.zone.ZoneRulesProvider` and `simplelogger.properties` — the whole file is
+fifteen lines, so read it rather than trusting this paragraph. The `FanarJsonCodec`
+provider file needs **no** entry: native-image resolves it through its built-in
+`ServiceLoader` handling. If you add a new ServiceLoader interface, this is where it goes.
 
 ### Logs / properties files aren't picked up by the binary
 
@@ -445,13 +455,15 @@ Xcode Command Line Tools aren't installed. Run `xcode-select --install`.
 ## What `--self-test` exercises
 
 The self-test runs entirely offline and walks the full reflective surface of the SDK so
-the bootstrap pass picks up every metadata gap in one go. As of the current commit:
+the bootstrap pass picks up every metadata gap in one go. Mirrors `Main.selfTest()` (`e2e-graalvm/src/main/java/qa/fanar/e2e/graalvm/Main.java`); the `self-test OK` line prints the live counts, so trust it over this list:
 
 - **Decode probes** for every domain — chat, models, tokens, moderations, translations,
-  poems, images, audio voices, audio STT (both `text` and `json` sealed variants).
+  poems, Sadiq validation, images, audio voices, audio STT (both `text` and `json` sealed
+  variants).
 - **Encode probes** for every request record — `ChatRequest`, `TokenizationRequest`,
   `SafetyFilterRequest`, `TranslationRequest`, `PoemGenerationRequest`,
-  `ImageGenerationRequest`, `TextToSpeechRequest`, `TranscriptionRequest`,
+  `SadiqValidationRequest`, `ImageGenerationRequest`, `TextToSpeechRequest`,
+  `TranscriptionRequest`,
   `CreateVoiceRequest`. The encode path uses Jackson 3's serializer factory which
   independently introspects records, so decode coverage alone doesn't cover it.
 - **All four observability plugins** instantiated and dispatched through one full event
@@ -469,7 +481,7 @@ the [Bootstrap loop](#bootstrap-loop--adding-metadata-when-you-add-reflective-co
 
 The default-args invocation (`./fanar-graalvm-smoke` with `FANAR_API_KEY` set) walks
 **every** domain over the live HTTP transport with the full observability stack
-(SLF4J + OTel + Micrometer composed) and the wire-logging interceptor at `BASIC` level
+(SLF4J + OTel + Micrometer composed) and the wire-logging interceptor at `BODY` level
 attached. Each probe is wrapped so a typed `FanarException` (auth gating, rate limiting,
 timeouts) is logged and the walk continues — failure to authorize on one domain
 shouldn't stop us from exercising the next under native. Includes one async probe to
@@ -480,10 +492,11 @@ exercise the virtual-thread async wrapper.
 - **Only Jackson 3 is validated.** Jackson 2 lives in a separate classpath island and
   has its own reflective surfaces; a parallel `e2e-graalvm-jackson2` module (or a second
   `Main`) would be needed to validate it.
-- **OTel propagation under a real SDK is not exercised.** The smoke uses
-  `OpenTelemetry.noop()` so the plugin's internals run, but the W3C `traceparent`
-  injection path uses an SDK propagator that's only exercised in `obs-otel`'s unit
-  tests.
+- **OTel propagation is exercised only in live mode.** The offline self-test uses
+  `OpenTelemetry.noop()`, so the plugin's internals run but nothing is propagated. The
+  live walk wires a real `OpenTelemetrySdk` with a `W3CTraceContextPropagator`, so
+  `traceparent` injection *is* validated under AOT — but only when you run with a key,
+  never by the PR gate.
 - **No live HTTP in the offline self-test.** The PR-time CI gate is offline; live mode
   remains optional via `workflow_dispatch` or local invocation with `FANAR_API_KEY`.
 - **No Spring Boot AOT or Quarkus integration.** The SDK shipping native-image-clean is

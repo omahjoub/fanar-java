@@ -1,6 +1,6 @@
 # API sketch
 
-> **Status — living reference.** Every snippet below matches a shipped type. When implementation reveals
+> **Status — living reference.** Snippets are kept in step with the shipped types. When implementation reveals
 > that a sketch was wrong, we revise the sketch (and the ADR that backed it) — not the code. Treat a
 > discrepancy between sketch and code as a triage question ("which one should change?"), not a correctness
 > ruling.
@@ -108,12 +108,19 @@ ChatRequest request = ChatRequest.builder()
     .build();
 
 ChatResponse response = client.chat().send(request);
-System.out.println(response.choices().getFirst().message().content());
+
+// content() is a List<ResponseContent> — a sealed union of text / image / audio parts, not a
+// String. Unwrap the part you want:
+for (ResponseContent part : response.choices().getFirst().message().content()) {
+    if (part instanceof TextContent text) {
+        System.out.println(text.text());
+    }
+}
 ```
 
 Sync is the primary API (ADR-004). The call blocks, but on a virtual thread the block does not occupy a carrier thread.
 
-`ChatModel` (and the other Fanar-controlled identifiers — `Source`, `FinishReason`, `ImageDetail`, `ContentFilterType`, `BookName`) is an open value-class record. Use the named constants where possible; for any wire value the SDK doesn't yet ship a constant for, fall back to the permissive factory:
+`ChatModel` — like every Fanar-controlled identifier in the SDK (`Source`, `Madhab`, `BookName`, `FinishReason`, `ImageDetail`, `ContentFilterType`, `Voice`, `TtsModel`, `SttModel`, `ImageModel`, `TranslationModel`, `LanguagePair`, `PoemModel`, `ModerationModel`, `QuranReciter`, and the format/type records) — is an open value-class record. Use the named constants where possible; for any wire value the SDK doesn't yet ship a constant for, fall back to the permissive factory:
 
 ```java
 .model(ChatModel.of("Fanar-D-3-50B"))   // works the day Fanar adds the model
@@ -162,8 +169,8 @@ publisher.subscribe(new Flow.Subscriber<StreamEvent>() {
 
     public void onNext(StreamEvent event) {
         switch (event) {
-            case TokenChunk t      -> System.out.print(t.delta());
-            case ProgressChunk p   -> System.err.println("[progress] " + p.progress().message().en());
+            case TokenChunk t      -> System.out.print(t.choices().getFirst().content());
+            case ProgressChunk p   -> System.err.println("[progress] " + p.message().en());
             case ToolCallChunk c   -> { /* tool invocation signalled by server */ }
             case ToolResultChunk r -> { /* tool result received */ }
             case DoneChunk d       -> { /* stream complete */ }
@@ -179,17 +186,21 @@ publisher.subscribe(new Flow.Subscriber<StreamEvent>() {
 The `switch` is exhaustive over the sealed `StreamEvent` hierarchy (ADR-005). If Fanar adds a new chunk type, this
 `switch` stops compiling until the new case is handled — safe-by-default evolution.
 
-### Iterator style (on a virtual thread)
+### Blocking style (on a virtual thread)
 
 ```java
-import qa.fanar.core.chat.Streams;
+import qa.fanar.core.Streams;
 
-for (StreamEvent event : Streams.toStream(client.chat().stream(request))) {
-    // same switch as above
+try (Stream<StreamEvent> events = Streams.toStream(client.chat().stream(request))) {
+    events.forEach(event -> { /* same switch as above */ });
 }
 ```
 
-Useful when the caller already runs on a virtual thread — blocking iteration costs nothing on a vthread.
+Useful when the caller already runs on a virtual thread — blocking costs nothing there (ADR-004).
+**Close the stream.** It returns a `Stream` rather than an `Iterable` precisely so you can: a
+for-each loop has no close hook, so abandoning it part-way — a `findFirst`, a `limit`, a `break` —
+would leak the subscription and the HTTP response. Closing cancels; a stream consumed to exhaustion
+has already released everything, so closing then costs nothing.
 
 ---
 
@@ -202,13 +213,17 @@ ChatRequest request = ChatRequest.builder()
     .model(ChatModel.FANAR_SADIQ)
     .addMessage(UserMessage.of("What does the Qur'an say about honesty?"))
     .restrictToIslamic(true)
-    .preferredSources(Source.QURAN, Source.TAFSIR)
+    .preferredSources(List.of(Source.QURAN, Source.TAFSIR))
     .build();
 
 ChatResponse response = client.chat().send(request);
 ChatMessage message = response.choices().getFirst().message();
 
-System.out.println(message.content());
+for (ResponseContent part : message.content()) {
+    if (part instanceof TextContent text) {
+        System.out.println(text.text());
+    }
+}
 for (Reference ref : message.references()) {
     System.out.printf("[%d] %s — %s%n", ref.number(), ref.source(), ref.content());
 }
@@ -256,7 +271,7 @@ client.audio().listVoices().voices().forEach(v ->
     System.out.printf("%s (%s, %s) emotion=%b%n", v.name(), v.gender(), v.accent(), v.emotion()));
 
 // Speech-to-text
-client.audio().transcribe(TranscriptionRequest.of(audioFile, SttModel.FANAR_AURA_STT_1));
+client.audio().transcribe(TranscriptionRequest.of(audioBytes, "clip.wav", "audio/wav", SttModel.FANAR_AURA_STT_1));
 
 // Image generation — the server revises prompts by default (revise=true); each item reports
 // revised() + revisedPrompt(). Pass revise=false to keep the prompt verbatim.
@@ -264,14 +279,14 @@ client.images().generate(new ImageGenerationRequest(
     ImageModel.FANAR_ORYX_IG_2, "A futuristic Doha skyline", false));
 
 // Translation
-client.translations().send(TranslationRequest.of(TranslationModel.FANAR_SHAHEEN_MT_1,
+client.translations().translate(TranslationRequest.of(TranslationModel.FANAR_SHAHEEN_MT_1,
                                                   "Hello, how are you?", LanguagePair.EN_AR));
 
 // Poetry
-client.poems().generate(PoemRequest.of(PoemModel.FANAR_DIWAN, "Write a poem about the sea"));
+client.poems().generate(PoemGenerationRequest.of(PoemModel.FANAR_DIWAN, "Write a poem about the sea"));
 
 // Moderation (returns safety + cultural-awareness scores)
-client.moderation().send(ModerationRequest.of(ModerationModel.FANAR_GUARD_2, "prompt", "response"));
+client.moderations().score(SafetyFilterRequest.of(ModerationModel.FANAR_GUARD_2, "prompt", "response"));
 
 // Qur'an + hadith quotation validation. Verified verses come back as the authenticated ayah
 // wrapped in <quran_start>…<quran_end> with a [surah:ayah](quran.com) reference; verified hadith
@@ -286,7 +301,7 @@ SadiqValidationResponse validated = client.sadiq().validate(
 client.tokens().count(TokenizationRequest.of("some text", ChatModel.FANAR_S_1_7B));
 
 // Model listing
-List<AvailableModel> models = client.models().list();
+List<AvailableModel> models = client.models().list().models();
 ```
 
 ---
@@ -305,8 +320,8 @@ try {
     RateLimitInfo window = e.rateLimit();   // the window the server reported, null without headers (ADR-026)
     if (window != null) {
         // Fanar's windows slide: reset() is the wait until one slot frees, never a boundary
-        log.warn("{} of {} left, a slot frees in {} (policy {}, window {})",
-                window.remaining(), window.limit(), window.reset(), window.policy(), window.window());
+        log.warn("{} of {} left, a slot frees in {} (policy {})",
+                window.remaining(), window.limit(), window.reset(), window.policy());
     }
 } catch (FanarContentFilterException e) {
     showRefusalUi(e.filterType());
@@ -448,8 +463,10 @@ class MyController {
 }
 ```
 
-Any `Interceptor` or `ObservabilityPlugin` beans on the application context get picked up via
-`ObjectProvider` and added to the client; a `RetryPolicy` bean replaces the one built from
+Every `Interceptor` bean on the application context is added in `@Order` sequence via
+`ObjectProvider`; a single `ObservabilityPlugin` bean is installed the same way — declare more than
+one only as an `ObservabilityPlugin.compose(...)` bean, since the slot is singular by design
+(ADR-013). A `RetryPolicy` bean replaces the one built from
 `fanar.retry.*` (the route to a custom `retryable` predicate or jitter). With `spring-boot-starter-actuator` on the classpath,
 `/actuator/health` includes a `fanar` contributor that calls `models().list()` — disable with
 `management.health.fanar.enabled=false`.
@@ -467,7 +484,7 @@ Any `Interceptor` or `ObservabilityPlugin` beans on the application context get 
 <dependency>
     <groupId>org.springframework.ai</groupId>
     <artifactId>spring-ai-client-chat</artifactId>
-    <!-- 2.0.0; the starter pins the version we test against -->
+    <!-- 2.0.1; the starter pins the version we test against -->
 </dependency>
 ```
 
@@ -524,4 +541,4 @@ chatClient.prompt()
 - **LangChain4j / Quarkus integration.** Planned, same pattern as the Spring AI adapter — see
   [PROJECT_STATE.md](PROJECT_STATE.md) for the roadmap.
 
-Every snippet in this document should compile against the SDK once implemented. Until then, this is the *target*.
+Every snippet in this document compiles against the shipped SDK.

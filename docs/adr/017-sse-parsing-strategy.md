@@ -17,15 +17,21 @@ native-image story.
 
 ## Decision
 
-Hand-rolled SSE parser, built on top of `java.net.http.HttpClient.BodyHandlers.ofLines()`, living **entirely in
+Hand-rolled SSE parser reading the response body as an `InputStream`, living **entirely in
 `qa.fanar.core.internal.sse`** (non-exported per ADR-018).
 
 The parser pipeline:
 
-1. **Line stream** — `HttpClient.sendAsync(req, BodyHandlers.ofLines())` yields a line-based view of the response
-   body.
-2. **Frame accumulator** — lines are collected into SSE frames. Lines starting with `data:` accumulate the payload;
-   `event:` sets the event type (unused by Fanar today but honored); blank line dispatches the frame.
+1. **Line stream** — the transport hands back `HttpResponse<InputStream>` from a *synchronous*
+   `send`, the same call the non-streaming path makes (ADR-004, ADR-007); a virtual thread reads it
+   line by line. One transport method serves both shapes, and the interceptor chain does not have to
+   know which one it is carrying.
+2. **Frame accumulator** — lines are collected into SSE frames. Lines starting with `data:`
+   accumulate the payload; a blank line dispatches the frame. **Every other field is ignored** —
+   `event:`, `id:`, `retry:` and comment lines alike. Fanar sends a single unnamed event type, so a
+   frame is its `data` and nothing else; parsing fields we would only discard is surface without
+   purpose. Ignoring rather than rejecting them is deliberate: an unknown field must never break a
+   stream.
 3. **JSON decode** — the `data:` payload is handed to `FanarJsonCodec` (ADR-008), which deserializes into the
    appropriate `StreamEvent` subtype (discriminated by shape: `progress` field → `ProgressChunk`, `choices[*].delta`
    shape → `TokenChunk` / `ToolCallChunk` / `ToolResultChunk`, presence of `usage` → `DoneChunk`, presence of error →
@@ -43,9 +49,11 @@ library, to a third-party parser — no downstream module notices, guaranteed by
   which pollute the classpath, inflate the native-image metadata footprint (ADR-009), and contradict our zero-deps
   posture (ADR-002, JLBP-1).
 - **Byte-level reactive via `BodyHandlers.ofPublisher()`**. Returns `Flow.Publisher<List<ByteBuffer>>` — maximum
-  control over backpressure and buffering. *Rejected for v1*: more complex than needed for the Fanar stream's
-  characteristics; `ofLines()` is sufficient. ADR-018 guarantees we can refactor to this approach later, fully
-  internally, if we ever need its characteristics.
+  control over back-pressure and buffering. *Rejected*: more complex than the Fanar stream needs, and
+  it would make streaming the one path that does not go through the shared synchronous transport.
+  Reading an `InputStream` on a virtual thread gets the same back-pressure for far less machinery,
+  because the read simply blocks until the subscriber asks for more. ADR-018 guarantees we can
+  refactor to this later, fully internally, if the characteristics ever matter.
 - **Custom Netty-based streaming**. *Rejected*: massive over-engineering for a client SDK; violates sync-primary
   stance (ADR-004); would force a Netty runtime dep on every consumer.
 
@@ -60,15 +68,29 @@ library, to a third-party parser — no downstream module notices, guaranteed by
   under ADR-018 — downstream modules never break.
 
 ### Negative / Trade-offs
-- We own the parser's correctness. Unit tests must cover: partial frames across network boundaries, UTF-8 continuation
-  bytes split across reads, CR/LF handling, comment lines (starting with `:`), server-initiated reconnect-delay
-  suggestions (`retry:` field), malformed `data:` payloads, and half-written JSON.
+- We own the parser's correctness. The tests cover partial frames across network boundaries, CR/LF
+  handling, comment lines, unknown fields, malformed `data:` payloads and half-written JSON.
+  UTF-8 continuation bytes split across reads are handled by the JDK rather than by us — the reader
+  decodes, so a multi-byte character split across two network buffers never reaches our state
+  machine.
 - A subtle category of bugs (e.g., off-by-one in line-boundary detection, mishandling of mid-UTF-8 byte splits) is
   ours to avoid. Mitigated by a comprehensive test suite with curated fixtures and property-based tests.
 
 ### Neutral
 - The parser does not implement the `Last-Event-ID` reconnect semantics of the full SSE specification — Fanar does
   not require it, and the streaming surface (ADR-005) delegates reconnection semantics to the user.
+  `retry:` is ignored for the same reason: it is advice about reconnecting, and we do not reconnect.
+- The publisher owns the call's observation for the life of the stream and closes it on the terminal
+  signal (ADR-013), so a stream that dies mid-flight is reported as a failure rather than as the
+  clean success its handshake was.
+
+## Proved by
+
+- `SseFrameAssemblerTest` — the frame state machine: multi-line `data:`, blank-line dispatch,
+  comments, unknown fields, CRLF.
+- `SseStreamPublisherTest` — demand, cancellation, error propagation and the observation lifecycle.
+- `FanarClientRetryIntegrationTest.connectionDropMidStreamIsNotRetried` — the whole path through
+  `FanarClient.builder()` against a server that drops mid-stream.
 
 ## References
 

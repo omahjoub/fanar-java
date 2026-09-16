@@ -1,5 +1,5 @@
 # .github/CODEOWNERS
-# Design-phase setup: a single maintainer reviews everything.
-# TODO: once downstream modules (framework adapters, starters, BOM consumers) exist, split ownership
-# per module subtree. Example once modules land:
+# One maintainer reviews everything. Revisit if the project gains regular contributors on
+# particular module subtrees — per-subtree ownership only pays once more than one person is
+# reviewing.
 * @omahjoub

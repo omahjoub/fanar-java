@@ -65,6 +65,9 @@ public final class AudioClientImpl implements AudioClient {
     private static final String OP_CREATE = "fanar.audio.voices.create";
     private static final String OP_DELETE = "fanar.audio.voices.delete";
     private static final String OP_SPEECH = "fanar.audio.speech";
+    // Observation names follow fanar.<domain>.<operation>; a streaming variant appends .stream so
+    // its metrics separate from the one-shot call's (ADR-013).
+    private static final String OP_SPEECH_STREAM = "fanar.audio.speech.stream";
     private static final String OP_TRANSCRIBE = "fanar.audio.transcribe";
 
     private final URI baseUrl;
@@ -205,22 +208,27 @@ public final class AudioClientImpl implements AudioClient {
     @Override
     public Flow.Publisher<byte[]> speechStream(TextToSpeechRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ObservationHandle obs = observability.start(OP_SPEECH)) {
-            try {
-                obs.attribute(FanarObservationAttributes.FANAR_MODEL, request.model().wireValue());
-                byte[] body = StreamFlag.inject(encodeJsonBody(request, "TextToSpeechRequest"));
-                HttpRequest httpReq = applyCommonHeaders(HttpRequest.newBuilder(speechEndpoint), obs)
-                        .header("Content-Type", "application/json")
-                        // Server picks audio/mpeg or audio/wav based on response_format in body.
-                        .header("Accept", "audio/*")
-                        .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                        .build();
-                HttpResponse<InputStream> response = dispatcher.dispatch(httpReq, obs, null);
-                return new AudioStreamPublisher(response.body());
-            } catch (RuntimeException e) {
-                obs.error(e);
-                throw e;
-            }
+        // Not try-with-resources: the observation spans the whole stream, not just the handshake.
+        // On success AudioStreamPublisher takes ownership of the handle and closes it on the
+        // terminal signal, after recording the stream attributes (ADR-013, ADR-023).
+        long startNanos = System.nanoTime();
+        ObservationHandle obs = observability.start(OP_SPEECH_STREAM);
+        try {
+            obs.attribute(FanarObservationAttributes.FANAR_MODEL, request.model().wireValue());
+            byte[] body = StreamFlag.inject(encodeJsonBody(request, "TextToSpeechRequest"));
+            HttpRequest httpReq = applyCommonHeaders(HttpRequest.newBuilder(speechEndpoint), obs)
+                    .header("Content-Type", "application/json")
+                    // Server picks audio/mpeg or audio/wav based on response_format in body.
+                    .header("Accept", "audio/*")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                    .build();
+            HttpResponse<InputStream> response = dispatcher.dispatch(httpReq, obs, null);
+            return new AudioStreamPublisher(response.body(), obs, startNanos);
+        } catch (RuntimeException e) {
+            // The handshake failed, so no publisher exists to hand ownership to.
+            obs.error(e);
+            obs.close();
+            throw e;
         }
     }
 

@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -19,6 +20,79 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * child plugin.
  */
 class CompositeObservabilityPluginTest {
+
+    // --- failure isolation (ADR-022) ----------------------------------------------------
+
+    /**
+     * A plugin that throws on every call. Telemetry must never be able to fail the caller's
+     * request, nor stop a sibling plugin observing.
+     */
+    private static final class ExplodingPlugin implements ObservabilityPlugin, ObservationHandle {
+        boolean throwOnStart;
+
+        @Override public ObservationHandle start(String operationName) {
+            if (throwOnStart) {
+                throw new IllegalStateException("backend down");
+            }
+            return this;
+        }
+        @Override public ObservationHandle attribute(String k, Object v) { throw new IllegalStateException("boom"); }
+        @Override public ObservationHandle event(String n) { throw new IllegalStateException("boom"); }
+        @Override public ObservationHandle error(Throwable t) { throw new IllegalStateException("boom"); }
+        @Override public ObservationHandle child(String n) { throw new IllegalStateException("boom"); }
+        @Override public Map<String, String> propagationHeaders() { throw new IllegalStateException("boom"); }
+        @Override public void close() { throw new IllegalStateException("boom"); }
+    }
+
+    @Test
+    void aThrowingChildNeitherFailsTheCallerNorSilencesItsSiblings() {
+        Recorder healthy = new Recorder();
+        healthy.headers = Map.of("traceparent", "00-abc-def-01");
+        ExplodingPlugin broken = new ExplodingPlugin();
+
+        ObservabilityPlugin composite = ObservabilityPlugin.compose(broken, healthy);
+
+        ObservationHandle h = composite.start("fanar.chat.send");
+        h.attribute("fanar.model", "Fanar");
+        h.event("retry_attempt");
+        h.error(new IllegalArgumentException("caller-side"));
+        assertEquals(Map.of("traceparent", "00-abc-def-01"), h.propagationHeaders(),
+                "the healthy plugin's headers survive a sibling that throws");
+        h.child("decode").attribute("k", "v");
+        h.close();
+
+        assertTrue(healthy.calls.contains("attribute:fanar.model=Fanar"));
+        assertTrue(healthy.calls.contains("event:retry_attempt"));
+        assertTrue(healthy.calls.contains("error:caller-side"));
+        assertTrue(healthy.calls.contains("close"));
+    }
+
+    @Test
+    void aPluginThatThrowsOnStartGetsASilentSlotAndTheRestKeepWorking() {
+        Recorder healthy = new Recorder();
+        ExplodingPlugin broken = new ExplodingPlugin();
+        broken.throwOnStart = true;
+
+        ObservationHandle h = ObservabilityPlugin.compose(broken, healthy).start("fanar.chat.send");
+        h.attribute("fanar.model", "Fanar");
+        h.close();
+
+        assertTrue(healthy.calls.contains("attribute:fanar.model=Fanar"),
+                "a plugin that could not start must not take its siblings down with it");
+        assertTrue(healthy.calls.contains("close"));
+    }
+
+    @Test
+    void aPluginReturningNullFromStartGetsASilentSlot() {
+        Recorder healthy = new Recorder();
+        ObservabilityPlugin nullStarter = operationName -> null;
+
+        ObservationHandle h = ObservabilityPlugin.compose(nullStarter, healthy).start("fanar.chat.send");
+        h.attribute("fanar.model", "Fanar");
+        h.close();
+
+        assertTrue(healthy.calls.contains("attribute:fanar.model=Fanar"));
+    }
 
     // --- factory shortcuts --------------------------------------------------------------
 
@@ -235,19 +309,25 @@ class CompositeObservabilityPluginTest {
         assertEquals(1, b.calls.stream().filter("close"::equals).count());
     }
 
-    // --- exception propagation -----------------------------------------------------------
+    // --- exception containment -----------------------------------------------------------
 
     @Test
-    void start_propagatesExceptionFromChildPluginAndShortCircuits() {
+    void start_containsAChildPluginFailureAndStillReachesLaterChildren() {
+        // Previously this asserted the opposite — the exception propagated to the caller and
+        // short-circuited the remaining plugins, so one broken backend both failed the request
+        // and blinded every plugin registered after it. Telemetry does not get that power
+        // (ADR-022).
         Recorder a = new Recorder();
         ObservabilityPlugin failing = name -> { throw new RuntimeException("plugin boom"); };
         Recorder c = new Recorder();
+
         ObservabilityPlugin composite = ObservabilityPlugin.compose(a, failing, c);
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> composite.start("op"));
-        assertEquals("plugin boom", ex.getMessage());
-        assertTrue(a.calls.contains("start:op"), "earlier child must have run before the throw");
-        assertFalse(c.calls.contains("start:op"), "later child must not have been invoked");
+        ObservationHandle h = assertDoesNotThrow(() -> composite.start("op"),
+                "a child plugin's failure must not surface to the caller");
+        h.close();
+
+        assertTrue(a.calls.contains("start:op"), "the child before the failure still ran");
+        assertTrue(c.calls.contains("start:op"), "the child after the failure still ran");
     }
 
     // --- recording test fixture ----------------------------------------------------------

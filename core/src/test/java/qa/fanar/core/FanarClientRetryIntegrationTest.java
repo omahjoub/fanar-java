@@ -368,7 +368,12 @@ class FanarClientRetryIntegrationTest {
         assertTrue(subscriber.items().isEmpty());
         assertTrue(obs.events.isEmpty(), "no retry_attempt event");
         assertEquals(0, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
-        assertTrue(obs.errors.isEmpty(), "the handshake observation had already closed successfully");
+        // The observation spans the stream rather than closing at the handshake (ADR-013), so a
+        // mid-stream drop is recorded on it. It is reported before the subscriber's onError, so
+        // awaiting the error above is enough to see it here. Previously this assertion read
+        // `obs.errors.isEmpty()` — a dropped stream was telemetered as a clean success.
+        assertEquals(1, obs.errors.size(), "the mid-stream failure reaches the observation");
+        assertInstanceOf(IOException.class, obs.errors.getFirst());
     }
 
     @Test

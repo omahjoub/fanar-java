@@ -394,7 +394,7 @@ class ChatClientImplTest {
 
         client.send(sampleRequest());
 
-        assertEquals("fanar.chat", opened.get());
+        assertEquals("fanar.chat.send", opened.get());
         assertTrue(attributes.get() >= 3); // at least model, method, url, status
     }
 

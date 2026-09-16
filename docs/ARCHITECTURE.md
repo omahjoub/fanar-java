@@ -46,8 +46,9 @@
 | `Fanar-Shaheen-MT-1`  | 20/day     | Translation        |
 | `Fanar-Diwan`         | 50/min     | Poetry             |
 
-Where the live API departs from these tables — gating that answers 422, a visibility-scoped listing, the per-day
-audio windows — the dated record is [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md).
+Where the live API departs from these tables — gating that answers 422, a visibility-scoped listing, audio budgets
+that are sliding 24 h windows rather than the per-day limits above — the dated record is
+[WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md).
 
 ---
 
@@ -67,7 +68,7 @@ fanar-java                            (reactor parent — NOT published)
 │       └── qa/fanar/core/
 │           ├── FanarClient, FanarException, …                  (top-level public API)
 │           ├── chat/  audio/  images/  translations/  poems/
-│           ├── moderations/  tokens/  models/                  (domain packages)
+│           ├── moderations/  sadiq/  tokens/  models/          (nine domain packages)
 │           ├── spi/                                            (Interceptor, FanarJsonCodec, ObservabilityPlugin)
 │           └── internal/                                       (transport, SSE parser, retry — not exported)
 ├── json-jackson2/                    qa.fanar:fanar-json-jackson2          — jar  (Jackson 2 codec; pair with SB3)
@@ -86,10 +87,12 @@ fanar-java                            (reactor parent — NOT published)
 └── bom/                              qa.fanar:fanar-java-bom               — pom  (dependency management for consumers)
 ```
 
-Each library module ships a `module-info.java`. The samples and the Spring Boot 4 starter run on
-the classpath (no JPMS) because Spring jars don't fully declare modules; `spring-ai-starter`
-follows the same posture for the same reason. The reactor parent is never published; consumers
-import the BOM.
+Core, both JSON codecs, the three observability adapters and the logging interceptor ship a
+`module-info.java`. The two Spring starters deliberately do not — Spring's classpath scanning and
+`@AutoConfiguration` predate a clean JPMS story (ADR-020) — and instead declare an explicit
+`Automatic-Module-Name` in their manifest, without which JPMS would derive a module name from the
+filename and `fanar-spring-boot-4-starter` derives an invalid one. The reactor parent is never
+published; consumers import the BOM, which manages every published library module.
 
 ### Framework adapter layering
 
@@ -222,7 +225,7 @@ runtime types — all seams use JDK types or our own interfaces (ADR-003, ADR-00
 FanarException               (sealed, unchecked)
 ├── FanarTransportException  (wraps IOException / InterruptedException from transport)
 ├── FanarContentFilterException
-├── FanarClientException     (sealed 4xx)
+├── FanarClientException     (sealed 4xx — never retried by default)
 │   ├── FanarAuthenticationException
 │   ├── FanarAuthorizationException
 │   ├── FanarQuotaExceededException
@@ -231,17 +234,24 @@ FanarException               (sealed, unchecked)
 │   ├── FanarTooLargeException
 │   ├── FanarUnprocessableException
 │   ├── FanarGoneException
-│   └── FanarClientClosedRequestException
-└── FanarServerException     (sealed 5xx)
+│   ├── FanarClientClosedRequestException
+│   └── FanarUnexpectedClientException     (a 4xx the wire contract does not declare)
+└── FanarServerException     (sealed 5xx — retried by default)
     ├── FanarRateLimitException
     ├── FanarOverloadedException
     ├── FanarTimeoutException
-    └── FanarInternalServerException
+    ├── FanarInternalServerException
+    └── FanarUnexpectedServerException     (a 5xx the wire contract does not declare)
 ```
 
-One subtype per Fanar `ErrorCode` plus `FanarTransportException` for JDK-transport failures. The
-mapper routes by the typed `code` in the error envelope first and falls back to HTTP status when the
-body isn't a well-formed envelope. It runs inside the interceptor chain at the retry boundary
+One subtype per Fanar `ErrorCode`, plus `FanarTransportException` for JDK-transport failures and one
+`Unexpected*` leaf per branch for a status the contract does not declare — carrying the status as
+received and a `null` `code()`, because inventing either would be a lie a caller cannot detect. The
+branch is what `RetryPolicy.isDefaultRetryable` reads, so filing a status on the wrong side of the
+4xx/5xx line silently changes whether it is retried; HTTP 408 and 425 are the one documented
+exception, client-class by number but meaning "try again" (ADR-014). The mapper routes by the typed
+`code` in the error envelope first and falls back to HTTP status when the body isn't a well-formed
+envelope. It runs inside the interceptor chain at the retry boundary
 (`RetryInterceptor`), so user interceptors see raw error responses while the domain facades only
 ever see typed exceptions — and the retry policy can act on them. Both HTTP 429 subtypes carry the
 server's `Retry-After` hint. See ADR-006 and ADR-012. Proved by
@@ -260,10 +270,11 @@ zone (ADR-018).
 |---|---|---|
 | Public entry point | `qa.fanar.core.FanarClient` (+ nested `Builder`) | **implemented** — wires the transport, bearer-token interceptor, and `ChatClientImpl` |
 | Chat domain facade | `qa.fanar.core.chat.ChatClient` | **implemented** (interface); `qa.fanar.core.internal.chat.ChatClientImpl` runs `send` / `sendAsync` / `stream` end-to-end |
-| Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** (sealed, 14 subtypes) |
+| Exception hierarchy root | `qa.fanar.core.FanarException` | **implemented** — sealed; four branches (client / server / transport / content-filter) over 17 concrete leaves. The branch decides retryability (ADR-006, ADR-014) |
 | Error-code enum | `qa.fanar.core.ErrorCode` | **implemented** |
 | Rate-limit window (public) | `qa.fanar.core.RateLimitInfo` | **implemented** — record (`limit`, `remaining`, `reset`, raw `policy`, derived `window()`) carried by both 429 subtypes via `rateLimit()` and published as the `fanar.ratelimit.*` attributes at the retry boundary; `reset` is the wait for one slot in a sliding window (ADR-026) |
 | Content-filter-type record | `qa.fanar.core.ContentFilterType` | **implemented** — open value class (record) with constants + `of(String)` factory |
+| Blocking bridge for streams | `qa.fanar.core.Streams` | **implemented** — `toStream(Flow.Publisher<T>)` returns a lazy, sequential, `AutoCloseable` `Stream`; pulls one item ahead so the producer stays paced by the consumer, and closing cancels the subscription (ADR-004, ADR-005) |
 | Domain DTOs — chat messages | `qa.fanar.core.chat.Message` + variants + content parts + `ToolCall` | **implemented** |
 | Domain DTOs — chat value classes | `qa.fanar.core.chat.{ChatModel, Source, ImageDetail, FinishReason, BookName, Madhab}` | **implemented** — open value-class records with constants + permissive `of(String)`; `BookName` carries 572 inline `KNOWN` entries from `BookNamesEnum` |
 | `ChatRequest` (+ `Builder`) | `qa.fanar.core.chat.ChatRequest` | **implemented** (33-component record, fluent builder) |
@@ -277,9 +288,9 @@ zone (ADR-018).
 | HTTP transport | `qa.fanar.core.internal.transport` (`HttpTransport`, `DefaultHttpTransport`, `InterceptorChainImpl`, `ExceptionMapper`, `ErrorEnvelope`, `RateLimitHeaders`) | **implemented** — `RateLimitHeaders` is the one parser behind both `rateLimit()` and the `fanar.ratelimit.*` attributes (ADR-026) |
 | Bearer-token interceptor impl | `qa.fanar.core.internal.transport.BearerTokenInterceptor` | **implemented** — per-call `Supplier<String>` for token rotation |
 | Request dispatcher | `qa.fanar.core.internal.dispatch.Dispatcher` | **implemented** — the plumbing the nine facades share: assembles the chain once (retry → bearer token → user interceptors → transport), records `fanar.model` / `http.method` / `http.url` per call and runs `InterceptorChainImpl`; a facade owns only its endpoint, wire format and decoding (0.4.0, internal refactor under ADR-018) |
-| SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread |
-| Audio stream publisher | `qa.fanar.core.internal.audio.AudioStreamPublisher` | **implemented** — `SseStreamPublisher`'s structural twin minus frame assembly; emits opaque `byte[]` chunks for streamed TTS (ADR-023); `stream:true` spliced via the shared `internal.transport.StreamFlag` helper |
-| Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — the SDK's error boundary (maps 4xx/5xx to the typed hierarchy inside the chain, ADR-012 amendment) and retry loop: exponential back-off with configurable jitter, `Retry-After` honoured on both 429 subtypes up to `maxDelay` (a longer hint ends retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` events, `http.status_code` per attempt, `fanar.retry_count` on every exit and the `fanar.ratelimit.*` window from any response carrying the headers (last attempt wins, ADR-026), injectable `Sleeper`+`RandomGenerator`. Proved end to end by `FanarClientRetryIntegrationTest` (core), `FanarAutoConfigurationRetryIntegrationTest` (starter), `FanarChatModelRetryIntegrationTest` (Spring AI), the three `*ObservabilityPluginIntegrationTest`s and `WireLoggingInterceptorIntegrationTest` |
+| SSE parser | `qa.fanar.core.internal.sse` (`SseFrameAssembler`, `StreamEventDecoder`, `SseStreamPublisher`) | **implemented** — line-oriented accumulator over the response `InputStream`, shape-routed decode, single-subscriber `Flow.Publisher<StreamEvent>` on a virtual thread. The publisher owns the call's observation for the life of the stream: it records `fanar.stream.first_chunk_ms` and `fanar.stream.chunks`, then closes on completion, failure or cancellation (ADR-013) |
+| Audio stream publisher | `qa.fanar.core.internal.audio.AudioStreamPublisher` | **implemented** — `SseStreamPublisher`'s structural twin minus frame assembly, including the same observation ownership; emits opaque `byte[]` chunks for streamed TTS (ADR-023); `stream:true` spliced via the shared `internal.transport.StreamFlag` helper |
+| Retry interceptor impl | `qa.fanar.core.internal.retry.RetryInterceptor` | **implemented** — the SDK's error boundary (maps 4xx/5xx to the typed hierarchy inside the chain, ADR-012) and retry loop: exponential back-off with configurable jitter, `Retry-After` honoured on both 429 subtypes up to `maxDelay` (a longer hint ends retrying and surfaces the exception with the hint preserved, ADR-025), `retry_attempt` events, `http.status_code` per attempt, `fanar.retry_count` on every exit and the `fanar.ratelimit.*` window from any response carrying the headers (last attempt wins, ADR-026), injectable `Sleeper`+`RandomGenerator`. Proved end to end by `FanarClientRetryIntegrationTest` (core), `FanarAutoConfigurationRetryIntegrationTest` (starter), `FanarChatModelRetryIntegrationTest` (Spring AI), the three `*ObservabilityPluginIntegrationTest`s and `WireLoggingInterceptorIntegrationTest` |
 | Jackson 2 codec | `qa.fanar.json.jackson2.Jackson2FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | Jackson 3 codec | `qa.fanar.json.jackson3.Jackson3FanarJsonCodec` | **implemented** — snake-case naming, NON_NULL inclusion, six flattening deserializers, generic wire-value module (records or enums via `wireValue()` / `of(String)`), `ServiceLoader` descriptor, reachability metadata |
 | SLF4J observability adapter | `qa.fanar.obs.slf4j.Slf4jObservabilityPlugin` | **implemented** — one structured log line per operation through SLF4J at `DEBUG` (success) / `ERROR` (failure); per-operation logger names (`fanar.chat.send`, `fanar.audio.speech`, ...); attribute filter / redactor knobs via builder; `provided`-scope SLF4J |

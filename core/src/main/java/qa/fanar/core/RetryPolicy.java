@@ -160,10 +160,15 @@ public record RetryPolicy(
     public static boolean isDefaultRetryable(FanarException e) {
         Objects.requireNonNull(e, "e");
         return switch (e) {
-            case FanarServerException s        -> true;
-            case FanarTransportException t     -> true;
-            case FanarClientException c        -> false;
-            case FanarContentFilterException f -> false;
+            case FanarServerException s            -> true;
+            case FanarTransportException t         -> true;
+            // The two 4xx that mean "try again" rather than "fix your request". Fanar declares
+            // neither, so they only arrive from an intermediary — a proxy or gateway timing out —
+            // but retrying them is still the correct response. Every other client-class error is
+            // the caller's to fix, and retrying it unchanged would fail identically.
+            case FanarUnexpectedClientException u   -> u.httpStatus() == 408 || u.httpStatus() == 425;
+            case FanarClientException c            -> false;
+            case FanarContentFilterException f     -> false;
         };
     }
 

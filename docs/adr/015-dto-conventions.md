@@ -1,12 +1,12 @@
 # ADR-015 — Hand-written DTO conventions
 
-- **Status**: Accepted (amended 2026-09-15 — see [Amendments](#amendments))
+- **Status**: Accepted
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
 ## Context
 
-Fanar's OpenAPI spec describes ~80 schemas across 8 functional domains. We must decide how to model them in Java and
+Fanar's OpenAPI spec describes roughly a hundred schemas across nine functional domains. We must decide how to model them in Java and
 whether to generate them mechanically from the spec or hand-write them. The choice shapes every DTO in the SDK: their
 naming, nullability story, polymorphism, builder ergonomics, and drift-resistance against future API changes.
 
@@ -72,13 +72,18 @@ Response DTOs do not need builders — they are returned fully constructed from 
 
 - Required-field non-null enforced in the compact constructor and `Builder.build()`.
 - Obvious range violations caught at construction: `temperature ∈ [0.0, 2.0]`, `n ≥ 1`, `maxTokens ≥ 1`.
-- Fanar-controlled identifiers (`ChatModel`, `Source`, `FinishReason`, `ImageDetail`,
-  `ContentFilterType`, `BookName`) are **open value-class records**, not closed enums:
-  each exposes named constants for known wire values plus a permissive `of(String)` factory
-  so callers are never blocked by SDK release cadence when the server adds a value. The
-  IDE-discoverable catalogue lives in the public `KNOWN` set on each type. Strictly-SDK
-  identifiers (`ErrorCode`, `JitterStrategy`) stay enums because their values map 1:1 to
-  exception subtypes / library behaviour and adding a new one is an SDK release event.
+- Fanar-controlled identifiers — model ids, source names, finish reasons, book names and the
+  rest — are **open value-class records**, not closed enums: each exposes named constants for
+  known wire values plus a permissive `of(String)` factory, so callers are never blocked by SDK
+  release cadence when the server adds a value. The IDE-discoverable catalogue lives in the public
+  `KNOWN` set on each type. Strictly-SDK identifiers (`ErrorCode`, `JitterStrategy`) stay enums
+  because their values map 1:1 to exception subtypes or library behaviour, and adding one is an
+  SDK release event.
+- **A domain owns a model value class only when its models are not chat models.** Where a domain's
+  model enum names something `ChatModel` already covers, it reuses `ChatModel` rather than minting
+  a parallel type that would compare unequal to the identical constant. `TokenizationRequest` and
+  `SadiqValidationRequest` both take a `ChatModel` for that reason. The test is the wire value, not
+  the spec's schema names: two schemas naming the same model id are one type here.
 - Semantic validation (model-specific constraints, Islamic-RAG rules, feature-gated flags) is Fanar's server's
   responsibility. We surface the server's rejection via the typed exception hierarchy (ADR-006).
 
@@ -130,14 +135,3 @@ enforced by code review, not automation.
 - Effective Java (Bloch), Item 55 — "Return optionals judiciously"
 - JSpecify annotations project
 
-## Amendments
-
-### 2026-09-15 — Nine functional domains; no value class for a reused model (0.5.0)
-
-The 2026-09 spec refresh takes the schema count this record cites to ~100 across **nine**
-functional domains (`sadiq` joins the eight). It also settles a question this record left implicit:
-the spec's `SadiqValidationModels` is a string enum, which the "open value-class record" rule would
-normally turn into a new type — but its only value, `Fanar-Sadiq-2`, is already a `ChatModel`
-constant. The rule is therefore stated as it has always been practised: **a domain owns a model
-value class when its models are not chat models**; when they are, it reuses `ChatModel`, as
-`TokenizationRequest` does. `SadiqValidationRequest` takes a `ChatModel`. See ADR-028 clause 2.

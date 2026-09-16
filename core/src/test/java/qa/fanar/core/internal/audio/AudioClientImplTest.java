@@ -555,7 +555,8 @@ class AudioClientImplTest {
                 BASE, encodingCodec(), () -> "t", List.of(), transport,
                 plugin, RetryPolicy.disabled(), Map.of(), null);
         client.speechStream(TextToSpeechRequest.of(TtsModel.FANAR_AURA_TTS_2, "hi", Voice.HARRY));
-        assertEquals("fanar.audio.speech", opened.get());
+        assertEquals("fanar.audio.speech.stream", opened.get(),
+                "the streaming variant gets its own observation name (ADR-013)");
     }
 
     @Test

@@ -2,8 +2,11 @@
  * Fanar Java core SDK — typed, pluggable transport over the Fanar API.
  *
  * <p>This module has zero runtime dependencies. It uses only {@code java.base} and {@code java.net.http}.
- * The top-level package {@code qa.fanar.core} and the {@code qa.fanar.core.spi} subpackage form the public API;
- * everything under {@code qa.fanar.core.internal} is implementation detail and is never exported.</p>
+ * The public API is the top-level package {@code qa.fanar.core}, the nine domain packages it exports
+ * ({@code chat}, {@code audio}, {@code images}, {@code translations}, {@code poems},
+ * {@code moderations}, {@code sadiq}, {@code tokens}, {@code models}) and the {@code qa.fanar.core.spi}
+ * extension surface; everything under {@code qa.fanar.core.internal} is implementation detail and is
+ * never exported (ADR-011, ADR-018).</p>
  *
  * @author Oussama Mahjoub
  */

@@ -14,6 +14,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.chat.StreamEvent;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.core.spi.FanarObservationAttributes;
+import qa.fanar.core.spi.ObservationHandle;
 
 /**
  * {@link Flow.Publisher} that reads an SSE response body on a virtual thread and emits one
@@ -26,6 +28,13 @@ import qa.fanar.core.spi.FanarJsonCodec;
  * {@code request(long)} demand before every {@code onNext}. Cancellation closes the stream
  * and interrupts the reader.</p>
  *
+ * <p>The publisher owns the caller's {@link ObservationHandle} for the life of the stream. It
+ * records {@code fanar.stream.first_chunk_ms} when the first event arrives and
+ * {@code fanar.stream.chunks} when the stream ends, then closes the handle — on completion,
+ * failure and cancellation alike. A publisher that is never subscribed to never reaches that
+ * terminal path, so it leaves the observation open along with the response body; subscribing
+ * exactly once is the contract.</p>
+ *
  * <p>Internal (ADR-018).</p>
  *
  * @author Oussama Mahjoub
@@ -34,11 +43,25 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
 
     private final InputStream body;
     private final StreamEventDecoder decoder;
+    private final ObservationHandle observation;
+    private final long startNanos;
     private final AtomicBoolean subscribed = new AtomicBoolean();
 
-    public SseStreamPublisher(InputStream body, FanarJsonCodec codec) {
+    /**
+     * @param body        the SSE response body; must not be {@code null}
+     * @param codec       codec used to decode each frame; must not be {@code null}
+     * @param observation the caller's observation, which this publisher owns from here: it is
+     *                    closed on the terminal signal, after the stream attributes are recorded.
+     *                    Must not be {@code null} — pass the no-op handle when unobserved.
+     * @param startNanos  {@code System.nanoTime()} taken before the request was sent, used to
+     *                    derive {@code fanar.stream.first_chunk_ms}
+     */
+    public SseStreamPublisher(InputStream body, FanarJsonCodec codec,
+                              ObservationHandle observation, long startNanos) {
         this.body = Objects.requireNonNull(body, "body");
         this.decoder = new StreamEventDecoder(Objects.requireNonNull(codec, "codec"));
+        this.observation = Objects.requireNonNull(observation, "observation");
+        this.startNanos = startNanos;
     }
 
     @Override
@@ -110,6 +133,9 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
             SseFrameAssembler assembler = new SseFrameAssembler();
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(body, StandardCharsets.UTF_8));
+            // Counted here rather than in the subscriber so cancellation and failure still report
+            // how far the stream got (ADR-013).
+            long chunks = 0;
             try {
                 String line;
                 while (!cancelled.get() && (line = reader.readLine()) != null) {
@@ -121,6 +147,14 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
                     if (event == null) {
                         continue;
                     }
+                    if (chunks == 0) {
+                        // Measured at arrival, before awaitDemand: this is the server's
+                        // time-to-first-token, not the subscriber's back-pressure.
+                        observation.attribute(
+                                FanarObservationAttributes.FANAR_STREAM_FIRST_CHUNK_MS,
+                                (System.nanoTime() - startNanos) / 1_000_000L);
+                    }
+                    chunks++;
                     awaitDemand();
                     if (cancelled.get()) {
                         return;
@@ -139,12 +173,19 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
                 }
                 if (t instanceof InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    subscriber.onError(new FanarTransportException("SSE stream interrupted", ie));
+                    FanarTransportException wrapped =
+                            new FanarTransportException("SSE stream interrupted", ie);
+                    observation.error(wrapped);
+                    subscriber.onError(wrapped);
                 } else {
+                    observation.error(t);
                     subscriber.onError(t);
                 }
             } finally {
                 closeQuietly(reader);
+                // Terminal for every exit — complete, error, or cancellation.
+                observation.attribute(FanarObservationAttributes.FANAR_STREAM_CHUNKS, chunks);
+                observation.close();
             }
         }
     }

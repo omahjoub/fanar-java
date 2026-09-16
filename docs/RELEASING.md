@@ -25,22 +25,26 @@ process **here** in the same PR as the fix — that's how the next release avoid
 Set these two variables once and paste commands as-is:
 
 ```bash
-VERSION=0.2.0            # the version being released
-NEXT=0.3.0-SNAPSHOT      # main's next development version
+VERSION=0.6.0            # the version being released — match the pom's current -SNAPSHOT
+NEXT=0.7.0-SNAPSHOT      # main's next development version
 ```
 
 ### 0 — Preflight (on `main`)
 
-- [ ] CI green on `main` (Java 21 + 25 matrix, JaCoCo 100 %, doclint, dep-analyze).
+- [ ] CI green on `main` — both jobs: `test` (Java 21 + 25 matrix, JaCoCo 100 %, doclint,
+      dep-analyze) **and** `check-docs`.
 - [ ] Live e2e run performed **on the release-candidate tree** — after the last code change that
       will ship; an earlier run that predates it does not count (0.4.0 was tagged on a run one day
-      and four PRs old). Run `FANAR_API_KEY=… ./mvnw -pl e2e -am verify > tasks/live-<date>.log 2>&1`,
+      and four PRs old). Run `mkdir -p tasks && FANAR_API_KEY=… ./mvnw -pl e2e -am verify > "tasks/live-$(date +%F).log" 2>&1`,
       analyse the log against `docs/WIRE_OBSERVATIONS.md`, and triage every failure: the known-gated
       reds listed in the ledger's budget section are expected; anything new gets fixed or explicitly
       accepted **before** releasing. Mind the TTS window — a full run fits only ≥ 24 h after the
-      previous run's first TTS call.
-- [ ] GraalVM native smoke green (PR-time workflow on the last merged PR, or run the
-      `graalvm.yml` dispatch).
+      previous run's first TTS call. (`tasks/` is git-ignored and absent from a fresh clone, hence the
+      `mkdir`.)
+- [ ] GraalVM native smoke green — and **confirm it actually ran**. `graalvm.yml` has no `push`
+      trigger and a `paths:` filter, so a docs-only or `spring-*`-only PR produces no check at all,
+      which looks the same as "nothing failed". If the last merged PR was outside its paths, trigger
+      the `self-test` dispatch on `release/$VERSION`.
 - [ ] `docs/PROJECT_STATE.md` reflects reality (its cadence rule: updated in the same PR as
       whatever moved).
 - [ ] `CHANGELOG.md` `## [Unreleased]` is complete — every shipped change present, breaking
@@ -120,8 +124,8 @@ git push -u origin bump/$NEXT
 
 - [ ] Update `docs/PROJECT_STATE.md` (move the release from *Planned*, refresh the snapshot
       date and phase) — can ride in the bump-back PR.
-- [ ] Bump the README quick-start version snippets to `$NEXT` (they track `main`'s snapshot
-      version; they went stale after both 0.1.0 and 0.2.0 — hence this line).
+- [ ] Bump the README quick-start version snippets to `$NEXT` — four `<version>` blocks that track
+      `main`'s snapshot. Nothing checks them, and they have gone stale before.
 - [ ] Delete the `release/$VERSION` branch (the tag preserves the commit).
 - [ ] Optional smoke: clone at the tag and `./mvnw install`, or resolve an attached jar into a
       scratch project.

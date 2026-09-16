@@ -33,8 +33,10 @@ Two adapter modules ship from day one:
 | `fanar-json-jackson3` | `tools.jackson:jackson-databind` 3.x | Spring Boot 4.x / Jackson 3 users | `provided` |
 
 `provided` scope means the user's Spring Boot version supplies the concrete Jackson runtime; we compile against the
-API without forcing a version. The adapter constructor accepts a user-configured `ObjectMapper`, so Spring-managed
-customizations (mixins, modules, custom deserializers) flow through automatically.
+API without forcing a version. Each adapter also takes the mapper its own Jackson line uses — an
+`ObjectMapper` for Jackson 2, a `JsonMapper` for Jackson 3 — so Spring-managed customizations
+(mixins, modules, custom deserializers) flow through automatically. Taking each line's own type
+rather than a lowest common denominator is the point of having two adapters instead of one.
 
 Each adapter ships its own GraalVM reachability metadata (ADR-009).
 

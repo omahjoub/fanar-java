@@ -345,7 +345,11 @@ class LiveChatCompletionsTest {
                     "must receive at least one event before cancel");
             int countAtCancel = events.size();
             subRef.get().cancel();
-            // Give the producer a moment to observe the close.
+            // The producer here is Fanar, across a socket: there is no local latch that can prove
+            // it has stopped sending, and the assertion below is an *absence*. A bounded
+            // wall-clock wait is the only honest instrument — this is the documented exception to
+            // the no-sleep rule (CONTRIBUTING, Testing), not a synchronisation shortcut. The
+            // tolerance below absorbs whatever was already in flight.
             Thread.sleep(500);
             // After cancel, no further deliveries.
             assertTrue(events.size() <= countAtCancel + 4,

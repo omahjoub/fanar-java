@@ -1,7 +1,7 @@
 # Project state
 
-> **Snapshot — 2026-09-15 (0.5.0 released).** Updated on every milestone. If this looks wrong or stale, that is
-> the signal — update it in the same PR as whatever moved.
+> **Snapshot — 2026-09-16.** Last release 0.5.0 (2026-09-15); `main` is on 0.6.0-SNAPSHOT. Updated on every
+> milestone. If this looks wrong or stale, that is the signal — update it in the same PR as whatever moved.
 
 ## Phase
 
@@ -13,10 +13,10 @@ quoted in arbitrary text and returning them tagged and cited. The returned text 
 verbatim — the SDK does not parse the markup ([ADR-028](adr/028-sadiq-validation-facade.md)). The
 endpoint requires additional authorization, so its live cases fail loudly until the key is upgraded.
 Plus `FanarContentFilterException.filterType()` fixed from dead public API
-([ADR-006](adr/006-unchecked-exception-hierarchy.md) amendment), an internal envelope-parser
+([ADR-006](adr/006-unchecked-exception-hierarchy.md)), an internal envelope-parser
 robustness fix, and a corrected scope claim — the chat endpoint **accepts and silently ignores**
 user `tools` rather than rejecting them, which is what makes the Spring AI adapter's silent
-degradation the right behaviour ([ADR-021](adr/021-spring-ai-2-adapter.md) amendment). **No breaking
+degradation the right behaviour ([ADR-021](adr/021-spring-ai-2-adapter.md)). **No breaking
 changes**, unlike 0.4.0. See [CHANGELOG](../CHANGELOG.md).
 
 Before it, **0.4.0 (2026-08-30)** — "proof over coverage": every behaviour an ADR promises is proved
@@ -26,28 +26,68 @@ rate-limit window (ADR-026) and stops sleeping past a total budget (ADR-027, tha
 breaking change).
 
 **Open on `main` (0.6.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
-verse-match tolerance on the 2026-09-15 run, so a full live run currently produces **11** failures
-where the ledger documents 10 (miss rate by date: 0/4 → 2/6 → 4/7, one way). Either the budget rises
-or `LivePoemsTest` joins the known-failing list. Deferred 2026-09-16 until the upgraded API key
-lands, which turns the ten gated failures green and rewrites the known-failing list in the same pass.
-Until then a full live run produces 11 failures rather than the 10 the
-[ledger](WIRE_OBSERVATIONS.md#live-suite-budget) documents; the eleventh is `LivePoemsTest`. Also carried: the live-suite nightly and Maven Central readiness, both
-pending answers from the Fanar team.
+verse-match tolerance on the 2026-09-15 run, so a full live run now produces **11** failures — the
+ten gated by design plus that one (miss rate by date: 0/4 → 2/6 → 4/7, one way). Either the retry
+budget rises or `LivePoemsTest` joins the known-failing list; deferred 2026-09-16 until the upgraded
+API key lands, which turns the ten gated failures green and rewrites the list in the same pass. The
+[ledger](WIRE_OBSERVATIONS.md#live-suite-budget) records 11 until then. Also carried: the live-suite nightly and the
+publication decision ([ADR-029](adr/029-publication-target.md)), both waiting on the Fanar team.
+**Confirmed outstanding 2026-09-16**: the API-key enhancement was requested and has had no reply.
+Nothing in this repository records the state of that conversation, so re-date this line rather than
+trusting it — what the key can *do* is checkable without asking anyone; see the nightly item below.
 
 ## Planned
 
-- **Maven Central publication** — Sonatype account, GPG signing, release workflow, version-bump policy. (Intro email to the Fanar team sent 2026-05-01; awaiting Sonatype-path pointer.)
+- **Where the artifacts get published — an open three-way decision, recorded in [ADR-029](adr/029-publication-target.md) (Proposed).** Today they ship
+  as GitHub Release assets: downloadable, but not resolvable as a dependency.
+  **The forcing constraint is the coordinate.** `groupId` is `qa.fanar`, reverse-DNS for `fanar.qa`,
+  and Sonatype Central verifies a namespace by proving control of the domain. That domain is the
+  Fanar team's, so this project cannot publish its current coordinates to Central on its own. The
+  same claim sits in the package names (`qa.fanar.*`).
+  1. **Fanar creates and verifies the `fanar.qa` namespace, then grants publish rights.** Best
+     outcome, zero coordinate churn — everything already written stays correct. Checked 2026-09-16:
+     **the namespace does not exist on Central**, so this is Sonatype onboarding on their side, not
+     a permission toggle. Depends on their willingness, their timeline, and on whether they want a
+     third-party SDK under their namespace. This is the open ask.
+  2. **GitHub Packages.** Available unilaterally and immediately, works with any groupId. But
+     consumers must add a `<repository>` *and* authenticate — GitHub requires a token even for
+     public packages — which contradicts the "no custom repositories" rule in
+     [JLBP-21](JAVA_LIBRARY_BEST_PRACTICES.md). Best understood as an interim channel that does not
+     foreclose 1 or 3, rather than a destination.
+  3. **Our own Central namespace** (`io.github.omahjoub`). Available unilaterally, verification is
+     quick. Costs a groupId change across every coordinate, the BOM and the docs — and raises
+     whether the `qa.fanar.*` **package** root should follow, since it claims the same domain.
+     Cheap now, a fork after 1.0.
+  **Timing:** (3) is the only path with a deadline. Renaming coordinates and packages is a
+  find-and-replace before 1.0 and a breaking change after it, so this must be settled before the
+  ADR-019 freeze opens, whichever way it goes.
+  Path-independent prerequisites are **done**: `-sources.jar` and `-javadoc.jar` per published
+  module under `-Ppublish`, and reproducible builds via `project.build.outputTimestamp` (verified:
+  two builds of one commit produce a byte-identical jar). Still path-dependent and therefore not
+  done: `distributionManagement`, and GPG signing (required by Central, not by GitHub Packages).
 - **Surface `X-Revised-Input` from `POST /v1/audio/speech`** — the 2026-09 spec expanded the header to cover hadith and to state that tags and citation links are stripped before synthesis, but `speech()` returns `byte[]` and drops every response header. Exposing it changes the return type or adds a sibling method, and should follow ADR-026's principle that response metadata travels on observations and exceptions rather than on DTOs. Deferred out of the spec sync as its own decision (ADR-028, Alternatives).
 - **Readable request-validation errors** — Fanar returns two error shapes. App-level errors use the documented `{"error":{…}}` envelope; **request-validation failures bypass it entirely** and return FastAPI's `{"detail":[{"loc":["body","model"],"msg":"Input should be …"}]}` (observed 2026-09-15, [ledger](WIRE_OBSERVATIONS.md#error-envelope-shape)). The SDK routes those correctly by HTTP status, but the exception message is the raw JSON blob. Parsing `detail[].loc` / `msg` into a readable message — and deciding whether the offending field gets a typed surface — is the natural home for the `param` question below.
-- **Error-envelope `param` on the public API** — parsed into the internal envelope as of 0.5.0, deliberately not surfaced: it belongs on `Error`, i.e. on *every* exception, so a `FanarException.param()` accessor means new constructor overloads down all fifteen leaf subtypes. The 2026-09-15 probe argues against ever paying that: `param` is `null` on every envelope captured, and the errors that *would* name a field don't use the envelope at all. If a typed surface is ever wanted, take it from FastAPI's `loc` in the item above, or use an observation attribute (ADR-026's precedent).
+- **Error-envelope `param` on the public API** — parsed into the internal envelope as of 0.5.0, deliberately not surfaced: it belongs on `Error`, i.e. on *every* exception, so a `FanarException.param()` accessor means new constructor overloads down every leaf subtype. The 2026-09-15 probe argues against ever paying that: `param` is `null` on every envelope captured, and the errors that *would* name a field don't use the envelope at all. If a typed surface is ever wanted, take it from FastAPI's `loc` in the item above, or use an observation attribute (ADR-026's precedent).
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`.
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
 - **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the ten known-gated cases (six, plus four for the gated validation endpoint since 2026-09-15) or stay red every night.
+  **How to tell whether the key has since been upgraded, without asking:** the gated cases are the
+  test. With `FANAR_API_KEY` set, run
+  ```
+  ./mvnw -pl e2e -am test -Dtest='LiveSadiqValidateTest,LiveAudioVoicesTest' -Dsurefire.failIfNoSpecifiedTests=false
+  ```
+  Those failures are 403s rejected *before admission*, so they consume no quota and the run is safe
+  at any time. **Check the count, not the exit code**: you want `Tests run: 5`. Separate the classes
+  with a comma — Surefire does not treat `+` as a separator, so a `+` selects nothing and still
+  reports `BUILD SUCCESS`. `Skipped: 5` means the key was not visible to the JVM. Green means the
+  permissions were granted. For the quota, read `x-ratelimit-limit` on a TTS call in the
+  `fanar.wire` log: `20` is the standard key. Whatever this file says, that run is the current
+  answer.
 
 ## Deferred (won't fit cleanly)
 
-- **Spring AI `ModerationModel`** — Fanar's `/v1/moderations` returns continuous `safety` + `culturalAwareness` scores; Spring AI's surface expects 16 category booleans. A best-effort mapping would always report `Categories.isHate()=false`, which is misleading. Surfaced via `FanarClient.moderations()` directly instead.
+- **Spring AI `ModerationModel`** — Fanar's `/v1/moderations` returns continuous `safety` + `culturalAwareness` scores; Spring AI's `Categories` is a fixed set of boolean flags (19 in Spring AI 2.0.1). A best-effort mapping would always report `Categories.isHate()=false`, which is misleading. Surfaced via `FanarClient.moderations()` directly instead.
 - **Spring AI `EmbeddingModel`** — Fanar exposes no `/v1/embeddings` endpoint at all. Users wanting RAG bring their own embedder (`spring-ai-openai`, `spring-ai-transformers`, etc.).
 - **Native `response_format` / structured output on chat** — not in the Fanar wire spec. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work because they shape the prompt text, not the request flag.
 - **User-supplied tool calling** — Fanar's `/v1/chat/completions` **accepts `tools` / `tool_choice` and silently ignores them.** Live-proved 2026-09-15: HTTP 200, `tool_calls` empty, the tool name absent from the body, and `prompt_tokens` **identical** with and without the array — so it is discarded at the edge and never reaches the model ([ledger](WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)). Until 2026-09-15 this entry read *rejects*, inferred from the schema and never actually sent. A caller therefore gets no signal, which is why Spring AI tool callbacks degrade silently in our adapter ([ADR-021](adr/021-spring-ai-2-adapter.md), [ADR-024](adr/024-spring-ai-vendor-options.md)). The `tool_calls` events in streams remain server-internal Sadiq retriever telemetry. **Still open:** `Fanar-Agentic` and `Fanar-Sadiq-Agentic` answer 422 "Model not authorized" for this key, so whether an agentic variant accepts user tools is untested — the one finding that would reopen this scope, and part of the pending key request.

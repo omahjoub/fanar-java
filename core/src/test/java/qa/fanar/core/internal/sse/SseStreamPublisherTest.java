@@ -5,6 +5,9 @@ import qa.fanar.core.chat.ChoiceToken;
 import qa.fanar.core.chat.StreamEvent;
 import qa.fanar.core.chat.TokenChunk;
 import qa.fanar.core.spi.FanarJsonCodec;
+import qa.fanar.core.spi.FanarObservationAttributes;
+import qa.fanar.core.spi.ObservationHandle;
+import qa.fanar.core.internal.observability.NoopObservationHandle;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,7 +38,7 @@ class SseStreamPublisherTest {
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "a"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "b"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "c")))
-        )).subscribe(sub);
+        ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         sub.completed.get(5, TimeUnit.SECONDS);
         assertEquals(3, sub.events.size());
@@ -50,7 +55,7 @@ class SseStreamPublisherTest {
         new SseStreamPublisher(in, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "first"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "second")))
-        )).subscribe(sub);
+        ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         out.write("data: {\"a\":1}\n\ndata: {\"a\":2}\n\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
@@ -71,7 +76,7 @@ class SseStreamPublisherTest {
 
     @Test
     void secondSubscriberIsRejected() throws Exception {
-        SseStreamPublisher publisher = new SseStreamPublisher(bytes(""), scriptedCodec());
+        SseStreamPublisher publisher = new SseStreamPublisher(bytes(""), scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime());
 
         CollectingSubscriber first = new CollectingSubscriber(Long.MAX_VALUE);
         publisher.subscribe(first);
@@ -114,16 +119,18 @@ class SseStreamPublisherTest {
                 subscription.cancel();
             }
         };
+        RecordingObservation obs = new RecordingObservation();
         new SseStreamPublisher(body, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "x")))
-        )).subscribe(sub);
+        ), obs, System.nanoTime()).subscribe(sub);
 
         out.write("data: {\"a\":1}\n\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
         sub.nextReceived.get(5, TimeUnit.SECONDS);
-        // Bounded wait: lets the producer reach the while header (and therefore L131) so a
-        // regression that fires onComplete after cancel would be caught here.
-        Thread.sleep(100);
+        // The producer closes the observation in its finally block, so this latch firing proves
+        // run() has exited — anything it was going to signal, it has signalled. Deterministic
+        // where a fixed sleep only guesses.
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "the producer must finish");
 
         assertEquals(1, sub.events.size());
         assertFalse(sub.completedFlag.get(), "onComplete must not fire after cancel");
@@ -136,7 +143,7 @@ class SseStreamPublisherTest {
             public int read() throws IOException { throw new IOException("boom"); }
         };
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(broken, scriptedCodec()).subscribe(sub);
+        new SseStreamPublisher(broken, scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         Throwable err = sub.errored.get(5, TimeUnit.SECONDS);
         assertInstanceOf(IOException.class, err);
@@ -145,7 +152,7 @@ class SseStreamPublisherTest {
     @Test
     void requestZeroTerminatesWithIllegalArgument() throws Exception {
         CollectingSubscriber sub = new CollectingSubscriber(0); // no initial demand
-        new SseStreamPublisher(bytes(""), scriptedCodec()).subscribe(sub);
+        new SseStreamPublisher(bytes(""), scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         sub.subscription.request(0);
         Throwable err = sub.errored.get(5, TimeUnit.SECONDS);
@@ -161,7 +168,7 @@ class SseStreamPublisherTest {
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
-        )).subscribe(sub);
+        ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         // Long.MAX_VALUE twice — must not roll negative.
         sub.subscription.request(Long.MAX_VALUE);
@@ -174,10 +181,11 @@ class SseStreamPublisherTest {
     @Test
     void nullArgsAreRejected() {
         FanarJsonCodec codec = scriptedCodec();
-        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(null, codec));
-        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(bytes(""), null));
+        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(null, codec, NoopObservationHandle.INSTANCE, System.nanoTime()));
+        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(bytes(""), null, NoopObservationHandle.INSTANCE, System.nanoTime()));
+        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(bytes(""), codec, null, System.nanoTime()));
 
-        SseStreamPublisher publisher = new SseStreamPublisher(bytes(""), codec);
+        SseStreamPublisher publisher = new SseStreamPublisher(bytes(""), codec, NoopObservationHandle.INSTANCE, System.nanoTime());
         assertThrows(NullPointerException.class, () -> publisher.subscribe(null));
     }
 
@@ -187,21 +195,22 @@ class SseStreamPublisherTest {
         PipedInputStream in = new PipedInputStream(out, 8192);
 
         CollectingSubscriber sub = new CollectingSubscriber(1); // only allow one event
+        RecordingObservation obs = new RecordingObservation();
         new SseStreamPublisher(in, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
-        )).subscribe(sub);
+        ), obs, System.nanoTime()).subscribe(sub);
 
         // Emit two frames. The first consumes the single unit of demand; the producer then
         // parks inside awaitDemand waiting for the second delivery request.
         out.write("data: {}\n\ndata: {}\n\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
 
+        // The first delivery proves the producer consumed the single unit of demand and is now
+        // parked; cancelling then wakes it, and the observation close proves it exited.
         sub.nextReceived.get(5, TimeUnit.SECONDS);
-        Thread.sleep(100);
-
         sub.subscription.cancel();
-        Thread.sleep(100);
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "cancel must wake and finish the producer");
 
         assertEquals(1, sub.events.size(), "second event must not be delivered after cancel");
         assertFalse(sub.completedFlag.get());
@@ -222,7 +231,7 @@ class SseStreamPublisherTest {
         new SseStreamPublisher(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
-        )).subscribe(sub);
+        ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         Throwable err = sub.errored.get(5, TimeUnit.SECONDS);
         assertInstanceOf(qa.fanar.core.FanarTransportException.class, err);
@@ -237,27 +246,30 @@ class SseStreamPublisherTest {
         // the reader throws IOException because we just closed the body; the producer must
         // not surface that to the subscriber (they asked to stop).
         CountDownLatch inRead = new CountDownLatch(1);
-        AtomicBoolean closed = new AtomicBoolean();
+        CountDownLatch closed = new CountDownLatch(1);
         InputStream body = new InputStream() {
             @Override
             public int read() throws IOException {
                 inRead.countDown();
-                while (!closed.get()) {
-                    try { Thread.sleep(10); }
-                    catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try {
+                    // Park until close() releases us — no polling, no sleep.
+                    closed.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
                 throw new IOException("read-after-close (expected — must be swallowed)");
             }
             @Override
-            public void close() { closed.set(true); }
+            public void close() { closed.countDown(); }
         };
 
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(body, scriptedCodec()).subscribe(sub);
+        RecordingObservation obs = new RecordingObservation();
+        new SseStreamPublisher(body, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
         assertTrue(inRead.await(5, TimeUnit.SECONDS));
 
         sub.subscription.cancel();
-        Thread.sleep(100);
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "the producer must finish after cancel");
 
         assertFalse(sub.errored.isDone(), "post-cancel IOException must not surface to the subscriber");
         assertFalse(sub.completedFlag.get(), "no terminal signal after cancel");
@@ -279,12 +291,12 @@ class SseStreamPublisherTest {
         };
 
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(body, scriptedCodec()).subscribe(sub);
-        Thread.sleep(50);
+        RecordingObservation obs = new RecordingObservation();
+        new SseStreamPublisher(body, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
 
         // Must not propagate the close IOException out of cancel().
         sub.subscription.cancel();
-        Thread.sleep(50);
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "the producer must finish");
 
         assertTrue(closeCalled.get());
         assertFalse(sub.errored.isDone(), "close-time IOException must be swallowed silently");
@@ -302,13 +314,93 @@ class SseStreamPublisherTest {
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
         new SseStreamPublisher(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "x")))
-        )).subscribe(sub);
+        ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         sub.completed.get(5, TimeUnit.SECONDS);
         assertEquals(1, sub.events.size());
     }
 
     // --- helpers
+
+    @Test
+    void observationSpansTheStreamAndRecordsChunkMetricsOnCompletion() throws Exception {
+        String body = """
+                data: {"kind":"token","content":"a"}
+
+                data: {"kind":"token","content":"b"}
+
+                """;
+
+        RecordingObservation obs = new RecordingObservation();
+        CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
+        new SseStreamPublisher(bytes(body), scriptedCodec(
+                new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "a"))),
+                new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "b")))
+        ), obs, System.nanoTime()).subscribe(sub);
+
+        sub.completed.get(5, TimeUnit.SECONDS);
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "the observation must close at the terminal signal");
+
+        assertEquals(2L, obs.attributes.get(FanarObservationAttributes.FANAR_STREAM_CHUNKS));
+        assertNotNull(obs.attributes.get(FanarObservationAttributes.FANAR_STREAM_FIRST_CHUNK_MS),
+                "first-chunk latency is recorded when the first event arrives");
+        assertEquals(1, obs.closes.get(), "closed exactly once");
+        assertNull(obs.error.get(), "a completed stream is not an error");
+    }
+
+    @Test
+    void observationRecordsTheErrorAndStillClosesOnFailure() throws Exception {
+        InputStream broken = new InputStream() {
+            public int read() throws IOException { throw new IOException("boom"); }
+        };
+        RecordingObservation obs = new RecordingObservation();
+        CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
+        new SseStreamPublisher(broken, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
+
+        sub.errored.get(5, TimeUnit.SECONDS);
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "a failed stream still closes its observation");
+
+        assertInstanceOf(IOException.class, obs.error.get(), "the failure reaches the observation");
+        assertEquals(0L, obs.attributes.get(FanarObservationAttributes.FANAR_STREAM_CHUNKS),
+                "no chunk arrived before the failure");
+    }
+
+    @Test
+    void observationClosesOnCancellationAndReportsChunksSeenSoFar() throws Exception {
+        String body = "data: {}\n\ndata: {}\n\ndata: {}\n\n";
+
+        RecordingObservation obs = new RecordingObservation();
+        CollectingSubscriber sub = new CollectingSubscriber(1); // one chunk, then cancel
+        new SseStreamPublisher(bytes(body), scriptedCodec(
+                new TokenChunk("c", 0L, "m", List.of()),
+                new TokenChunk("c", 0L, "m", List.of()),
+                new TokenChunk("c", 0L, "m", List.of())
+        ), obs, System.nanoTime()).subscribe(sub);
+
+        assertTrue(sub.firstLatch.await(5, TimeUnit.SECONDS), "first event must arrive");
+        sub.subscription.cancel();
+
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "a cancelled stream still closes its observation");
+        assertEquals(1, obs.closes.get(), "closed exactly once");
+    }
+
+    /** Records what the publisher puts on the observation, and when it closes it. */
+    private static final class RecordingObservation implements ObservationHandle {
+        final Map<String, Object> attributes = new ConcurrentHashMap<>();
+        final AtomicInteger closes = new AtomicInteger();
+        final AtomicReference<Throwable> error = new AtomicReference<>();
+        final CountDownLatch closed = new CountDownLatch(1);
+
+        @Override public ObservationHandle attribute(String key, Object value) {
+            attributes.put(key, value);
+            return this;
+        }
+        @Override public ObservationHandle event(String name) { return this; }
+        @Override public ObservationHandle error(Throwable t) { error.set(t); return this; }
+        @Override public ObservationHandle child(String operationName) { return this; }
+        @Override public Map<String, String> propagationHeaders() { return Map.of(); }
+        @Override public void close() { closes.incrementAndGet(); closed.countDown(); }
+    }
 
     private static InputStream bytes(String body) {
         return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));

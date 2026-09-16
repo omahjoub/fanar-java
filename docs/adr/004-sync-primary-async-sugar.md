@@ -27,8 +27,14 @@ Async is thin sugar implemented by dispatching the sync call to a virtual-thread
 
 ```java
 CompletableFuture<ChatResponse> future = client.chat().sendAsync(request);
-// internally: CompletableFuture.supplyAsync(() -> send(request), virtualThreadExecutor)
 ```
+
+Each `*Async` call starts **one virtual thread** that runs the sync path and completes the future —
+`Thread.ofVirtual().start(…)`, not `supplyAsync` against a shared executor. The distinction is the
+decision, not an implementation detail: an executor is a lifecycle the client would have to own,
+size, shut down and document, and every one of those questions has a wrong answer that leaks into
+the caller's application. A virtual thread per call has none of them. It is affordable precisely
+because ADR-001 puts us on Java 21.
 
 Streaming is a third, genuinely non-blocking shape via `Flow.Publisher<StreamEvent>` (ADR-005).
 
@@ -39,6 +45,9 @@ paths, no `ThreadLocal` abuse, no calls that would pin a virtual thread to its c
 
 - **Async primary with sync as `async.join()`**. *Rejected*: anachronistic in a virtual-threads world. Callers who
   want sync pay `CompletableFuture` machinery for zero scaling benefit.
+- **A shared executor behind `*Async`** (`supplyAsync(…, executor)`). *Rejected*: it makes the client
+  the owner of a thread pool — how large, shut down when, and what happens to in-flight calls when it
+  closes. A virtual thread per call answers all three by not asking them.
 - **Twin implementations** where sync and async each have their own HTTP call path. *Rejected*: the "each path is
   honest" argument weakens when sync-on-vthread *is* the honest path. Twin implementations double the code surface
   for no user benefit.
@@ -60,7 +69,10 @@ paths, no `ThreadLocal` abuse, no calls that would pin a virtual thread to its c
   convert via `Mono.fromFuture` at the call site.
 
 ### Neutral
-- The sync/async split does not apply to streaming (ADR-005), which has its own shape.
+- The sync/async split does not apply to streaming (ADR-005), which has its own shape. Consuming a
+  stream is nevertheless blocking work by nature, so `Streams.toStream(...)` bridges a publisher into
+  a blocking `Stream` for callers who want the sync shape there too — the same reasoning as this
+  record, applied one layer up.
 
 ## References
 

@@ -42,7 +42,7 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
    `validateAsync(...)` (ADR-004). The tag ↔ facade mapping of ADR-016 is the rule, not an artefact
    of the number eight; a ninth tag continues it. `qa.fanar.core.internal.sadiq.SadiqClientImpl`
    owns the endpoint, the wire format and the decoding, and shares the existing `Dispatcher` — no
-   new plumbing (ADR-016 amendment, 2026-08-29).
+   new plumbing (ADR-016).
 
 2. **`model` is a `ChatModel`, not a new value class.** The spec's `SadiqValidationModels` schema
    lists only `Fanar-Sadiq-2`, already a `ChatModel` constant. The codebase's rule is not "every
@@ -117,8 +117,10 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
 
 ### Negative / Trade-offs
 - A ninth public facade interface to name, document and keep stable — the cost ADR-016 flagged.
-  "Eight facades" was hard-coded in ADR-011, ADR-015, ADR-016, `ARCHITECTURE.md` and
-  `PROJECT_STATE.md`; each is amended, and the count will drift again on the tenth.
+  "Eight facades" had been hard-coded in ADR-011, ADR-015, ADR-016, `ARCHITECTURE.md` and
+  `PROJECT_STATE.md`, and every one of them had to be corrected. The count will drift again on the
+  tenth domain, which is why those records now state the *rule* (one facade per OpenAPI tag) and
+  point at `FanarClient` for the list.
 - `validate()` accepts any `ChatModel`, so passing a non-validating model is a server-side 422
   rather than a compile error — the same trade `tokens` already makes.
 - Callers who want structured citations must strip the markup themselves until a parser ships.
@@ -154,10 +156,9 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
 - ADR-002 Narrow core SDK scope (typed models for every Fanar endpoint; post-processing is downstream)
 - ADR-004 Sync-primary, async sugar (the `validateAsync` variant)
 - ADR-006 Unchecked exception hierarchy (gate routed by envelope code, never by message text)
-- ADR-011 Package conventions (amended 2026-09-15: a ninth domain subpackage)
-- ADR-015 Hand-written DTO conventions (amended 2026-09-15: nine functional domains)
-- ADR-016 FanarClient builder and domain facades (amended 2026-09-15: a ninth facade; the 1:1
-  tag ↔ facade mapping is the rule)
+- ADR-011 Package conventions (the ninth domain subpackage)
+- ADR-015 Hand-written DTO conventions (nine functional domains; model value classes)
+- ADR-016 FanarClient builder and domain facades (the 1:1 tag ↔ facade mapping is the rule)
 - ADR-019 Pre-1.0 stability policy (additive; 0.5.0, never a patch)
 - ADR-020 Spring Boot 4 starter shape (one `FanarClient` bean; no per-domain beans)
 - ADR-021 Spring AI 2.0 adapter / ADR-024 Spring AI vendor options (why no validation adapter)

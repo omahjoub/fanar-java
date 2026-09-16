@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import qa.fanar.core.FanarTransportException;
+import qa.fanar.core.spi.FanarObservationAttributes;
+import qa.fanar.core.spi.ObservationHandle;
 
 /**
  * {@link Flow.Publisher} that reads a streamed audio response body on a virtual thread and emits
@@ -25,6 +27,13 @@ import qa.fanar.core.FanarTransportException;
  * underlying {@link InputStream} and honours the subscriber's {@code request(long)} demand
  * before every {@code onNext}. Cancellation closes the stream.</p>
  *
+ * <p>The publisher owns the caller's {@link ObservationHandle} for the life of the stream. It
+ * records {@code fanar.stream.first_chunk_ms} when the first chunk arrives and
+ * {@code fanar.stream.chunks} when the stream ends, then closes the handle — on completion,
+ * failure and cancellation alike. A publisher that is never subscribed to never reaches that
+ * terminal path, so it leaves the observation open along with the response body; subscribing
+ * exactly once is the contract.</p>
+ *
  * <p>Internal (ADR-018).</p>
  *
  * @author Oussama Mahjoub
@@ -34,10 +43,22 @@ public final class AudioStreamPublisher implements Flow.Publisher<byte[]> {
     private static final int CHUNK_SIZE = 8192;
 
     private final InputStream body;
+    private final ObservationHandle observation;
+    private final long startNanos;
     private final AtomicBoolean subscribed = new AtomicBoolean();
 
-    public AudioStreamPublisher(InputStream body) {
+    /**
+     * @param body        the streamed audio response body; must not be {@code null}
+     * @param observation the caller's observation, which this publisher owns from here: it is
+     *                    closed on the terminal signal, after the stream attributes are recorded.
+     *                    Must not be {@code null} — pass the no-op handle when unobserved.
+     * @param startNanos  {@code System.nanoTime()} taken before the request was sent, used to
+     *                    derive {@code fanar.stream.first_chunk_ms}
+     */
+    public AudioStreamPublisher(InputStream body, ObservationHandle observation, long startNanos) {
         this.body = Objects.requireNonNull(body, "body");
+        this.observation = Objects.requireNonNull(observation, "observation");
+        this.startNanos = startNanos;
     }
 
     @Override
@@ -107,12 +128,23 @@ public final class AudioStreamPublisher implements Flow.Publisher<byte[]> {
 
         private void run() {
             byte[] buffer = new byte[CHUNK_SIZE];
+            // Counted here rather than in the subscriber so cancellation and failure still report
+            // how far the stream got (ADR-013).
+            long chunks = 0;
             try {
                 int read;
                 while (!cancelled.get() && (read = body.read(buffer)) != -1) {
                     if (read == 0) {
                         continue;
                     }
+                    if (chunks == 0) {
+                        // Measured at arrival, before awaitDemand: this is the server's
+                        // time-to-first-audio, not the subscriber's back-pressure.
+                        observation.attribute(
+                                FanarObservationAttributes.FANAR_STREAM_FIRST_CHUNK_MS,
+                                (System.nanoTime() - startNanos) / 1_000_000L);
+                    }
+                    chunks++;
                     awaitDemand();
                     if (cancelled.get()) {
                         return;
@@ -131,12 +163,19 @@ public final class AudioStreamPublisher implements Flow.Publisher<byte[]> {
                 }
                 if (t instanceof InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    subscriber.onError(new FanarTransportException("Audio stream interrupted", ie));
+                    FanarTransportException wrapped =
+                            new FanarTransportException("Audio stream interrupted", ie);
+                    observation.error(wrapped);
+                    subscriber.onError(wrapped);
                 } else {
+                    observation.error(t);
                     subscriber.onError(t);
                 }
             } finally {
                 closeQuietly(body);
+                // Terminal for every exit — complete, error, or cancellation.
+                observation.attribute(FanarObservationAttributes.FANAR_STREAM_CHUNKS, chunks);
+                observation.close();
             }
         }
     }

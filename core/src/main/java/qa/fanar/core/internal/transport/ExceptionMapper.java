@@ -26,6 +26,8 @@ import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
+import qa.fanar.core.FanarUnexpectedClientException;
+import qa.fanar.core.FanarUnexpectedServerException;
 import qa.fanar.core.FanarUnprocessableException;
 import qa.fanar.core.RateLimitInfo;
 
@@ -125,7 +127,15 @@ public final class ExceptionMapper {
             case 500 -> new FanarInternalServerException(detail);
             case 503 -> new FanarOverloadedException(detail);
             case 504 -> new FanarTimeoutException(detail);
-            default -> new FanarInternalServerException("HTTP " + status + ": " + detail);
+            // A status the Fanar wire contract does not declare. Route it by range so the 4xx/5xx
+            // branch invariant holds (ADR-006): a 4xx is the caller's to fix and must not be
+            // retried, a 5xx may succeed on a later attempt. Both carry the status as received and
+            // a null code — no ErrorCode describes a response we have not modelled. The caller
+            // only maps error responses (RetryInterceptor guards on status >= 400), so the lower
+            // bound needs no second guard here.
+            default -> status < 500
+                    ? new FanarUnexpectedClientException(detail, status)
+                    : new FanarUnexpectedServerException(detail, status);
         };
     }
 

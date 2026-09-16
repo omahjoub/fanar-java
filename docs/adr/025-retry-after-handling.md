@@ -13,7 +13,7 @@ returned, so `RetryInterceptor` — which decides on typed exceptions — never 
 error at all. Only transport failures (`FanarTransportException`) were ever retried. The unit
 tests injected the expected exceptions straight into the loop and every facade test used
 `RetryPolicy.disabled()`, so nothing crossed the seam. The 2026-08-28 review found it; the fix
-(mapping at the retry boundary, inside the chain) is recorded as an amendment to ADR-012 and
+(mapping at the retry boundary, inside the chain) is recorded in ADR-012 and
 ADR-006. This record defines what the loop does with the hint now that it actually receives one.
 
 The 2026-08-27 Fanar spec refresh documents the rate-limit response-header contract —
@@ -86,7 +86,8 @@ loop-level mechanics covered by the unit tests.
 No new `RetryPolicy` component is introduced — the existing knob already expresses "the longest
 this policy is willing to wait between attempts".
 
-This **amends the `Retry-After` clause of ADR-014**. Everything else in ADR-014 — retryable set,
+This **governs the `Retry-After` clause of ADR-014**, which states the rules as decided here.
+Everything else in ADR-014 — retryable set,
 backoff, jitter, streaming posture — is untouched.
 
 ## Alternatives considered
@@ -127,18 +128,18 @@ backoff, jitter, streaming posture — is untouched.
   `ArithmeticException` at retry time.
 
 ### Neutral
-- The behaviour is visible only now that HTTP-status retry fires at all (ADR-012 amendment):
+- The behaviour is visible only because HTTP-status retry fires at all (ADR-012):
   callers see retries and sleeps on 429 / 5xx that never happened before 0.3.0. Recorded in the
   changelog as the behaviour change it is.
 
 ## References
 
 - ADR-004 Sync-primary API with async sugar (why a blocked thread is the caller's thread)
-- ADR-006 Unchecked exception hierarchy (`retryAfter()` on both 429 subtypes; amended 2026-08-28)
-- ADR-012 Interceptor SPI (amended 2026-08-28: error mapping at the retry boundary)
-- ADR-014 Retry policy defaults (amended by this record)
+- ADR-006 Unchecked exception hierarchy (`retryAfter()` on both 429 subtypes)
+- ADR-012 Interceptor SPI (error mapping at the retry boundary)
+- ADR-014 Retry policy defaults (the `Retry-After` clause this record governs)
 - ADR-018 Internals are not a contract
-- ADR-020 Spring Boot 4 starter shape (amended 2026-08-28: `fanar.retry.max-delay`, `RetryPolicy` bean)
+- ADR-020 Spring Boot 4 starter shape (`fanar.retry.max-delay`, the `RetryPolicy` bean slot)
 - Fanar OpenAPI `info.description`, 2026-08-27 refresh — rate-limit header contract
 - RFC 9110 §10.2.3 — `Retry-After`
 - `LiveRateLimitHeadersTest` — live-observed header shapes, dated caveats

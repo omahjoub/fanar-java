@@ -1,6 +1,6 @@
 # ADR-016 — `FanarClient` builder and domain facades
 
-- **Status**: Accepted (amended 2026-09-15 — see [Amendments](#amendments))
+- **Status**: Accepted
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -29,7 +29,7 @@ public final class FanarClient implements AutoCloseable {
     public ImagesClient       images();
     public TranslationsClient translations();
     public PoemsClient        poems();
-    public ModerationClient   moderation();
+    public ModerationsClient  moderations();
     public TokensClient       tokens();
     public ModelsClient       models();
 
@@ -154,17 +154,3 @@ Loud, early, helpful:
 - ADR-014 Retry policy defaults
 - ADR-019 Pre-1.0 stability policy
 
-## Amendments
-
-### 2026-09-15 — A ninth facade, `sadiq()` (0.5.0)
-
-`POST /v1/sadiq/validate` arrived under a new `Sadiq` OpenAPI tag, the first endpoint whose domain
-had no facade. This record's Positive consequence — "new Fanar endpoints become new facade methods,
-not changes to `FanarClient`" — assumes the domain already exists; where it does not, the governing
-rule is the one stated in the Decision: **facades map 1:1 to the domain-grouped packages (ADR-011)**.
-A ninth tag therefore gets a ninth facade rather than a method grafted onto `chat()`. The accessor
-list becomes nine — `chat()`, `audio()`, `images()`, `translations()`, `poems()`, `moderations()`
-(the Decision sketch above spells it `moderation()`; the shipped accessor is plural), `sadiq()`,
-`tokens()`, `models()` — and "eight facade interfaces to name and document" in the
-Negative consequences becomes nine. `SadiqClientImpl` shares the common `Dispatcher` introduced by
-the 2026-08-29 amendment, so the addition cost no new plumbing. See ADR-028.

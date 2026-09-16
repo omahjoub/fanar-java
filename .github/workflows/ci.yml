@@ -35,7 +35,7 @@ jobs:
         #   - maven-compiler-plugin with -Xdoclint:all,-missing (Javadoc quality gate)
         #   - maven-dependency-plugin:analyze-only with failOnWarning=true (undeclared/unused deps)
         #   - jacoco:check
-        run: mvn -B verify
+        run: ./mvnw -B verify
 
       # JaCoCo runs `report` in the `test` phase and `check` in `verify`, so the HTML report
       # exists by the time a coverage gate fails. Upload it on failure so we can pinpoint the
@@ -53,27 +53,31 @@ jobs:
           retention-days: 1
 
   check-docs:
-    name: Check documentation links
+    name: Check documentation references
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - name: Verify every relative Markdown link resolves
-        run: |
-          errors=$(mktemp)
-          for file in LICENSE api-spec/openapi.json api-spec/openapi.yaml \
-              .github/pull_request_template.md .github/SECURITY.md; do
-            [ -f "$file" ] || echo "ERROR: $file must exist" | tee -a "$errors"
-          done
-          find . -type d -name target -prune -o -name '*.md' -print | sort | while IFS= read -r source; do
-            dir=$(dirname "$source")
-            { grep -oE '\]\([^)[:space:]]+\.md(#[^)]*)?\)' "$source" || true; } \
-              | sed -E 's/^\]\(//; s/\)$//; s/#.*$//' | sort -u | while IFS= read -r target; do
-                case "$target" in http://*|https://*) continue ;; esac
-                [ -f "$dir/$target" ] || echo "ERROR: $source links to $target, which does not exist" | tee -a "$errors"
-              done
-          done
-          if [ -s "$errors" ]; then
-            exit 1
-          fi
-          echo "All documentation links valid"
+      # No JDK needed — this reads the repository, it does not build it.
+      # The script is the same one contributors run locally:
+      #   python3 .github/scripts/check-docs.py
+      # It resolves targets against `git ls-files`, so a document referencing a file that was
+      # never committed fails here rather than 404-ing for the first reader.
+      - name: Verify every documentation reference resolves
+        run: python3 .github/scripts/check-docs.py
+
+  check-build:
+    name: Check build invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Reads the POMs and the shipped metadata as data — no JDK, no build. Same script a
+      # contributor runs locally:
+      #   python3 .github/scripts/check-build-invariants.py
+      # Guards three things a green build otherwise hides: a published module missing from the BOM
+      # (which shipped broken for five months), a class named as a string in META-INF/services or
+      # the GraalVM metadata that no longer resolves, and a published module opting out of the
+      # coverage gate.
+      - name: Verify build invariants
+        run: python3 .github/scripts/check-build-invariants.py

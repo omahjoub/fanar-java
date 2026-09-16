@@ -1,6 +1,6 @@
 # ADR-014 — Retry policy defaults
 
-- **Status**: Accepted (amended 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
+- **Status**: Accepted
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -20,9 +20,11 @@ tokens, inconsistent state). Retry of the initial connection is safe; retry mid-
 - **Attempts**: 3 total (1 initial + 2 retries).
 - **Backoff**: exponential with **full jitter**. `delay = random(0, base * 2^(attempt-1))`, where base = 500 ms.
 - **Max delay cap**: 30 seconds.
-- **`Retry-After` header**: respected when the server sends it; overrides the computed backoff.
-  *Amended 2026-08-28 — honoured up to `maxDelay`, see [Amendments](#amendments) and
-  [ADR-025](025-retry-after-handling.md).*
+- **Total sleep budget**: 1 min — the worst case the other defaults already allow, so it only
+  bites once `maxAttempts` or `maxDelay` is raised (ADR-027).
+- **`Retry-After` header**: honoured when the server sends it, up to `maxDelay`. A larger hint ends
+  retrying and the exception surfaces with the hint preserved; non-positive, past-date and
+  unparseable values count as absent ([ADR-025](025-retry-after-handling.md)).
 
 ### Retryable set
 
@@ -34,7 +36,8 @@ Based on typed `ErrorCode` (ADR-006) combined with HTTP status:
 | `overloaded` (503) | `invalid_authentication` (401) |
 | `timeout` (504) | `invalid_authorization` (403) |
 | `internal_server_error` (500) — for idempotent operations | `exceeded_quota` (429, permanent) |
-| HTTP 408, 425, 502 | `Not found` (404) |
+| HTTP 408 and 425 — the two 4xx meaning "try again" | `Not found` (404) |
+| Any other undeclared 5xx (502, 507, …) | Any other undeclared 4xx (405, 407, 415, …) |
 | `IOException` from transport (wrapped as `FanarTransportException`) | `conflict` (409) |
 | | `no_longer_supported` (410) |
 | | `too_large` (413) |
@@ -43,6 +46,14 @@ Based on typed `ErrorCode` (ADR-006) combined with HTTP status:
 Note that `exceeded_quota` shares HTTP 429 with `rate_limit_reached` but is explicitly non-retryable — quota is a
 permanent condition, not a transient one. The typed `ErrorCode` lets us distinguish. Both carry the server's
 `Retry-After` hint for caller-side scheduling (ADR-025).
+
+The predicate reads the **branch**, not a list of statuses: `FanarServerException` and
+`FanarTransportException` retry, `FanarClientException` does not (ADR-006). That is what keeps the
+set honest as codes are added — a new leaf inherits the right answer from where it is filed. Two
+statuses are an explicit exception to it, 408 and 425, because they are client-class by number but
+mean "try again" rather than "fix your request"; Fanar declares neither, so they reach us only from
+an intermediary. Everything else undeclared follows its branch: an unknown 5xx may succeed on
+another attempt, an unknown 4xx will not.
 
 *Proved by* `FanarClientRetryIntegrationTest` (core; public builder → interceptor chain → JDK transport → scripted
 local server): `retryableErrorResponseIsRetriedThroughThePublicApi` (503 retried),
@@ -56,8 +67,9 @@ seam entered through the Spring starter (`FanarAutoConfigurationRetryIntegration
 Retries apply to the **initial connection handshake only**. A connection that dies mid-stream surfaces as
 `onError` on the subscriber of the `Flow.Publisher<StreamEvent>` (ADR-005) — an `ErrorChunk` is a server-*sent*
 error frame, not a transport failure — and the user decides whether to re-subscribe, because only they know the
-semantic implication of replaying partially-consumed events. *(Wording corrected 2026-08-29, see
-[Amendments](#amendments).)*
+semantic implication of replaying partially-consumed events. The stream's observation records the
+failure before that `onError` (ADR-013), so a dropped stream is visible in telemetry even though the
+SDK does not retry it.
 
 *Proved by* `FanarClientRetryIntegrationTest.streamingHandshakeIsRetriedThroughThePublicApi` /
 `speechStreamHandshakeIsRetriedThroughThePublicApi` (a 503 handshake is retried, then the body streams) and
@@ -125,49 +137,13 @@ explicit opt-out.
 - The interaction with `Chain.observation()` (ADR-012 / ADR-013) is explicit: `RetryInterceptor` emits
   `retry_attempt` events on the current observation so traces and metrics reflect the retry count.
 
-## Amendments
-
-### 2026-08-28 — `Retry-After` ceiling, predicate bounds, and the retryable set made real (0.3.0)
-
-Through 0.2.0 the retryable set above was unimplemented end-to-end for every HTTP-status row: the
-domain facades mapped 4xx/5xx to typed exceptions only after the interceptor chain had returned,
-so `RetryInterceptor` retried transport failures and nothing else. 0.3.0 moves the mapping to the
-retry boundary inside the chain (ADR-012 amendment); the table now describes what happens.
-
-In the same release [ADR-025](025-retry-after-handling.md) amends the `Retry-After` clause:
-hints are honoured up to `maxDelay`, a larger hint ends retrying with the exception surfacing
-hint-preserved, non-positive / past-date / unparseable hints count as absent, and both HTTP 429
-subtypes carry the hint (`exceeded_quota` stays non-retryable). The "full control" wording in the
-trade-offs above is narrowed accordingly — the predicate decides *which*, the policy's bounds
-decide *how long* — and the worst-case latency arithmetic, which never matched the 500 ms base,
-is corrected in place.
-
-### 2026-08-29 — streaming posture: wording corrected and proved (0.4.0)
-
-The streaming clause said a mid-stream disconnect surfaces as an `ErrorChunk`. It never did: `ErrorChunk` is the
-decoded shape of a server-sent error *frame*, while a transport failure after the handshake reaches the subscriber
-as `onError` (the response body's `IOException`, unwrapped). The wording above is corrected in place; the posture —
-retry the handshake only, never re-request mid-stream — is unchanged and now proved by the seam-crossing tests
-named in each section. This is the 0.4.0 rule: an ADR names the `*IntegrationTest` that proves what it promises
-(CONTRIBUTING → Testing).
-
-### 2026-08-29 — a total sleep budget and a builder (0.4.0, ADR-027)
-
-The policy bounded each sleep and the number of attempts but not their sum. ADR-027 adds
-`maxTotalDelay` (default 1 min — the worst case the other defaults already allowed, so nothing
-changes at the defaults): a sleep that would push one call's cumulative sleep over the budget is
-never started, retrying ends and the exception surfaces with its hint preserved, mirroring the
-ADR-025 ceiling. The customization API gains `RetryPolicy.builder()` (from `defaults()`) and
-`withMaxTotalDelay`; the canonical constructor's arity changes — a pre-1.0 break under ADR-019,
-recorded in the changelog. The bounds that end retrying regardless of `retryable` are therefore
-three: `maxAttempts`, `maxDelay`, `maxTotalDelay`.
-
 ## References
 
 - ADR-006 Unchecked exception hierarchy (typed `ErrorCode` mapping)
 - ADR-012 Interceptor SPI
 - ADR-013 Observability SPI
 - ADR-016 `FanarClient` builder and domain facades
-- ADR-025 Retry-After handling (amends the `Retry-After` clause above)
+- ADR-025 Retry-After handling (the ceiling and normalisation rules above)
+- ADR-027 `RetryPolicy`: a total sleep budget and a builder
 - "Exponential Backoff and Jitter", AWS Architecture Blog
 - Google SRE Book, "Handling overload"
