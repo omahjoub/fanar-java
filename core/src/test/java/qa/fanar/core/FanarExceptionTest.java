@@ -54,7 +54,13 @@ class FanarExceptionTest {
                 Arguments.of("FanarContentFilterException",
                         new FanarContentFilterException("msg"), ErrorCode.CONTENT_FILTER, 400),
                 Arguments.of("FanarClientClosedRequestException",
-                        new FanarClientClosedRequestException("msg"), ErrorCode.CLIENT_CLOSED_REQUEST, 499)
+                        new FanarClientClosedRequestException("msg"), ErrorCode.CLIENT_CLOSED_REQUEST, 499),
+                // The two unmodelled-status leaves carry no ErrorCode and the status as received,
+                // never a substitute (ADR-006).
+                Arguments.of("FanarUnexpectedClientException",
+                        new FanarUnexpectedClientException("msg", 407), null, 407),
+                Arguments.of("FanarUnexpectedServerException",
+                        new FanarUnexpectedServerException("msg", 502), null, 502)
         );
     }
 
@@ -208,7 +214,11 @@ class FanarExceptionTest {
                 Arguments.of("FanarContentFilterException",
                         (Function<Throwable, FanarException>) c -> new FanarContentFilterException("msg-with-cause", ContentFilterType.SAFETY, c)),
                 Arguments.of("FanarClientClosedRequestException",
-                        (Function<Throwable, FanarException>) c -> new FanarClientClosedRequestException("msg-with-cause", c))
+                        (Function<Throwable, FanarException>) c -> new FanarClientClosedRequestException("msg-with-cause", c)),
+                Arguments.of("FanarUnexpectedClientException",
+                        (Function<Throwable, FanarException>) c -> new FanarUnexpectedClientException("msg-with-cause", 407, c)),
+                Arguments.of("FanarUnexpectedServerException",
+                        (Function<Throwable, FanarException>) c -> new FanarUnexpectedServerException("msg-with-cause", 502, c))
         );
     }
 }

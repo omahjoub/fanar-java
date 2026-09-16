@@ -24,7 +24,7 @@ package qa.fanar.core.internal.transport;
  *                yields no envelope)
  * @param message the human-readable server message, or {@code null} when absent
  * @param param   the request field the error is attributed to, or {@code null}; spec-nullable and
- *                parsed but not yet surfaced on the public API (ADR-006 amendment 2026-09-15)
+ *                parsed but not yet surfaced on the public API (ADR-006)
  * @param type    the wire value of the content-filter subtype, or {@code null}; spec-nullable
  * @author Oussama Mahjoub
  */

@@ -8,13 +8,18 @@ propose changes that land cleanly.
 1. **[README](../README.md)** — what we're building and why.
 2. **[Project state](PROJECT_STATE.md)** — what phase we're in and what's next on the roadmap.
 3. **[Compatibility matrix](COMPATIBILITY.md)** — the lighthouse: what's core, what's framework-layer, what's Fanar-exclusive. Every scope question traces back here.
-4. **[ADRs](adr/INDEX.md)** — every non-obvious decision, grouped into five categories. Don't deviate from an ADR without superseding it.
+4. **[ADRs](adr/INDEX.md)** — every non-obvious decision, grouped by area. Don't deviate from an ADR without superseding it; until 1.0 an ADR is corrected in place rather than amended (ADR-019).
 5. **[API sketch](API_SKETCH.md)** — the target code shape. Living document.
 6. **[Architecture](ARCHITECTURE.md)** — module layout, request-flow diagrams, "where does X live?".
 7. **[Library best practices](JAVA_LIBRARY_BEST_PRACTICES.md)** — hygiene every PR must respect.
 8. **[Glossary](GLOSSARY.md)** — Fanar-specific and project-specific terminology.
 
-If you read those in order, you have the full context. Expect ~30 minutes.
+Then, before you touch a live test or interpret one: **[Wire observations](WIRE_OBSERVATIONS.md)** — the dated
+ledger of what the live API actually does where it differs from the spec, plus the live-suite budget. Nothing else
+records that, and [Testing](#testing) below assumes you have read it.
+
+That is a few hours of reading, not a coffee break — the ADRs alone are the largest block. Read 1–3 first and
+the rest when you need them; every document says at the top who it is for.
 
 ## Local setup
 
@@ -26,8 +31,11 @@ cd fanar-java
 ./mvnw verify
 ```
 
-`verify` passes with two expected warnings about module-name terminal digits (documented in ADR-010).
-If it fails for any other reason, that is a bug — please open an issue.
+`verify` passes with two expected compiler warnings — `module name component jackson2 should avoid terminal digits`
+and the same for `jackson3`. The module names match their artifact ids, so renaming to silence the warning would
+break that correspondence; ADR-011 records the trade-off. The build also emits routine maven-shade warnings from
+`e2e-graalvm` (overlapping `MANIFEST.MF`, empty jar) and one `[WARNING]` line per skipped live test. If the build
+fails, that is a bug — please open an issue.
 
 ### Running one module only
 
@@ -36,12 +44,17 @@ If it fails for any other reason, that is a bug — please open an issue.
 ./mvnw -pl json-jackson3 -am verify        # adapter + its dependencies
 ./mvnw -pl spring-ai-starter -am verify    # Spring AI adapter + starter chain
 ./mvnw -pl core -am test -Dtest=ChatRequestTest -Dsurefire.failIfNoSpecifiedTests=false   # one test class
-./mvnw verify -Dgroups=integration         # only the seam-crossing tests (see Testing below)
+./mvnw test -Dgroups=integration           # only the seam-crossing tests — `test`, not `verify` (see below)
 ```
 
-`-am` builds the reactor siblings a module depends on — since 0.4.0 that includes the unpublished `test-support`
-fixture for every module with `*IntegrationTest` classes. With `-Dtest=…`, `-Dsurefire.failIfNoSpecifiedTests=false`
-keeps Surefire from failing in the sibling modules where the pattern matches nothing.
+`-am` builds the reactor siblings a module depends on — including the unpublished `test-support` fixture, which
+every module with `*IntegrationTest` classes needs. With `-Dtest=…`, `-Dsurefire.failIfNoSpecifiedTests=false` keeps
+Surefire from failing in the sibling modules where the pattern matches nothing.
+
+**Use `test`, not `verify`, for any partial run.** The JaCoCo gate is bound to `verify` and demands 100 %, so a
+filtered selection fails it by construction — the numbers are about the whole module, not your subset. Coverage is
+also only trustworthy after a `clean`: the agent appends to any existing `jacoco.exec`, so a dirty tree can report
+100 % that the current run never produced.
 
 ### Running the live e2e suite
 
@@ -64,7 +77,8 @@ next to the dated record of every observed deviation from the spec that the live
    template — particularly the *Scope* dropdown on feature requests, which forces the core-vs-framework-layer
    conversation up front.
 2. **Fork → branch from `main` → push → PR.**
-3. **Fill the PR template.** The scope-split checklists are not decorative. Reviewers will ask about unchecked items.
+3. **Fill the PR template.** It carries the items CI cannot check; the full engineering list lives in
+   [Library best practices](JAVA_LIBRARY_BEST_PRACTICES.md). Reviewers will ask about unchecked items.
 4. **Keep PRs focused.** One design decision per PR. One bug fix per PR. Large multi-concern PRs get broken up in
    review — saving both sides time.
 
@@ -75,9 +89,10 @@ If your change touches the public API, adds or alters an SPI, changes scope, or 
 1. Pick the next unused number — the highest existing number plus one, regardless of which [INDEX](adr/INDEX.md)
    section it sits in (`ls docs/adr | sort | tail -1`). Numbers are assigned in creation order and **never**
    renumbered.
-2. Copy an existing ADR as a template (they all follow the extended Michael Nygard format):
+2. Copy a recent ADR as a template — they all follow the extended Michael Nygard format described in
+   [INDEX](adr/INDEX.md#format):
    ```
-   cp docs/adr/019-pre-10-stability-policy.md docs/adr/020-my-decision.md
+   cp docs/adr/028-sadiq-validation-facade.md docs/adr/0NN-my-decision.md
    ```
 3. Fill in the sections: Status (`Proposed` initially), Date, Deciders, Context, Decision, Alternatives considered,
    Consequences, References.
@@ -108,12 +123,14 @@ The full set lives in [Library best practices](JAVA_LIBRARY_BEST_PRACTICES.md). 
 - **Core module has zero runtime dependencies.** Any new dep is an ADR conversation, not a PR.
 - **No third-party types on the public API surface.** JDK types (`Flow.Publisher`, `CompletableFuture`, etc.) and
   our own DTOs only.
-- **Top-level package = public API**, `.spi` = extension interfaces, `.internal` = implementation (not exported).
+- **Public API = the top-level package + the domain subpackages**, `.spi` = extension interfaces, `.internal` =
+  implementation (never exported). `module-info.java` is the authoritative list.
 - **Records** for DTOs, **sealed interfaces** for unions, no `Optional` fields. See ADR-015.
 - **Javadoc** on every public type and method. `-Xdoclint:all,-missing` is enforced at compile time.
 - **`module-info.java`** exports only public packages. Never internal ones.
-- **`-parameters` is enabled globally.** Spring MVC's `@PathVariable String foo` binds by parameter name
-  reflectively; the flag must be on for that to work without explicit name args.
+- **`-parameters` is enabled globally** in the root POM's compiler configuration. Spring MVC binds
+  `@PathVariable String foo` by parameter name reflectively, and without the flag that fails at runtime. Our own
+  code names bindings explicitly anyway; the flag keeps that a style choice rather than a requirement.
 - **Tests** follow the layers and rules in [Testing](#testing) below.
 
 ## Testing
@@ -129,7 +146,8 @@ no Failsafe), and every layer can be selected with `-Dgroups=` / `-DexcludedGrou
 
 **The seam-crossing rule.** Every behaviour an ADR promises to a consumer has an `*IntegrationTest` that proves it
 end to end, and the ADR names that test. JaCoCo measures execution, not integration: the retry loop had 100 %
-coverage and sixteen green unit tests for two releases while no HTTP-status error ever reached it (ADR-025). A unit
+coverage and a full suite of green unit tests for two releases while no HTTP-status error ever reached it
+(ADR-012). A unit
 test that hands the unit the outcome it expects proves the unit, not the wiring.
 
 The fixture is the unpublished `test-support` module (`fanar-java-test-support`; JDK-only, so `core` uses it too).
@@ -141,10 +159,15 @@ the same seam entered through a Spring context.
 
 Rules for every test:
 
-- **No `Thread.sleep`.** Wait on latches and futures with a timeout and assert the result
-  (`assertTrue(latch.await(…))`); wall-clock assertions only as generous lower bounds where the behaviour *is* a
-  sleep. A 60 s JUnit timeout (root `pom.xml`, `disabled_on_debug`; 5 min in `e2e`) turns a hang into a failure
-  with a stack trace — add `@Timeout` only where tighter matters.
+- **No `Thread.sleep` as synchronisation.** Never sleep to "let the other thread get there" — wait on a latch or
+  future with a timeout and assert the result (`assertTrue(latch.await(…))`). To assert that something did *not*
+  happen, latch on a signal that proves the producer finished and assert the absence after it: a streaming
+  publisher closes its observation in a `finally`, so `obs.closed.await(…)` is that signal
+  (`SseStreamPublisherTest`, `AudioStreamPublisherTest`). Exactly three sleeps survive, each commented with this
+  rule: two server-side stalls in `DefaultHttpTransportTest` where the behaviour under test *is* elapsed time, and
+  one in `LiveChatCompletionsTest` where the producer is Fanar across a socket and no local signal exists. A new
+  one needs the same justification in a comment. A 60 s JUnit timeout (root `pom.xml`, `disabled_on_debug`; 5 min
+  in `e2e`) turns a hang into a failure with a stack trace — add `@Timeout` only where tighter matters.
 - **Assertions**: JUnit `Assertions` (with messages) outside the Spring modules, AssertJ inside them;
   `assertDoesNotThrow` says "must not throw" explicitly.
 - **Scripted-server tests assert the hit count** — retries are counted, never assumed.
@@ -163,10 +186,25 @@ Rules for every test:
 
 Every shipping module enforces:
 
-- **JaCoCo 100 %** on instructions, lines, branches, methods, complexity. Sample apps and `e2e*` modules
-  set `jacoco.skip=true`.
-- **`dependency:analyze` strict** — fails on undeclared or unused direct deps. Sample apps disable it.
-- **Doclint** at javac time.
+- **JaCoCo 100 %** on instructions, lines, branches, methods and complexity. Five modules opt out with
+  `jacoco.skip=true`: both sample apps, `e2e`, `e2e-graalvm` and the `test-support` fixture.
+- **`dependency:analyze` strict** — fails on undeclared or unused direct deps. Four modules unbind it: both sample
+  apps, `e2e` and `e2e-graalvm`. `test-support` keeps it — it has no dependencies to get wrong.
+- **Doclint** at javac time (`-Xdoclint:all,-missing`), on every module.
+- **Build invariants** — `python3 .github/scripts/check-build-invariants.py`, run by the `check-build` job. Three
+  things a green build otherwise hides: a published module missing from (or stale in) `bom/pom.xml`, which shipped
+  broken for five months before anyone noticed; a class named as a *string* in `META-INF/services` or the GraalVM
+  reachability metadata that no longer resolves — those fail in a consumer's process at runtime, not at compile
+  time, which is what makes a package rename dangerous (ADR-029); and a published module setting `jacoco.skip`,
+  which is how a POM copied from a sample ships an ungated module by accident.
+- **Documentation references** — `python3 .github/scripts/check-docs.py`, which the `check-docs` job runs and you
+  can run locally. It fails on: a relative link to a file or directory that is not tracked (**any** target, not just
+  `.md` — the wire-observations ledger links to the live test classes that pin each observation, and those are the
+  links whose breakage matters most); a `#fragment` naming no heading in the target document; an `<img src=…>` that
+  does not resolve; and a README quick-start `<version>` that disagrees with the reactor's.
+  Targets resolve against `git ls-files`, so a document referencing a file you forgot to commit fails here rather
+  than 404-ing for the first reader — running it before staging a new file reports it, and that is the intended
+  answer.
 
 When CI flakes on a coverage gate, the failing job uploads the JaCoCo HTML report as an artifact named
 `jacoco-java-{21,25}` — drill into the package row at < 100 % and the highlighted source line tells you

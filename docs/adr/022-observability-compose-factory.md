@@ -1,7 +1,7 @@
 # ADR-022 — Observability composition via `compose(...)` factory
 
 - **Status**: Accepted
-- **Date**: 2026-04-25
+- **Date**: 2026-04-28
 - **Deciders**: @omahjoub
 
 ## Context
@@ -37,8 +37,25 @@ The factory returns an internal `CompositeObservabilityPlugin` that:
   out `attribute` / `event` / `error` / `child` / `close`.
 - Merges `propagationHeaders()` last-write-wins on key collision (this rarely matters — different
   observability backends own different header namespaces).
-- Tolerates child `null` / failures defensively: a thrown exception from one child does not
-  prevent the others from observing the rest of the lifecycle.
+- **Rejects a `null` child at construction, and contains a throwing one at call time.** The two are
+  opposite failures and get opposite treatment. A `null` in the list is a wiring mistake: caught
+  immediately, with a message naming the problem, because it will never become correct. An exception
+  from a live plugin is a runtime condition — a metrics backend down, a tracer misconfigured — and
+  telemetry is not worth a failed request. It is absorbed so the caller's call succeeds and the
+  sibling plugins still observe the rest of the lifecycle. A plugin that fails to `start`, or returns
+  `null`, keeps a silent slot so the fan-out stays aligned for every later call.
+- `Error` is **not** contained. An `OutOfMemoryError` from a plugin is not the plugin's to recover
+  from, and swallowing it would hide a failure the application needs to see.
+- The containment here is **per-child**: one broken backend does not blind its siblings, which is the
+  failure mode that makes composition worth having at all. It is distinct from the client's
+  per-call guard (ADR-013), which stops any plugin's failure reaching the request. Neither implies
+  the other, and both are needed: the per-call guard would still let one broken child abort the
+  fan-out loop before its siblings were called.
+
+- Returns `noop()` for an empty list and the plugin itself, unwrapped, for a list of one — so
+  composing costs nothing when there is nothing to compose. The unwrap is safe because it is no
+  longer load-bearing for failure containment: the client guards whatever plugin it is given
+  (ADR-013), so a lone plugin is protected whether it went through this factory or not.
 
 The slot remains single; the SPI shape unchanged.
 
@@ -64,6 +81,16 @@ The slot remains single; the SPI shape unchanged.
 - ⚠ `propagationHeaders()` last-write-wins is a small footgun. Mitigated by adapters owning
   disjoint header namespaces (`traceparent` for OTel, etc.) — flagged in adapter Javadoc rather
   than in the composite logic.
+
+## Proved by
+
+- `CompositeObservabilityPluginTest` — fan-out across the whole handle lifecycle, and the
+  containment rules: a throwing child neither fails the caller nor silences its siblings, a child
+  that throws on `start` or returns `null` gets a silent slot.
+- `FanarClientObservabilityIsolationIntegrationTest.aBrokenPluginDoesNotBlindAHealthyOneComposedAfterIt`
+  — the same containment through the public API and a real request, for a genuine composite of
+  two. The other cases in that class cover the single-plugin routes, where `compose(single)`
+  unwraps and the client's own wrapper is what contains the failure.
 
 ## References
 

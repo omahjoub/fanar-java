@@ -13,8 +13,22 @@ Every ADR follows an extended Michael Nygard template:
 - **Context** — the forces at play, what made this decision necessary
 - **Decision** — the choice, stated declaratively
 - **Alternatives considered** — options we rejected, with reasoning
-- **Consequences** — positive, negative, and neutral
+- **Consequences** — positive, negative, and neutral. Split under those three headings where the
+  record is long enough to warrant it; a short one can run as a single list.
+- **Proved by** — optional, and only where a behaviour is consumer-observable: the seam-crossing
+  `*IntegrationTest` that demonstrates it (see [CONTRIBUTING — Testing](../CONTRIBUTING.md#testing)).
 - **References** — related ADRs, docs, external sources
+
+**No amendment sections before 1.0.0.** An ADR states the current decision as if decided today;
+corrections are made in place and git history is the audit trail. A discovery that explains *why*
+the design is what it is belongs in Context or Consequences. This inverts at 1.0.0, when a change
+to an accepted ADR becomes a dated amendment or a superseding ADR — see
+[ADR-019](019-pre-10-stability-policy.md).
+
+**What an ADR is not.** It records a decision and its reasoning, not a copy of the code. Inline
+lists of constants, operation names, module counts or accessor signatures drift the moment the code
+moves and are the single biggest source of stale ADRs here — name the type or the test that holds
+the list instead.
 
 ## Index
 
@@ -46,6 +60,7 @@ Every ADR follows an extended Michael Nygard template:
 
 - [012 — Interceptor SPI](012-interceptor-spi.md)
 - [013 — Observability SPI](013-observability-spi.md)
+- [022 — Observability composition via `compose(...)` factory](022-observability-compose-factory.md)
 - [014 — Retry policy defaults](014-retry-policy-defaults.md)
 - [025 — Retry-After handling: ceiling, normalisation, and the quota hint](025-retry-after-handling.md)
 - [026 — Rate-limit visibility: observation attributes and `RateLimitInfo` on the 429s](026-rate-limit-telemetry.md)
@@ -56,10 +71,10 @@ Every ADR follows an extended Michael Nygard template:
 - [009 — GraalVM native-image as a day-one CI target](009-native-image-day-one.md)
 - [010 — Module layout](010-module-layout.md)
 - [011 — Package conventions](011-package-conventions.md)
+- [029 — Where published artifacts live, and what the coordinate has to be](029-publication-target.md)
 
 ### Framework adapters
 
 - [020 — Spring Boot 4 starter shape](020-spring-boot-4-starter.md)
 - [021 — Spring AI 2.0 adapter](021-spring-ai-2-adapter.md)
-- [022 — Observability composition via `compose(...)` factory](022-observability-compose-factory.md)
 - [024 — Spring AI vendor options (FanarChatOptions family)](024-spring-ai-vendor-options.md)

@@ -39,17 +39,30 @@ jobs:
     if: github.event_name == 'pull_request' || github.event.inputs.action == 'self-test'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # 21 is the floor this SDK supports and the only leg whose failure blocks a release:
+        # `reflect-config.json` is the one metadata schema GraalVM for JDK 21 reads, so it is the
+        # weakest link. 25 is forward-coverage — it reads both schemas, and it is where a
+        # deprecation (`--strict-image-heap`, the plugin's `fallback` parameter) shows up first.
+        # The legs run on separate runners in parallel, so wall-clock does not double.
+        graalvm-java: ['21', '25']
+    name: native-smoke (GraalVM for JDK ${{ matrix.graalvm-java }})
     steps:
       - uses: actions/checkout@v7
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21'
+          java-version: ${{ matrix.graalvm-java }}
           distribution: 'graalvm'
           cache: 'maven'
 
       - name: Build native binary
-        run: ./mvnw -Pnative -pl e2e-graalvm -am package -B
+        # -DskipTests: the `test` job already runs every test on Java 21 and 25. Re-running
+        # them here costs ~30s per leg and proves nothing new; this job exists to compile a
+        # native image and run its reachability self-test.
+        run: ./mvnw -Pnative -pl e2e-graalvm -am package -B -DskipTests
 
       - name: Offline self-test
         run: ./e2e-graalvm/target/fanar-graalvm-smoke --self-test

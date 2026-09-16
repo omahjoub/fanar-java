@@ -14,7 +14,7 @@ The core stays **universal**: no hard dependency on any framework, no JSON-libra
 
 ## 1. What Fanar offers
 
-The tables below follow the spec. Where the live API was observed to differ — `stop` accepted but ignored, model gating answering 422, a visibility-scoped `/v1/models`, per-day audio windows — the dated record is [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md).
+The tables below follow the spec. Where the live API was observed to differ — `stop` accepted but ignored, user `tools` accepted and ignored, model gating answering 422, a visibility-scoped `/v1/models`, audio budgets that are sliding 24 h windows rather than per-day limits — the dated record is [WIRE_OBSERVATIONS.md](WIRE_OBSERVATIONS.md).
 
 ### Capabilities
 
@@ -29,9 +29,9 @@ The tables below follow the spec. Where the live API was observed to differ — 
 | Tokenization                    |   ✅   | `POST /v1/tokens` — token count and `max_request_tokens` per model                                        |
 | Retrieval-Augmented Generation  | ✅ ⭐ | Native via `Fanar-Sadiq` / `Fanar-Sadiq-2` — Islamic-only, with authenticated source references; Sadiq-2 adds madhab-aware filtering (details below) |
 | Moderation                      | ✅ ⭐ | `POST /v1/moderations` — returns a safety score **and** a cultural-awareness score                         |
-| Qur'an + hadith validation      | 🟡 ⭐ | `POST /v1/sadiq/validate` — verifies quotations in arbitrary text against the authenticated corpora; requires additional authorization |
+| Qur'an + hadith validation      | 🟡 ⭐ | `POST /v1/sadiq/validate` — verifies quotations in arbitrary text against the authenticated corpora. Requires additional authorization; **no successful call has been observed** for the SDK's key, so everything below about the response format is the spec's claim, not an observation |
 | Thinking / reasoning            | 🟡 ⭐ | Two coexisting protocols (flag + first-class message roles) + `reasoning_tokens` accounted in usage        |
-| Tool calls (client-declared)    |   🟡   | The stream emits tool-call and tool-result events, but the request has no `tools` / `tool_choice` parameter — tool invocation is server-initiated only |
+| Tool calls (client-declared)    |   ❌   | The request schema has no `tools` / `tool_choice`, and the live endpoint **accepts both and silently ignores them** — so a caller gets no signal either way (see §3). The tool-call and tool-result events in streams are the server's own retriever calls, already executed |
 | Error model                     |   ✅   | Typed `ErrorCode` enum, routed from the error envelope's `code` with HTTP-status fallback (content-filter, rate-limit, exceeded-quota, no-longer-supported, client-closed-request, …) |
 | Structured output (JSON schema) |   ❌   | No `response_format` / `json_schema` parameter                                                            |
 | Seed / reproducibility          |   ❌   | No `seed` parameter                                                                                        |
@@ -61,7 +61,7 @@ Signals with **no counterpart** in the generic LLM vocabulary — the reason thi
 - **Islamic RAG** — `message.references[]` = `{number, source, content}`; sources include `quran`, `tafsir`, `sunnah`, `dorar`, `islamweb*`, `islam_qa`, `islamonline`, `shamela`.
 - **Scope knobs** for the RAG models — by book (`book_names`), by source (`preferred_sources` / `exclude_sources` / `filter_sources`), by madhab (`madhab`: `all` / `hanafi` / `maliki` / `shafii` / `hanbali`, honoured by `Fanar-Sadiq-2`), and a `restrict_to_islamic` guardrail that rejects non-Islamic prompts server-side.
 - **Custom persona** — free-form `persona` text controlling the assistant's voice and identity on `Fanar-Sadiq`.
-- **Quotation verification as an endpoint** — `POST /v1/sadiq/validate` takes any prose and returns it with verified Qur'anic verses replaced by the authenticated ayah, wrapped in `<quran_start>` / `<quran_end>` and cited to quran.com, and verified hadith wrapped in `<hadith_start>` / `<hadith_end>` and cited to sunnah.com. **Quotations it cannot confirm come back plain and untagged — that absence is the signal callers act on.** No generic LLM API has an equivalent.
+- **Quotation verification as an endpoint** — `POST /v1/sadiq/validate` takes any prose and returns it with verified Qur'anic verses replaced by the authenticated ayah, wrapped in `<quran_start>` / `<quran_end>` and cited to quran.com, and verified hadith wrapped in `<hadith_start>` / `<hadith_end>` and cited to sunnah.com; quotations it cannot confirm come back plain and untagged. No generic LLM API has an equivalent. **All of that is the spec's description — the endpoint is gated for our key and no 200 has ever been seen, so do not build on the tag vocabulary until it is ([wire observations](WIRE_OBSERVATIONS.md)).**
 - **Emotional TTS** — `with_emotion` synthesis on emotion-capable voices (`Abdulrahman`, `Radwa`).
 - **Culturally-aligned prompt revision** — image generation auto-revises prompts for style, quality, and cultural alignment (server default on), reporting `revised` / `revised_prompt` per image.
 - **Bilingual progress events** mid-stream — `ProgressChunk.progress.message = {en, ar}`.
@@ -83,6 +83,16 @@ A **strong, universal foundation** over everything in §1. Nothing more.
 - **Transport and (de)serialization as seams** — no hard dependency on one JSON library or one HTTP client; swap either without forking.
 - **Stable extension points** — if a downstream module ever has to fork the core to plug in, we designed the core wrong.
 - **Internals are not a contract** — code under `qa.fanar.core.internal.*` can be refactored, replaced, or removed in any release without breaking downstream modules. Only the top-level API package and `.spi` surface are stability contracts. The module boundary enforces this.
+
+### Supported runtimes
+
+| | Supported | Notes |
+|---|---|---|
+| **Java** | **21+** | `maven.compiler.release` is 21; CI tests on 21 and 25. |
+| **GraalVM native-image** | **GraalVM for JDK 21+** | Every module ships reachability metadata in the legacy `reflect-config.json` schema, which is the only one GraalVM for JDK 21 reads — the unified `reachability-metadata.json` is ignored below JDK 23. CI compiles and self-tests a native binary on GraalVM for JDK **21 and 25**. See [`GRAALVM.md`](GRAALVM.md). |
+
+The metadata schema tracks the supported Java floor, not the newest toolchain: it changes when the
+floor moves past 21, not when a newer GraalVM ships.
 
 ---
 
@@ -115,7 +125,7 @@ Compose any combination via `ObservabilityPlugin.compose(slf4j, otel, micrometer
 
 ### Deferred — Spring AI gaps with rationale
 
-- **`ModerationModel`** — Fanar returns continuous `safety` + `culturalAwareness` scores; Spring AI's surface expects 16 category booleans (`Categories.isHate()` etc.). A best-effort mapping would always report all categories `false`, misleading consumers. Use `FanarClient.moderations()` directly.
+- **`ModerationModel`** — Fanar returns continuous `safety` + `culturalAwareness` scores; Spring AI's `Categories` is a fixed set of boolean flags (`isHate()`, `isViolence()`, … — 19 in Spring AI 2.0.1). A best-effort mapping would report every one of them `false`, which misleads. Use `FanarClient.moderations()` directly.
 - **Qur'an + hadith validation** — Spring AI has no model interface for quotation verification, so there is no slot to adapt `POST /v1/sadiq/validate` into; inventing one would be a Fanar-shaped API wearing a framework's name (ADR-024 draws that line). Use `FanarClient.sadiq().validate(...)` directly — the starter's `FanarClient` bean already exposes it. It composes naturally with the Spring AI `ChatModel` as a post-processing step: generate, then validate the answer's quotations.
 - **`EmbeddingModel`** — Fanar has no embeddings endpoint at all (the ❌ in §1 above). RAG users bring their own embedder (`spring-ai-openai`, `spring-ai-transformers`, etc.).
 - **Native chat structured output** — Fanar exposes no `response_format` field. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work end-to-end since they shape the prompt text, not a model flag.

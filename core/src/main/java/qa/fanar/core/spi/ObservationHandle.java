@@ -6,8 +6,10 @@ import java.util.Map;
  * Lifecycle handle for a single observation begun by
  * {@link ObservabilityPlugin#start(String)}.
  *
- * <p>The handle is {@link AutoCloseable}; the SDK opens it inside a try-with-resources block and
- * closes it when the observed operation finishes, regardless of success or failure. Adapter
+ * <p>The handle is {@link AutoCloseable} and the SDK closes every handle it opens, regardless of
+ * success or failure: a one-shot call closes it with try-with-resources when the call returns, and
+ * a streaming call hands ownership to the publisher, which closes it on the terminal signal —
+ * completion, failure or cancellation alike (ADR-013). Adapter
  * implementations map the handle's methods to their backend's idioms — for example an
  * OpenTelemetry adapter maps {@link #attribute}, {@link #event}, {@link #error}, and
  * {@link #close} to span operations; a Micrometer adapter maps them to

@@ -36,6 +36,22 @@ A **two-week API freeze** precedes the 1.0.0 cut:
 - The freeze is announced in the changelog and on the project's release notes.
 - After the freeze window: cut 1.0.0. From that moment, strict semver applies.
 
+### ADR maintenance pre-1.0
+
+Until 1.0.0 an ADR states the current decision **as if decided today**. Corrections are made in
+place and there are no amendment sections, because pre-1.0 there is no commitment to deviate from —
+the section above says minor versions may break the public API and `.spi` with no deprecation
+cycle. An amendment would document a promise that was never made, and it costs every reader: an
+ADR carrying four of them has to be reconciled across five statements before its current position
+is clear. Git history is the audit trail for how a decision moved.
+
+Two obligations survive the fold. A discovery that *explains* the decision — a defect class the
+design now guards against — belongs in Context or Consequences, not in a dated changelog entry;
+and process lessons belong in the maintainers' notes, not in the ADR.
+
+From 1.0.0 this inverts: a change to an accepted ADR is recorded as a dated amendment or a
+superseding ADR, because from then on there is a consumer whose expectations can be violated.
+
 ### Post-1.0 (1.x.y and beyond)
 
 - **Strict semver** per JLBP-10.
@@ -59,7 +75,8 @@ A **two-week API freeze** precedes the 1.0.0 cut:
 
 ### Positive
 - Early adopters make an informed adoption decision with clear expectations about the upgrade path.
-- We retain the freedom to correct design mistakes (from the 19 ADRs and beyond) before the stability contract begins.
+- We retain the freedom to correct design mistakes — in the code and in the ADRs that describe it — before the
+  stability contract begins.
 - 1.0.0 becomes a meaningful milestone: it's not just the next version number, it's the moment when the stability
   contract begins.
 - Security-fix-latest-only is a well-established convention that minimizes maintenance burden during the pre-stable

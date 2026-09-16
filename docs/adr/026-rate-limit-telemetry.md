@@ -119,9 +119,9 @@ the attributes and the exceptions so the two surfaces can never disagree.
 
 ## References
 
-- ADR-006 Unchecked exception hierarchy (amended 2026-08-29: `rateLimit()` on both 429 subtypes)
+- ADR-006 Unchecked exception hierarchy (`rateLimit()` on both 429 subtypes)
 - ADR-012 Interceptor SPI (built-ins stay two; throttling is user-supplied)
-- ADR-013 Observability SPI (amended 2026-08-29: the `fanar.ratelimit.*` vocabulary)
+- ADR-013 Observability SPI (the `fanar.ratelimit.*` vocabulary)
 - ADR-014 Retry policy defaults / ADR-025 Retry-After handling (the retry loop's use of the headers)
 - ADR-015 DTO conventions (no `Optional` fields; DTOs stay pure)
 - ADR-019 Pre-1.0 stability policy (additive change)

@@ -60,6 +60,16 @@
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
         <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
+        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+
+        <!--
+          Reproducible builds: fixes every archive entry's timestamp so the same commit produces
+          byte-identical artifacts. Independent of where we publish, and a prerequisite if we ever
+          publish to Maven Central. Bump to the release date when cutting a release; `artifact:compare`
+          verifies the result.
+        -->
+        <project.build.outputTimestamp>2026-09-16T00:00:00Z</project.build.outputTimestamp>
 
         <!-- Test -->
         <jacoco.version>0.8.15</jacoco.version>
@@ -169,24 +179,6 @@
         </dependencies>
     </dependencyManagement>
 
-    <!--
-      Spring AI 2.0.x is still in milestone phase: artifacts are published to repo.spring.io's
-      milestone repository, not Maven Central. Scoped to milestones only — `releases.enabled=false`
-      means we never accidentally pull a non-GA version of any other artifact through this repo.
-    -->
-    <repositories>
-        <repository>
-            <id>spring-milestones</id>
-            <name>Spring Milestones</name>
-            <url>https://repo.spring.io/milestone</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <build>
         <pluginManagement>
@@ -196,6 +188,13 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
+                        <!-- Emit method parameter names into bytecode. Spring binds
+                             `@PathVariable String id` reflectively by name, and without this flag it
+                             fails at runtime rather than at compile time. Our own code always names
+                             the binding explicitly, so nothing here depends on it today — the flag
+                             is what keeps that a style choice instead of a requirement, for us and
+                             for anyone building on the starters. -->
+                        <parameters>true</parameters>
                         <!-- Javadoc quality gate. Doclint runs at javac time;
                              failures break the build. -missing is kept off by default until the SDK
                              has a stable public API; tighten to 'all' once 1.0 approaches. -->
@@ -213,6 +212,47 @@
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-jar-plugin</artifactId>
                   <version>${maven-jar-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <!--
+                      A -sources.jar and a -javadoc.jar per published module. Maven Central requires
+                      both; every other distribution channel is merely better for having them, and
+                      the javadoc run is a stronger check than javac's doclint because it resolves
+                      cross-module @link targets and actually renders the HTML.
+                      Bound in the `publish` profile below so a normal `verify` stays fast.
+                    -->
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven-source-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                    <configuration>
+                        <notimestamp>true</notimestamp>
+                        <quiet>true</quiet>
+                        <doclint>all,-missing</doclint>
+                        <!--
+                          No automatic cross-linking to reactor siblings. Enabled (the default) it
+                          does two things, and both are wrong here:
+
+                          1. It emits hyperlinks derived from the project <url>, e.g.
+                             https://github.com/omahjoub/fanar-java/fanar-core/apidocs/... — a URL
+                             where no site is published, so every cross-module reference in the
+                             javadoc jar 404s. A dead link is worse than plain text: it looks like a
+                             working reference.
+                          2. It tries to read package-lists from siblings that skip javadoc
+                             (test-support), logging one ignored [ERROR] per dependent module —
+                             noise that would hide a real javadoc failure in a release log.
+
+                          Turning it off loses nothing real: the type names still appear, just
+                          unlinked. The proper fix is an explicit <links> entry pointing at the
+                          published javadoc (javadoc.io, say), which needs a published coordinate —
+                          blocked on the publication decision in docs/PROJECT_STATE.md.
+                        -->
+                        <detectOfflineLinks>false</detectOfflineLinks>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <!-- Surefire 3.x is required for JUnit Platform; pin explicitly so we don't
@@ -339,5 +379,46 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          `-Ppublish` adds the -sources.jar and -javadoc.jar that a published artifact needs.
+          Kept out of the default build so `./mvnw verify` stays fast: a full javadoc run is
+          slower than everything else in this reactor combined, and it proves nothing a
+          contributor needs proved on every commit. Enabled manually for now: the GitHub-Release
+          flow does not ship these jars, and wiring it into `release.yml` waits on the publication
+          target (ADR-029).
+
+          Modules that are never published (samples, e2e, e2e-graalvm, test-support) opt out with
+          maven.source.skip / maven.javadoc.skip next to their existing maven.deploy.skip.
+        -->
+        <profile>
+            <id>publish</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals><goal>jar-no-fork</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals><goal>jar</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

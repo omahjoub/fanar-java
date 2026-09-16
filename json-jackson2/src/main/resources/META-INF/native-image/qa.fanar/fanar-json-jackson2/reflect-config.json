@@ -1,0 +1,34 @@
+[
+  {
+    "name": "qa.fanar.json.jackson2.Jackson2FanarJsonCodec",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.ChoiceTokenDeserializer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.ChoiceToolCallDeserializer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.ChoiceToolResultDeserializer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.ChoiceFinalDeserializer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.ChoiceErrorDeserializer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.ProgressChunkDeserializer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "qa.fanar.json.jackson2.SpeechToTextResponseDeserializer",
+    "allDeclaredConstructors": true
+  }
+]

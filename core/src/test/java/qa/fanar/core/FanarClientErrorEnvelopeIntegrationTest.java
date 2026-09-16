@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * builds {@code FanarContentFilterException} directly with its 2-arg constructor — so both were
  * green while {@code ErrorEnvelope} dropped the envelope's {@code type} member and every exception
  * the SDK produced came back with {@code filterType() == null}. A unit test that hands the unit the
- * outcome it expects proves the unit, not the wiring (ADR-006 amendment 2026-09-15).</p>
+ * outcome it expects proves the unit, not the wiring (ADR-006).</p>
  *
  * <p>Asserted here: the envelope's {@code type} reaches {@link FanarContentFilterException#filterType()}
  * on both construction sites — the typed-code route and the HTTP-400 fallback an unknown code falls

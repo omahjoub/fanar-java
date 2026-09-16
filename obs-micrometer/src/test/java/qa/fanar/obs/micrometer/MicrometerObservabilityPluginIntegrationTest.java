@@ -65,7 +65,7 @@ class MicrometerObservabilityPluginIntegrationTest {
         assertEquals(2, server.hits(), "the 503 was retried once");
         TestObservationRegistryAssert.assertThat(registry)
                 .hasNumberOfObservationsEqualTo(1)
-                .hasObservationWithNameEqualTo("fanar.chat")
+                .hasObservationWithNameEqualTo("fanar.chat.send")
                 .that()
                 .hasBeenStopped()
                 .hasEvent("retry_attempt")

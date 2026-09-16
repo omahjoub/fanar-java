@@ -37,7 +37,7 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Flow for {@link #send}:</p>
  * <ol>
- *   <li>Open an {@link ObservationHandle} named {@code fanar.chat}.</li>
+ *   <li>Open an {@link ObservationHandle} named {@code fanar.chat.send}.</li>
  *   <li>Encode the {@link ChatRequest} to JSON via the configured {@link FanarJsonCodec}.</li>
  *   <li>Build an {@link HttpRequest} with default and observation-supplied headers, plus
  *       {@code User-Agent} when configured.</li>
@@ -53,10 +53,16 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>{@link #sendAsync} spawns one virtual thread per call — no executor lifecycle to manage.</p>
  *
- * <p>{@link #stream} follows the same interceptor pipeline as {@link #send}, but with
- * {@code Accept: text/event-stream} and {@code "stream": true} injected into the request body.
- * The successful {@code HttpResponse} body is handed to an {@link SseStreamPublisher}, which
- * parses frames on a virtual thread and emits {@link StreamEvent}s to the subscriber.</p>
+ * <p>{@link #stream} follows the same interceptor pipeline as {@link #send}, but opens
+ * {@code fanar.chat.stream} instead, and sends with {@code Accept: text/event-stream} and
+ * {@code "stream": true} injected into the request body. The successful {@code HttpResponse} body
+ * is handed to an {@link SseStreamPublisher}, which parses frames on a virtual thread and emits
+ * {@link StreamEvent}s to the subscriber. The publisher also takes ownership of the observation:
+ * it spans the whole stream and closes on the terminal signal, so
+ * {@code fanar.stream.first_chunk_ms} and {@code fanar.stream.chunks} are recorded against a
+ * still-open observation (ADR-013). A stream that is never subscribed to therefore leaves both the
+ * observation and the response body open — the same precondition the response stream already
+ * carries.</p>
  *
  * <p>Internal (ADR-018). May be replaced, renamed, or deleted in any release.</p>
  *
@@ -70,7 +76,10 @@ import qa.fanar.core.spi.ObservationHandle;
 public final class ChatClientImpl implements ChatClient {
 
     private static final String ENDPOINT = "/v1/chat/completions";
-    private static final String OP_NAME = "fanar.chat";
+    // Observation names follow fanar.<domain>.<operation>; a streaming variant appends .stream so
+    // its metrics separate from the one-shot call's (ADR-013).
+    private static final String OP_SEND = "fanar.chat.send";
+    private static final String OP_STREAM = "fanar.chat.stream";
 
     private final URI endpoint;
     private final FanarJsonCodec jsonCodec;
@@ -101,7 +110,7 @@ public final class ChatClientImpl implements ChatClient {
     @Override
     public ChatResponse send(ChatRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ObservationHandle obs = observability.start(OP_NAME)) {
+        try (ObservationHandle obs = observability.start(OP_SEND)) {
             try {
                 HttpResponse<InputStream> response = dispatch(request, obs, false);
                 return decodeResponse(response);
@@ -129,14 +138,20 @@ public final class ChatClientImpl implements ChatClient {
     @Override
     public Flow.Publisher<StreamEvent> stream(ChatRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ObservationHandle obs = observability.start(OP_NAME)) {
-            try {
-                HttpResponse<InputStream> response = dispatch(request, obs, true);
-                return new SseStreamPublisher(response.body(), jsonCodec);
-            } catch (RuntimeException e) {
-                obs.error(e);
-                throw e;
-            }
+        // Not try-with-resources: the observation spans the whole stream, not just the handshake.
+        // On success SseStreamPublisher takes ownership of the handle and closes it on the
+        // terminal signal, after recording the stream attributes (ADR-013). Closing here would
+        // end the observation before a single chunk had arrived.
+        long startNanos = System.nanoTime();
+        ObservationHandle obs = observability.start(OP_STREAM);
+        try {
+            HttpResponse<InputStream> response = dispatch(request, obs, true);
+            return new SseStreamPublisher(response.body(), jsonCodec, obs, startNanos);
+        } catch (RuntimeException e) {
+            // The handshake failed, so no publisher exists to hand ownership to.
+            obs.error(e);
+            obs.close();
+            throw e;
         }
     }
 

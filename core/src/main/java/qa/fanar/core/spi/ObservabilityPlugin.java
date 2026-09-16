@@ -9,7 +9,7 @@ import qa.fanar.core.internal.observability.NoopObservabilityPlugin;
  * Observability contract for the SDK's metrics and tracing.
  *
  * <p>One plugin per {@code FanarClient}. The SDK opens one observation per semantic operation
- * (for example {@code fanar.chat}, {@code fanar.audio.speech}) and attaches standardized
+ * (for example {@code fanar.chat.send}, {@code fanar.audio.speech}) and attaches standardized
  * attributes defined in {@link FanarObservationAttributes}. Downstream adapters (Micrometer,
  * OpenTelemetry, an in-memory test double, a simple logger) implement this interface and bind
  * the observations to their respective backends.</p>
@@ -30,7 +30,7 @@ public interface ObservabilityPlugin {
      * {@link AutoCloseable} and must be closed (typically via try-with-resources) to end the
      * observation.
      *
-     * @param operationName a stable name identifying the operation, e.g. {@code fanar.chat}.
+     * @param operationName a stable name identifying the operation, e.g. {@code fanar.chat.send}.
      *                      Must not be {@code null}.
      * @return a handle bound to this observation; never {@code null}
      */
@@ -68,9 +68,12 @@ public interface ObservabilityPlugin {
      * practice only one tracing-aware plugin emits trace-context headers, so collisions are
      * rare.</p>
      *
-     * <p>Behavior on exceptions: a child plugin that throws propagates the exception up through
-     * the composite. Subsequent children are not invoked for that call. Wire defensively if a
-     * particular backend may misbehave.</p>
+     * <p>Behavior on exceptions: a child plugin that throws has its exception absorbed. The
+     * remaining children still receive the call and the caller's request is unaffected; a child
+     * that throws from {@code start}, or returns {@code null}, is given a silent slot for the
+     * rest of that observation's lifecycle. {@link Error} is not caught. The same containment
+     * applies to a single plugin installed directly on the builder, so composing plugins neither
+     * adds nor removes protection (ADR-022).</p>
      *
      * @param plugins the plugins to compose; must not be {@code null} and must not contain
      *                {@code null} elements

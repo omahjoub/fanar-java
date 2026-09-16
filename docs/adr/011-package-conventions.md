@@ -1,6 +1,6 @@
 # ADR-011 — Package conventions
 
-- **Status**: Accepted (amended 2026-09-15 — see [Amendments](#amendments))
+- **Status**: Accepted
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -10,8 +10,8 @@ Java libraries partition public and private packages in different ways: some exp
 some use an explicit `.api` subpackage, some use annotation-driven visibility. The choice affects JPMS exports,
 user mental model, IDE navigation, and the line between contract (stable) and implementation (refactorable).
 
-Fanar's OpenAPI spec describes ~80 schemas across 8 functional domains (chat, audio, images, translations, poems,
-moderation, tokens, models). Whatever package structure we adopt will host roughly that many DTO types plus the
+Fanar's OpenAPI spec describes roughly a hundred schemas across nine functional domains (chat, audio, images, translations, poems,
+moderations, sadiq, tokens, models). Whatever package structure we adopt will host roughly that many DTO types plus the
 facades, exception hierarchy, and SPI interfaces.
 
 ## Decision
@@ -38,7 +38,7 @@ are safe (ADR-018).
 
 ### DTO grouping
 
-DTOs and domain facades mirror the Fanar API's 8 domains:
+DTOs and domain facades mirror the Fanar API's nine domains:
 
 ```
 qa.fanar.core
@@ -49,7 +49,7 @@ qa.fanar.core
 ├── images.*                           // image-generation types
 ├── translations.*
 ├── poems.*
-├── moderation.*
+├── moderations.*
 ├── tokens.*                           // tokenization request / response
 ├── models.*                           // model listing and metadata
 ├── spi.*                              // extension interfaces
@@ -60,7 +60,7 @@ Each Jackson adapter module follows the same shape:
 
 ```
 qa.fanar.json.jackson2.Jackson2FanarJsonCodec           (public)
-qa.fanar.json.jackson2.internal.*                       (not exported)
+qa.fanar.json.jackson2.*                                (exported; the adapter is one package)
 ```
 
 ### Artifact ↔ package alignment
@@ -89,10 +89,15 @@ artifact renames the package with it, never one without the other.
 - Artifact/package alignment (JLBP-6) means the coordinate in a pom tells you exactly where to look in the source.
 
 ### Negative / Trade-offs
-- 8 top-level subpackages on a single module is more than minimalists prefer. Traded for discoverability and
+- Nine top-level subpackages on a single module is more than minimalists prefer. Traded for discoverability and
   scalability as Fanar adds domains.
 - Sealed-interface variants (e.g., `StreamEvent` permits) live in the same subpackage — domain-grouped, not
   collected in a "union" subpackage. Minor aesthetic call.
+- Because module names track artifact ids, `fanar-json-jackson2` and `fanar-json-jackson3` yield
+  module names ending in a digit, and javac warns `module name component jackson2 should avoid
+  terminal digits` for each. The warning is accepted rather than worked around: renaming the module
+  to silence it would break the 1:1 correspondence above, and javac only warns. These are the two
+  expected warnings a clean `verify` emits.
 
 ### Neutral
 - The `.internal.*` subtree is an anti-contract (ADR-018); it exists for organizational clarity, not external
@@ -106,14 +111,3 @@ artifact renames the package with it, never one without the other.
 - ADR-018 Internals are not a contract
 - [`docs/JAVA_LIBRARY_BEST_PRACTICES.md`](../JAVA_LIBRARY_BEST_PRACTICES.md) § JLBP-2, § JLBP-5, § JLBP-6, § JLBP-19, § JLBP-20
 
-## Amendments
-
-### 2026-09-15 — A ninth domain subpackage, `sadiq` (0.5.0)
-
-The 2026-09 spec refresh adds `POST /v1/sadiq/validate` under a new `Sadiq` OpenAPI tag, so the
-"8 functional domains" this record enumerates become **nine**: chat, audio, images, translations,
-poems, moderation, sadiq, tokens, models. `qa.fanar.core.sadiq` is exported and
-`qa.fanar.core.internal.sadiq` is not, exactly as the convention prescribes — the addition is the
-mechanical one this record's Consequences anticipated ("adding a new Fanar domain is mechanical:
-new subpackage under the top-level root"), and it needed no change to the convention itself.
-See ADR-028.

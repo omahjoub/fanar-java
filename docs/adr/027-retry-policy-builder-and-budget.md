@@ -44,7 +44,7 @@ the window in which this costs the least — the library is not yet on Maven Cen
 6. **Starter**: `fanar.retry.max-total-delay` (default `1m`) on `FanarProperties.Retry`; the
    `fanarRetryPolicy` bean is built through the builder so the four knobs validate together and a
    `max-delay` raised above the budget fails the context at startup instead of silently
-   misconfiguring the client (amends ADR-020).
+   misconfiguring the client (ADR-020 exposes it as `fanar.retry.max-total-delay`).
 
 `retryable` stays `Predicate<FanarException>`; an attempt- or elapsed-aware predicate is parked
 (plan, out of scope).
@@ -77,6 +77,20 @@ the window in which this costs the least — the library is not yet on Maven Cen
   or a move to the builder. Zero known external consumers at the time of the change.
 - One more invariant (`maxTotalDelay ≥ maxDelay`): raising `maxDelay` past 1 min now requires
   raising the budget too — deliberate, and validated loudly at construction (and at Spring startup).
+- **The budget bounds sleeping, not the call.** It is easy to read "1 minute total budget" as a
+  bound on how long one call can take. It is not, and cannot be: request time is the transport's,
+  not the policy's. The real worst case is
+
+      maxAttempts × requestTimeout + maxTotalDelay
+
+  which at the defaults is 3 × 60 s + 60 s ≈ **4 minutes** for a single `send()`. That case is not
+  hypothetical — it is what a server that accepts the connection and never responds produces: each
+  attempt burns the full request timeout, the resulting `FanarTransportException` is retryable
+  (ADR-014), and the budget never engages because almost no time was spent asleep. Observed
+  2026-09-16 against an unresponsive `api.fanar.qa`: one multipart call took 60 018 ms, logged
+  `retry_attempt`, and started again.
+  A caller who needs a bound on *elapsed* time sets `requestTimeout` for it, or imposes a deadline
+  of their own; no `RetryPolicy` knob can provide one.
 
 ### Neutral
 - `RetryPolicy.disabled()` carries the default budget like every other unused knob.
@@ -99,8 +113,8 @@ the window in which this costs the least — the library is not yet on Maven Cen
 ## References
 
 - ADR-004 Sync-primary API with async sugar (why a sleeping thread is the caller's)
-- ADR-014 Retry policy defaults (amended 2026-08-29 by this record)
+- ADR-014 Retry policy defaults (the budget this record adds)
 - ADR-019 Pre-1.0 stability policy (the constructor break)
-- ADR-020 Spring Boot 4 starter shape (amended 2026-08-29: `fanar.retry.max-total-delay`)
+- ADR-020 Spring Boot 4 starter shape (`fanar.retry.max-total-delay`)
 - ADR-025 Retry-After handling (the per-sleep ceiling this budget complements)
 - ADR-026 Rate-limit visibility (the data a client-wide throttle would use instead)

@@ -67,11 +67,23 @@ Constraints already in place:
 - Chunk boundaries are transport artifacts; players that need whole containers must buffer
   anyway. Documented on the method.
 - A second publisher implementation to maintain — mitigated by keeping it a line-for-line twin
-  of the SSE one minus frame assembly.
+  of the SSE one minus frame assembly. The twinning is load-bearing rather than tidy: both grew the
+  same observation-ownership lifecycle, and a fix to one is a fix to the other by inspection.
+  `Streams.toStream(...)` is generic over `Flow.Publisher<T>` for the same reason — the blocking
+  bridge serves audio chunks and stream events alike (ADR-005).
 
 ### Neutral
-- Observability reuses the `fanar.audio.speech` operation name (chat streaming reuses
-  `fanar.chat` the same way); the initial exchange is observed, mid-stream reads are not.
+- Streamed speech gets its **own** observation name, `fanar.audio.speech.stream`, separate from
+  one-shot `fanar.audio.speech` — the two have different latency profiles and conflating them makes
+  both unreadable (ADR-013). The observation spans the whole stream, not the handshake that opened
+  it: the publisher owns the handle, records the first-chunk latency and the chunk count, and closes
+  it on completion, failure or cancellation.
+
+## Proved by
+
+- `AudioStreamPublisherTest` — demand, cancellation, terminal signals and the observation lifecycle.
+- `FanarClientRetryIntegrationTest.speechStreamHandshakeIsRetriedThroughThePublicApi` and
+  `.speechStreamConnectionDropIsNotRetried` — the handshake-retry posture through the public API.
 
 ## References
 

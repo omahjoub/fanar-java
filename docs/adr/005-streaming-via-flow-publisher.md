@@ -27,25 +27,33 @@ Consumers use pattern-matching switch, which the compiler verifies is exhaustive
 
 ```java
 switch (event) {
-    case TokenChunk t    -> ui.appendToken(t.delta());
-    case ProgressChunk p -> ui.showProgress(p.progress().message());
-    case ToolCallChunk c -> tools.invoke(c.choices());
+    case TokenChunk t      -> ui.appendToken(t.choices().getFirst().content());
+    case ProgressChunk p   -> ui.showProgress(p.message().en());
+    case ToolCallChunk c   -> tools.record(c.choices());
     case ToolResultChunk r -> tools.record(r.choices());
-    case DoneChunk d     -> ui.complete();
-    case ErrorChunk e    -> ui.showError(e.choices());
+    case DoneChunk d       -> ui.complete();
+    case ErrorChunk e      -> ui.showError(e.choices());
 }
 ```
 
-A convenience `Stream<StreamEvent> toStream(Flow.Publisher<StreamEvent>)` helper is provided for callers who prefer
-iterator-style consumption on a virtual thread (ADR-004):
+Writing a `Flow.Subscriber` by hand to read a stream top to bottom is a lot of ceremony for a loop,
+so `qa.fanar.core.Streams` bridges a publisher into a blocking `Stream` for callers who want the
+sync shape (ADR-004):
 
 ```java
-for (var event : Streams.toStream(client.chat().stream(request))) {
-    // ...
+try (Stream<StreamEvent> events = Streams.toStream(client.chat().stream(request))) {
+    events.forEach(event -> { /* the switch above */ });
 }
 ```
 
-No callback-builder API (`onToken`, `onProgress`, …) is provided at launch.
+**It returns a `Stream`, not an `Iterable`, and that is the whole point of the try-with-resources.**
+A for-each loop has no close hook, so a `break` — or a `findFirst`, or a `limit` — would abandon the
+subscription and leak the HTTP response with no way for the caller to release it. `Stream` is
+`AutoCloseable`, so closing cancels. The bridge is generic over `Flow.Publisher<T>` rather than
+`StreamEvent` so streamed TTS (ADR-023) gets it for free. It pulls one item ahead, so the producer
+stays paced by the consumer instead of buffering the response.
+
+No callback-builder API (`onToken`, `onProgress`, …) is provided.
 
 ## Alternatives considered
 
@@ -76,6 +84,18 @@ No callback-builder API (`onToken`, `onProgress`, …) is provided at launch.
 
 ### Neutral
 - The `StreamEvent` hierarchy lives in `qa.fanar.core.chat` (ADR-011), domain-grouped.
+
+## Proved by
+
+- `StreamsTest` — the bridge: ordering, one-item-ahead demand, close-cancels-the-subscription,
+  and failures surfacing from the consuming operation with checked exceptions wrapped.
+- `FanarClientStreamsIntegrationTest` — the bridge against the real publisher and transport:
+  abandoning the stream early (`findFirst`) cancels the subscription and releases the HTTP
+  response, and a fully consumed stream closes on the completion path instead. `StreamsTest`
+  drives a hand-rolled publisher, which has no response to release.
+- `SseStreamPublisherTest` — the publisher's own contract (demand, cancellation, terminal signals).
+- `FanarClientRetryIntegrationTest.streamingHandshakeIsRetriedThroughThePublicApi` — the handshake
+  retry posture through the public API.
 
 ## References
 

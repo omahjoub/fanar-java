@@ -17,7 +17,8 @@ package qa.fanar.core;
  */
 public abstract sealed class FanarServerException extends FanarException
         permits FanarRateLimitException, FanarOverloadedException,
-                FanarTimeoutException, FanarInternalServerException {
+                FanarTimeoutException, FanarInternalServerException,
+                FanarUnexpectedServerException {
 
     protected FanarServerException(String message, ErrorCode code, int httpStatus) {
         super(message, code, httpStatus);

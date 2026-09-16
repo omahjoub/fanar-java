@@ -9,6 +9,180 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Added
+
+- **`fanar-core`** — `qa.fanar.core.Streams`, a blocking bridge from the streaming surface to a
+  sync-shaped `Stream`: `Streams.toStream(Flow.Publisher<T>)`. Writing a `Flow.Subscriber` by hand
+  to read a chat stream top to bottom was a lot of ceremony for a loop, and the SDK is sync-primary
+  ([ADR-004](docs/adr/004-sync-primary-async-sugar.md)). It returns a `Stream` rather than an
+  `Iterable` deliberately: a for-each has no close hook, so a `break` — or a `findFirst`, or a
+  `limit` — would abandon the subscription and leak the HTTP response with no way to release it.
+  `Stream` is `AutoCloseable`, so closing cancels. Generic over `Flow.Publisher<T>`, so streamed TTS
+  gets it too ([ADR-023](docs/adr/023-streaming-tts-via-flow-publisher.md)). It pulls one item
+  ahead, so the producer stays paced by the consumer instead of buffering the response, and a
+  failure surfaces from the stream operation consuming it — unchecked exceptions untouched, checked
+  ones wrapped in `FanarTransportException` so callers still only catch the sealed hierarchy
+  ([ADR-005](docs/adr/005-streaming-via-flow-publisher.md), [ADR-006](docs/adr/006-unchecked-exception-hierarchy.md)).
+- **`fanar-core`** — two exception leaves for a status the wire contract does not declare:
+  `FanarUnexpectedClientException` (4xx) and `FanarUnexpectedServerException` (5xx and anything
+  else). Both carry the status **as received** and a `null` `code()`, because inventing either is a
+  lie a caller cannot detect. See *Changed* for what they replace.
+- **`fanar-core`** — streaming observations now record the two attributes
+  `FanarObservationAttributes` has always declared: `fanar.stream.first_chunk_ms` (measured at
+  arrival, so it is the server's time-to-first-token and not the subscriber's back-pressure) and
+  `fanar.stream.chunks`. Both were dead constants — no code path ever passed them to
+  `attribute(...)` ([ADR-013](docs/adr/013-observability-spi.md)).
+- **build** — `./mvnw -Ppublish package` attaches a `-sources.jar` and `-javadoc.jar` to every
+  published module. Opt-in rather than part of every build: a full javadoc run is slower than the
+  rest of the reactor combined and proves nothing a contributor needs proved per commit.
+- **build** — reproducible builds. `project.build.outputTimestamp` is pinned, so the same commit
+  produces byte-identical archives (verified: two builds, one SHA-256). Bump it to the release date
+  when cutting a release.
+- **build** — `Automatic-Module-Name` on both Spring starters, and `-parameters` globally. See
+  *Fixed* for why the first is not cosmetic.
+- **ci** — two documentation-and-consistency gates, both runnable locally and needing no JDK.
+  `check-docs` replaces a Markdown-only link check: it now resolves **every** relative link (the
+  wire-observations ledger points at the live test classes that pin each observation — those are the
+  links whose breakage matters most, and the old rule never saw them), every `#fragment`, every
+  `<img src>`, and the README's version snippets against the reactor version. `check-build` is new
+  and guards three invariants a green build otherwise hides — the BOM managing exactly the published
+  library modules, every class named as a *string* in `META-INF/services` or the GraalVM metadata
+  resolving to a real source file, and no published module opting out of the coverage gate. The
+  services check includes the descriptor's **filename**, which is itself the service-interface FQN:
+  a rename reaches it through neither the compiler nor a find-and-replace over file contents, and
+  missing it costs a consumer "no `FanarJsonCodec` on the classpath" at runtime.
+- **docs** — [ADR-029](docs/adr/029-publication-target.md) (*Proposed*) records the publication
+  decision and the constraint that shapes it: `groupId` is `qa.fanar`, reverse-DNS for `fanar.qa`,
+  and Sonatype Central verifies a namespace by proving control of the domain — which is the Fanar
+  team's, and unclaimed on Central as of 2026-09-16. The SDK therefore cannot publish its current
+  coordinates on its own. The record decides everything decidable and leaves one question open.
+
+### Changed
+
+- **Breaking** — **observation names are normalised to `fanar.<domain>.<operation>`**, and a
+  streaming variant now appends `.stream`. `fanar.chat` becomes **`fanar.chat.send`**; streaming
+  stops reusing it and gets **`fanar.chat.stream`**; streamed TTS gets
+  **`fanar.audio.speech.stream`**, separate from one-shot `fanar.audio.speech`. The two have
+  different latency profiles and conflating them makes both unreadable. Dashboards and alerts keyed
+  on `fanar.chat` need updating. This is the last release in which such a rename is free
+  ([ADR-013](docs/adr/013-observability-spi.md), [ADR-019](docs/adr/019-pre-10-stability-policy.md)).
+- **Breaking** — **a streaming observation now spans the stream instead of closing at the
+  handshake.** The publisher takes ownership of the handle and closes it on the terminal signal —
+  completion, failure or cancellation alike. The visible consequence: a stream that dies mid-flight
+  is now reported as a failure, where before it was telemetered as the clean success its handshake
+  had been. An adapter that assumed `close()` arrives before the first chunk will see it arrive
+  after the last one ([ADR-013](docs/adr/013-observability-spi.md)).
+- **Breaking** — **a status the wire contract does not declare no longer becomes a server error.**
+  Previously every unmapped status mapped to `FanarInternalServerException`, which meant a 4xx from
+  an intermediary — a proxy answering `407`, a gateway answering `405` — was retried three times
+  with backoff and surfaced to the caller as a *server* fault reporting `httpStatus() == 500` and
+  `code() == INTERNAL_SERVER_ERROR`, neither of which the server had sent. Unmapped statuses now map
+  to the two new `Unexpected*` leaves, filed by HTTP class, carrying the real status and a `null`
+  code. The branch decides retryability, so an unmodelled 4xx is no longer retried — with `408` and
+  `425` the documented exception, client-class by number but meaning "try again"
+  ([ADR-006](docs/adr/006-unchecked-exception-hierarchy.md), [ADR-014](docs/adr/014-retry-policy-defaults.md)).
+- **Breaking** — **an `ObservabilityPlugin` can no longer fail a call.** The client guards whatever
+  plugin it is given, so a `RuntimeException` from any SPI method is absorbed and the request
+  proceeds; a plugin that throws from `start`, or returns `null`, still yields a usable handle.
+  `Error` is not caught. Failures are not silent: the first from a given plugin is reported at
+  `WARNING` through `System.Logger` — JDK-built-in, so core keeps its zero dependencies — and later
+  ones drop to `DEBUG` so a plugin throwing on every call cannot bury the first report.
+  This was previously true only of *two or more composed* plugins, because
+  `FanarClient.Builder.observability(...)` never routed through `compose(...)` and `compose(single)`
+  unwraps — so composing more plugins made you safer, which is backwards. The plugins users install
+  are adapters over networked backends, and "must not throw" is not a promise an exporter queue or a
+  meter registry can keep ([ADR-013](docs/adr/013-observability-spi.md),
+  [ADR-022](docs/adr/022-observability-compose-factory.md)).
+- **Breaking** — `ObservabilityPlugin.compose(...)` now contains a child's failure instead of
+  propagating it and short-circuiting the remaining plugins. One broken backend previously both
+  failed the request *and* blinded every plugin registered after it. A `null` child is still
+  rejected at construction: a null is a wiring mistake that will never become correct, while a
+  throwing plugin is a runtime condition ([ADR-022](docs/adr/022-observability-compose-factory.md)).
+- **`fanar-java-bom`** — now manages `fanar-spring-ai-starter`. See *Fixed*.
+
+### Fixed
+
+- **`fanar-core`** — **streaming was unusable in a GraalVM native image.** Every `StreamEvent` the
+  server can send is a record Jackson introspects, and none of them were in the shipped reachability
+  metadata, so the first chunk of any `chat().stream()` call threw
+  `UnsupportedFeatureError: Record components not available for record class
+  qa.fanar.core.chat.TokenChunk`. Eight entries were missing — `TokenChunk`, `DoneChunk`,
+  `ErrorChunk`, `ToolCallChunk`, `ToolResultChunk`, the `StreamEvent` interface, and the nested
+  `ProgressMessage` / `ToolResultData`. The native self-test never caught it because it decoded ten
+  domain responses and no stream chunk; it now decodes all six `StreamEvent` leaves
+  ([ADR-005](docs/adr/005-streaming-via-flow-publisher.md), [ADR-009](docs/adr/009-native-image-day-one.md)).
+- **`fanar-json-jackson2` / `fanar-json-jackson3`** — their reachability metadata was in the unified
+  `reachability-metadata.json` schema, which **GraalVM for JDK 21 does not read** — so on the SDK's
+  own floor, and in CI, those files were inert. Both are now `reflect-config.json`, the one schema
+  every supported toolchain reads. Measured on GraalVM 21.0.11 and 25.0.4 with a class registered in
+  each schema: legacy resolved on both, unified resolved only on 25. The rule is now written down —
+  the schema tracks the supported Java floor, not the newest toolchain
+  ([`GRAALVM.md`](docs/GRAALVM.md), [`COMPATIBILITY.md`](docs/COMPATIBILITY.md)).
+- **`fanar-java-bom`** — **`fanar-spring-ai-starter` shipped but was absent from the BOM**, in
+  every release to date: the jar has been attached since v0.1.0 and the module deploy-enabled since
+  v0.2.0, and no release from v0.1.0 to v0.5.0 managed it. A consumer following the README —
+  importing the BOM and declaring the artifact without a version, which is the BOM's entire purpose
+  — got a resolution failure. One missing entry, five releases, and nothing in the build that could
+  have caught it; the new `check-build` gate now compares the BOM's managed set against the
+  published set in both directions ([ADR-010](docs/adr/010-module-layout.md)).
+- **`fanar-spring-boot-4-starter`** — **the jar could not be placed on the JPMS module path at
+  all.** With no `module-info.java` (deliberate, [ADR-020](docs/adr/020-spring-boot-4-starter.md))
+  JPMS derives a module name from the *filename*, and `fanar-spring-boot-4-starter` derives the
+  component `4`, which is not a Java identifier: `jar --describe-module` reports
+  `Invalid module name`. An explicit `Automatic-Module-Name: qa.fanar.spring.boot.v4` restores the
+  fallback the ADR assumed. `fanar-spring-ai-starter` gains `qa.fanar.spring.ai` for the same
+  reason — it derived a usable name, but not one matching its package root
+  ([ADR-011](docs/adr/011-package-conventions.md)).
+- **`fanar-core`** (internal) — the exception message for an unmapped status no longer doubles
+  (`HTTP 418: HTTP 418`); the status travels on `httpStatus()` and is not re-prefixed onto a
+  message that already carries it.
+- **`fanar-core`** — `package-info.java` named a package that does not exist (`moderation`; it is
+  `moderations`), and `module-info.java`'s own javadoc described the public API as the top-level
+  package plus `spi` while the descriptor beneath it exported nine more.
+- **build** — removed the `spring-milestones` repository. It resolved nothing — both `<releases>`
+  and `<snapshots>` were disabled — while its comment claimed Spring AI was still in milestone phase
+  and the repository was scoped to admit it. Spring AI 2.0.1 is GA on Central. Proved harmless by a
+  fully offline `./mvnw -o clean verify`.
+- **ci** — the GraalVM native-image job now runs a **matrix on GraalVM for JDK 21 and 25** (21 is
+  the floor and the leg that blocks a release; 25 is forward-coverage and surfaces deprecations
+  first), and is roughly twice as fast per leg: quick build mode (`-Ob`) cuts the compile phase from
+  19.2s to 5.6s while leaving the *analysis* phase — the only thing this gate asserts — unchanged,
+  and `-DskipTests` stops re-running a test suite the `test` job already runs on both JDKs. The legs
+  run in parallel, so wall-clock does not double.
+- **ci** — the release build and CI now invoke `./mvnw`, the wrapper pinned to Maven 3.9.16, rather
+  than whatever `mvn` the runner image happens to carry; and `-DskipITs=false` is gone from the
+  release build, where it did nothing (there is no Failsafe in this project) while implying an
+  integration-test split that does not exist.
+
+### Docs
+
+- **Every ADR now reflects the code, and none carries an amendment.**
+  [ADR-019](docs/adr/019-pre-10-stability-policy.md) states the rule: until 1.0.0 an ADR states the
+  current decision as if decided today, because pre-1.0 there is no commitment to deviate from — an
+  amendment documents a promise that was never made, and costs every reader a reconciliation across
+  several statements. Sixteen amendment sections across nine records were folded into their bodies,
+  keeping the reasoning: a discovery that *explains* a decision belongs in Context or Consequences,
+  not in a dated changelog entry. Eight records dated 2026-04-23 described the SDK as planned rather
+  than as built and were reconciled in full.
+- **`docs/API_SKETCH.md`** — eleven snippets did not compile, including a helper class that never
+  existed. The document claimed every snippet matched a shipped type.
+- **`docs/JAVA_LIBRARY_BEST_PRACTICES.md`** — its "Central-grade expectations" section asserted five
+  things in the present tense that were not implemented, under a heading telling the reader to treat
+  violations as bugs. It is now split into *In force* and *Prerequisites for Maven Central — not yet
+  implemented*. Several of the rules were themselves wrong: the artifact↔package correspondence rule
+  did not match any module, "no shading anywhere" was contradicted by the native-image probe, and
+  the public-API definition omitted the nine exported domain packages.
+- **module diagram** — `docs/images/fanar_java_module_dependencies.svg` said *8 domain facades*
+  since the ninth shipped in 0.5.0. It is embedded in both the README and `ARCHITECTURE.md`, so it
+  was the most-seen wrong statement in the repository, and no link checker would ever have read it.
+- **`docs/WIRE_OBSERVATIONS.md`** — the known-failing count corrected to 11, a duplicated row
+  removed, an SDK type name removed from the "Spec says" column, and the 34-field chat schema
+  attributed to the 2026-08 refresh rather than 2026-09 (verified by diffing four spec revisions).
+- **`docs/CONTRIBUTING.md`** — the reading order now includes the wire-observations ledger, which
+  the Testing section already assumed you had read; `-Dgroups=integration` no longer recommends a
+  command that fails the coverage gate; and the no-`Thread.sleep` rule says what it means, after
+  being violated seventeen times. Thirteen of those were replaced with latches.
+
 ## [0.5.0] - 2026-09-15
 
 Full coverage of the published Fanar surface. The 2026-09 spec refresh is absorbed — a ninth
@@ -75,7 +249,7 @@ this release.
   [Ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions).
 - **docs** — six broken intra-document anchors fixed (two in the wire-observations ledger, four in
   `GRAALVM.md`). `check-docs` validates that relative `.md` *files* resolve; it checks no anchors, so
-  these had accumulated silently. All 41 Markdown files now resolve every `#fragment` they link to.
+  these had accumulated silently. Every Markdown file in the repository now resolves every `#fragment` it links to.
 
 ### Fixed
 

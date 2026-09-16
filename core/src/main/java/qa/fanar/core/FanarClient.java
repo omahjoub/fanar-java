@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 import qa.fanar.core.audio.AudioClient;
 import qa.fanar.core.chat.ChatClient;
 import qa.fanar.core.images.ImagesClient;
+import qa.fanar.core.internal.observability.IsolatingObservabilityPlugin;
 import qa.fanar.core.internal.audio.AudioClientImpl;
 import qa.fanar.core.internal.chat.ChatClientImpl;
 import qa.fanar.core.internal.images.ImagesClientImpl;
@@ -142,7 +143,10 @@ public final class FanarClient implements AutoCloseable {
         this.jsonCodec = resolveJsonCodec(b);
 
         this.retryPolicy = b.retryPolicy != null ? b.retryPolicy : RetryPolicy.defaults();
-        this.observability = b.observability != null ? b.observability : ObservabilityPlugin.noop();
+        // Guarded once, here, so the guarantee holds however the plugin arrived — set directly or
+        // composed. A plugin cannot fail a call (ADR-013); the no-op passes through unwrapped.
+        this.observability = IsolatingObservabilityPlugin.wrap(
+                b.observability != null ? b.observability : ObservabilityPlugin.noop());
         this.interceptors = List.copyOf(b.interceptors);
         this.userAgent = b.userAgent;
         this.defaultHeaders = Map.copyOf(b.defaultHeaders);

@@ -147,8 +147,9 @@ public record RetryPolicy(
 
     /**
      * Canonical retryable-exception matrix. All transient server-side errors and transport-level
-     * failures are retryable; all deterministic client-side errors and content-filter rejections
-     * are not.
+     * failures are retryable; deterministic client-side errors and content-filter rejections are
+     * not, with one documented exception — HTTP 408 and 425 are client-class by number but mean
+     * "try again", so they are retried (ADR-014).
      *
      * <p>Implemented as an exhaustive pattern-match on the sealed {@link FanarException} hierarchy.
      * If a future release adds a new top-level branch to that hierarchy, the compiler flags this
@@ -160,10 +161,15 @@ public record RetryPolicy(
     public static boolean isDefaultRetryable(FanarException e) {
         Objects.requireNonNull(e, "e");
         return switch (e) {
-            case FanarServerException s        -> true;
-            case FanarTransportException t     -> true;
-            case FanarClientException c        -> false;
-            case FanarContentFilterException f -> false;
+            case FanarServerException s            -> true;
+            case FanarTransportException t         -> true;
+            // The two 4xx that mean "try again" rather than "fix your request". Fanar declares
+            // neither, so they only arrive from an intermediary — a proxy or gateway timing out —
+            // but retrying them is still the correct response. Every other client-class error is
+            // the caller's to fix, and retrying it unchanged would fail identically.
+            case FanarUnexpectedClientException u   -> u.httpStatus() == 408 || u.httpStatus() == 425;
+            case FanarClientException c            -> false;
+            case FanarContentFilterException f     -> false;
         };
     }
 

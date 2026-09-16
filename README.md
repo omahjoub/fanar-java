@@ -2,20 +2,22 @@
 
 Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI platform.
 
-> **Status:** pre-1.0. The core SDK and every Fanar domain (chat, audio, images, translations,
-> moderations, sadiq, tokens, models, poems) are implemented with 100 % JaCoCo coverage and
-> battle-tested against the live API, tracking the 2026-09 Fanar spec: madhab-aware
-> `Fanar-Sadiq-2`, Qur'an + hadith quotation validation, custom personas, streamed + emotional
-> TTS, rich voice catalogue, and culturally-aligned image prompt revision. Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
-> Not yet on Maven Central — install via `./mvnw install` for now.
+> **Status:** pre-1.0. The core SDK and all nine Fanar domains (chat, audio, images, translations,
+> moderations, sadiq, tokens, models, poems) are implemented against the 2026-09 Fanar spec —
+> madhab-aware `Fanar-Sadiq-2`, Qur'an + hadith quotation validation, custom personas, streamed and
+> emotional TTS, the voice catalogue, culturally-aligned image prompt revision — with 100 % JaCoCo
+> coverage and a live test suite run against the real API. Every domain but `sadiq` is exercised
+> live; the validation endpoint is gated for our key, so its behaviour follows the spec rather than
+> an observation ([wire observations](docs/WIRE_OBSERVATIONS.md)). Spring Boot 4 and Spring AI 2.0
+> starters ship with a sample app each.
+> Requires **Java 21+**. Not yet on Maven Central — install via `./mvnw install` for now.
 
 ## Why this SDK?
 
-**To open Fanar to the Java world.** Java still powers the majority of production systems in
-enterprise, finance, government, telco and research, and the JVM ecosystem has doubled down on
-AI. A first-class SDK puts Fanar in the idiomatic shape each of these audiences already
-expects — Spring Boot apps, Spring AI providers, Quarkus extensions, GraalVM native binaries,
-plain-JDK code, Kotlin.
+**To open Fanar to the Java world.** Java runs a large share of production systems in enterprise,
+finance, government, telco and research, and the JVM ecosystem has invested heavily in AI. This SDK
+puts Fanar in the shape those codebases already expect — Spring Boot apps, Spring AI providers,
+GraalVM native binaries, plain-JDK code, Kotlin.
 
 And yes — you *could* point an OpenAI-compatible client at `https://api.fanar.qa/v1` and get
 basic chat. **But Fanar is not OpenAI.** Islamic RAG with authenticated source references,

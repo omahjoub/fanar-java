@@ -1,6 +1,6 @@
 # ADR-013 — Observability SPI
 
-- **Status**: Accepted (amended 2026-08-29 — see [Amendments](#amendments))
+- **Status**: Accepted
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -45,32 +45,58 @@ public interface ObservationHandle extends AutoCloseable {
 ### Shape rules
 
 - **One plugin per `FanarClient`**. Unlike interceptors (which chain), observability has a single implementation slot.
-- **`AutoCloseable` lifecycle**. The SDK opens observations with try-with-resources; `close()` is idempotent.
-- **Standardized operation names**. The SDK emits one observation per semantic operation: `fanar.chat`,
-  `fanar.chat.stream`, `fanar.audio.speech`, `fanar.audio.transcription`, `fanar.images.generation`,
-  `fanar.translations`, `fanar.poems.generation`, `fanar.moderation`, `fanar.tokens`, `fanar.models.list`. Documented
-  in the SPI Javadoc.
-- **Standardized attributes**. A constants class `qa.fanar.core.spi.FanarObservationAttributes` defines the canonical
-  attribute vocabulary: `http.method`, `http.url`, `http.status_code`, `fanar.model`, `fanar.retry_count`,
-  `fanar.stream.chunks`, `fanar.stream.first_chunk_ms` — and, since ADR-026 (2026-08-29), `fanar.ratelimit.limit`,
-  `fanar.ratelimit.remaining`, `fanar.ratelimit.reset`, `fanar.ratelimit.policy`, recorded at the retry boundary from
-  the server's rate-limit headers. Adapter authors map these consistently; `fanar.ratelimit.remaining` and `.reset`
-  have unbounded value spaces and are high-cardinality (the Micrometer adapter records them as such by default).
-- **Nested observations** via `.child(operationName)` for phase-level breakdowns (e.g., serialization vs network).
-  Maps cleanly to OpenTelemetry parent/child spans and Micrometer nested observations.
+- **`AutoCloseable` lifecycle**. The SDK closes every handle it opens: a one-shot call with
+  try-with-resources, a streaming call when the publisher reaches its terminal signal (see below).
+  `close()` is idempotent.
+- **Standardized operation names**, shaped `fanar.<domain>.<operation>` — `fanar.chat.send`,
+  `fanar.models.list`, `fanar.moderations.score`, and so on for every facade. A streaming variant
+  appends `.stream` (`fanar.chat.stream`, `fanar.audio.speech.stream`) so its metrics separate from
+  the one-shot call's: the two have different latency profiles and conflating them makes both
+  unreadable. Each facade implementation owns its own name as a constant; this ADR fixes the shape,
+  not the list, because a list here rots the moment a facade is added.
+- **Standardized attributes.** `qa.fanar.core.spi.FanarObservationAttributes` holds the canonical
+  vocabulary — HTTP metadata, the model a call addressed, the retry count, the two stream measures
+  above, and the rate-limit window the retry boundary reads off the server's headers (ADR-026).
+  The constants class is the list; adapter authors map whatever it declares. Each name is
+  classified by cardinality when it is added, because some of them must never become metric tags —
+  see *Neutral* below.
+- **Nested observations** via `.child(operationName)` for phase-level breakdowns (serialization vs
+  network, say), mapping to OpenTelemetry parent/child spans and Micrometer nested observations.
+  The SDK opens no child observations itself today; the method exists so an interceptor or a future
+  phase breakdown can, and adapters must implement it.
 - **Context propagation** via `propagationHeaders()` — the SDK queries the handle for trace-context headers (e.g.,
   W3C `traceparent`) and merges them into the outbound request before interceptors run.
 - **Default is a no-op plugin** — zero work, zero allocation, zero visible effect. Users opt into concrete
   implementations via downstream adapter modules.
+- **A plugin cannot fail a call.** The client guards whatever plugin it is given, so a
+  `RuntimeException` from any SPI method is absorbed and the request proceeds; a plugin that throws
+  from `start`, or returns `null`, still yields a usable handle. `Error` is not caught — it is not
+  the plugin's to recover from. The failure is not silent: the first from a given plugin is reported
+  at `WARNING` through `System.Logger`, which is JDK-built-in and so costs core no dependency
+  (ADR-002), and later ones drop to `DEBUG` so a plugin that throws on every call cannot bury the
+  first report.
+  This is unconditional by design. The plugins users install are adapters over networked backends —
+  an exporter queue filling, a registry rejecting a duplicate meter name — and "must not throw" is
+  not a promise those backends can keep. Trading a paid API call for a metrics hiccup is never the
+  right exchange, and a guarantee that held only for *some* ways of installing a plugin would be
+  worse than none: it was previously true only of two-or-more composed plugins, so composing more
+  made you safer, which is exactly backwards.
 - **Exposed from `Chain.observation()`** (ADR-012) so interceptors can attach events without context-passing magic.
 
 ### What the SDK does not emit by default
 
-- **No per-stream-event observations**. Streaming emits `first_chunk_ms` and a final `stream.chunks` count at close;
-  per-chunk tracing would be too noisy and is composable at the publisher layer.
+- **No per-stream-event observations.** A streaming observation spans the whole stream rather than
+  the handshake that opened it: the publisher takes ownership of the handle, records
+  `fanar.stream.first_chunk_ms` when the first item arrives — measured at arrival, so it is the
+  server's time-to-first-token and not the subscriber's back-pressure — and `fanar.stream.chunks`
+  when the stream ends, then closes the handle on completion, failure and cancellation alike. One
+  observation per stream, not per chunk; per-chunk tracing would be noise and composes at the
+  publisher layer anyway. The consequence a caller sees is that a stream which dies mid-flight is
+  reported as a failure rather than as the clean success its handshake was.
 - **No built-in logging plugin**. `System.Logger` (JDK-built-in) is always available; structured logging bindings
   are the responsibility of downstream adapter modules.
-- **No OpenTelemetry or Micrometer types in core**. Adapter modules (future, not part of v1) provide these.
+- **No OpenTelemetry or Micrometer types in core**. The `fanar-obs-*` adapter modules provide these,
+  with their backend dependencies at `provided` scope.
 
 ## Alternatives considered
 
@@ -90,10 +116,12 @@ public interface ObservationHandle extends AutoCloseable {
 ### Positive
 - Unified metrics+tracing matches where the industry is converging (OpenTelemetry, Micrometer `Observation`).
 - Zero deps in core (JLBP-1).
-- `AutoCloseable` + try-with-resources is natural Java; idempotent `close()` is safe under all exception paths.
-- Nested observations (`child(...)`) give users phase-level insight without forcing callers to orchestrate spans.
-- Future adapter modules (Micrometer, OpenTelemetry, SLF4J-logging, in-memory test plugin) are thin — each ~100
-  lines wrapping the concrete backend.
+- `AutoCloseable` is natural Java; idempotent `close()` is safe under all exception paths, which is
+  what lets a streaming publisher own the handle without risking a double close.
+- Nested observations (`child(...)`) leave room for phase-level insight without forcing callers to
+  orchestrate spans themselves.
+- The adapter modules (`fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer`) are thin wrappers
+  around their backends — a few hundred lines each, most of it typed attribute dispatch.
 
 ### Negative / Trade-offs
 - `Chain.observation()` creates a soft coupling between the interceptor SPI (ADR-012) and this SPI. The alternative
@@ -102,19 +130,28 @@ public interface ObservationHandle extends AutoCloseable {
   version bump; renaming is a major.
 
 ### Neutral
-- Adapter implementations are out-of-scope for `fanar-core`'s initial release; they arrive as separate modules.
+- Adapter implementations live outside `fanar-core`, one module per backend, so core never sees a
+  vendor type.
+- The vocabulary distinguishes cardinality, which it did not originally: `fanar.ratelimit.remaining`
+  and `.reset` have unbounded value spaces and must never become metric tags. The Micrometer adapter
+  records them as high-cardinality by default and exposes `highCardinalityKeys(Predicate)` to change
+  the rule; OpenTelemetry's typed dispatch and the SLF4J adapter need nothing. Any attribute added
+  from here is classified the same way before it ships.
 
-## Amendments
+## Proved by
 
-### 2026-08-29 — The `fanar.ratelimit.*` vocabulary and a cardinality rule (0.4.0)
-
-ADR-026 adds four canonical attributes — `fanar.ratelimit.limit`, `.remaining`, `.reset` (seconds) and
-`.policy` — recorded by the retry boundary from the server's rate-limit headers on every response that carries
-them (last attempt wins). It is also the first time the vocabulary distinguishes cardinality: `remaining` and
-`reset` are unbounded and must not become metric tags. The Micrometer adapter records them as
-`highCardinalityKeyValue`s by default and exposes `highCardinalityKeys(Predicate)` to change the rule; the
-OpenTelemetry adapter's typed dispatch and the SLF4J adapter need nothing. Adding attributes stays a
-minor-version change, as the constants class documents.
+- `FanarClientObservabilityIsolationIntegrationTest` — through `FanarClient.builder()`: a plugin
+  throwing from every SPI method does not fail the call, by either installation route (set directly,
+  or via `compose`); a genuine Fanar error still reaches the caller as itself; a healthy plugin still
+  observes everything.
+- `MicrometerObservabilityPluginIntegrationTest` — a real `FanarClient` over a scripted server
+  produces one observation named for the operation, stopped, carrying the retry event and the
+  rate-limit attributes.
+- `SseStreamPublisherTest` / `AudioStreamPublisherTest` — the streaming observation records both
+  stream measures and closes exactly once, on completion, on failure (with the error recorded) and
+  on cancellation.
+- `FanarClientRetryIntegrationTest.connectionDropMidStreamIsNotRetried` — a stream that dies
+  mid-flight reaches the observation as a failure, through the public API.
 
 ## References
 

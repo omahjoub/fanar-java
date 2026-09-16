@@ -129,4 +129,26 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <!--
+                  Like the SB4 starter, this module ships no `module-info.java` (ADR-020, ADR-021).
+                  JPMS would derive `fanar.spring.ai.starter` from the filename, which resolves but
+                  does not match the package root. Naming it explicitly keeps the module name and
+                  the package root aligned (ADR-011).
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Automatic-Module-Name>qa.fanar.spring.ai</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

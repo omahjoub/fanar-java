@@ -1,6 +1,6 @@
 # ADR-012 — Interceptor SPI
 
-- **Status**: Accepted (amended 2026-08-28 and 2026-08-29 — see [Amendments](#amendments))
+- **Status**: Accepted
 - **Date**: 2026-04-23
 - **Deciders**: @omahjoub (initial design)
 
@@ -42,15 +42,50 @@ Rules:
   layer is not ruled out for the future but is not needed today.
 - **Sync-only execution**, running on the caller's thread (ADR-004). The streaming body is out of scope: interceptors
   see the initial HTTP handshake; mid-stream concerns compose at the `Flow.Publisher<StreamEvent>` layer.
-- **First-added interceptor = outermost wrapper**. Registration order determines chain order. Auth registered first
-  means it wraps retry means it wraps logging — so retries re-run the auth-wrapped path (fresh tokens on each attempt),
-  and each attempt is individually logged.
-- **Exceptions are unchecked** per ADR-006. `Chain.proceed` wraps any `IOException` / `InterruptedException` from the
-  transport into a `FanarTransportException` so interceptors never have to declare checked exceptions. Error
-  *responses* (status ≥ 400) travel back through user interceptors as-is and become typed exceptions at the
-  retry boundary — see [Amendments](#amendments).
+- **First-added interceptor = outermost wrapper.** Registration order determines chain order, and
+  the order decides what re-runs: everything *inside* retry runs once per attempt, everything
+  outside it runs once per call. That is why the built-ins are ordered retry-then-auth and not the
+  reverse — with auth outermost the token would be signed once and replayed on every attempt, which
+  is exactly wrong for an expiring credential. As shipped, each attempt is re-signed, and a wire
+  logger registered after them logs every attempt separately.
+- **Exceptions are unchecked** per ADR-006. `Chain.proceed` wraps any `IOException` /
+  `InterruptedException` from the transport into a `FanarTransportException`, so interceptors never
+  declare checked exceptions. Error *responses* (status ≥ 400) travel back through user interceptors
+  as-is and become typed exceptions at the retry boundary — see *Where responses become exceptions*
+  below.
+- **Exceptions propagate through interceptors unchanged.** An interceptor that wants to observe a
+  failure wraps `proceed` in `try`/`catch` or `try`/`finally`, records, and rethrows *the same
+  instance* — it never swallows, wraps or substitutes it. `RetryInterceptor` retries a
+  `FanarException` the policy accepts; every other `RuntimeException` passes straight through.
 - **`Chain.observation()`** exposes the current observation handle (ADR-013) so interceptors can attach events
   (retry attempts, cache hits) without smuggling context through `ThreadLocal` or the preview `ScopedValue`.
+
+### Where responses become exceptions
+
+**At the retry boundary, inside the chain — not in the domain facades after it.** This is the
+decision the SPI's shape depends on, and getting it wrong is silent: through 0.2.0 each facade
+called the mapper *after* `Chain.proceed` returned, so `RetryInterceptor` — first in the chain,
+written to decide on typed exceptions — never saw a 429 or a 5xx. ADR-014's whole retryable set was
+dead end-to-end, with full unit coverage over a loop nothing reached. A unit test that hands a unit
+the outcome it expects proves the unit, not the wiring.
+
+`RetryInterceptor` therefore maps any response with status ≥ 400 into the `FanarException`
+hierarchy (ADR-006) as soon as the rest of the chain returns it, then applies the policy. What that
+fixes at the SPI contract:
+
+- **User interceptors still observe raw error responses** — status, headers, body. Logging, capture
+  and caching interceptors work on 4xx/5xx exactly as they always did; nothing in `intercept` or
+  `Chain` changes.
+- **Domain facades only ever see typed exceptions or successful responses.** No post-chain status
+  checks; `http.status_code` is recorded at the boundary, per attempt.
+- **Still two built-ins.** Mapping is the retry interceptor's job — as in OkHttp, where the retry
+  layer classifies raw status itself — not a third built-in.
+- A user interceptor that *throws* a `FanarException` is treated like a mapped one: the policy
+  decides whether to retry it.
+
+A knock-on the wire logger had to absorb: an interceptor that only logs on the way back logs
+nothing when `proceed` throws, so a transport failure used to leave no trace at all. It now logs the
+failure and rethrows.
 
 ### Built-in interceptors shipped with `fanar-core`
 
@@ -74,8 +109,12 @@ are user-supplied or downstream-module concerns.
   split emerges later, we can add a second SPI additively.
 - **Servlet-style `doFilter(request, response, chain)`**. *Rejected*: verbose, treats response as mutable, doesn't
   fit the return-value style of Java HTTP clients.
-- **Ship logging and rate-limit interceptors in core**. *Rejected*: logging belongs to observability (ADR-013);
-  rate-limiting is application-specific (per-tenant, per-IP, etc.) and should be user-supplied.
+- **Ship logging and rate-limit interceptors in core**. *Rejected*: rate-limiting is
+  application-specific (per-tenant, per-IP) and belongs to the user. Logging is the subtler half —
+  *operation-level* logging is observability's job (ADR-013), but *wire-level* logging is not: it
+  needs the raw request and response bytes, which only an interceptor sees. That is the
+  `fanar-interceptor-logging` module: a separate artifact so core keeps its zero dependencies and
+  the SLF4J binding stays opt-in, built on this SPI rather than baked into it.
 
 ## Consequences
 
@@ -87,7 +126,7 @@ are user-supplied or downstream-module concerns.
 - Two built-ins (auth + retry) cover what every caller needs; nothing else is imposed.
 
 ### Negative / Trade-offs
-- `Chain.observation()` creates a small coupling between Q12 and Q13 SPIs. The alternative (ThreadLocal context or
+- `Chain.observation()` creates a small coupling between this SPI and the observability SPI (ADR-013). The alternative (ThreadLocal context or
   preview `ScopedValue`) is either unsafe with virtual-thread migrations or violates JLBP-4 (no preview features) —
   the coupling is the lesser evil.
 - Users wanting to transform semantic types (e.g., inject additional messages into every `ChatRequest`) must operate
@@ -97,55 +136,14 @@ are user-supplied or downstream-module concerns.
 - Every interceptor must be thread-safe — executed potentially from multiple threads concurrently against the same
   `FanarClient` instance.
 
-## Amendments
+## Proved by
 
-### 2026-08-28 — Error mapping at the retry boundary (0.3.0)
-
-Where an HTTP error response becomes a typed exception was never stated here, and the
-implementation put it in the wrong place: each domain facade called the mapper *after*
-`Chain.proceed` returned, so the built-in `RetryInterceptor` — first in the chain, deciding on
-typed exceptions — never saw a 429 or 5xx and retried transport failures only (ADR-014's
-retryable set was dead end-to-end through 0.2.0).
-
-0.3.0 fixes the seam: `RetryInterceptor` maps any response with status ≥ 400 to the
-`FanarException` hierarchy (ADR-006) as soon as the rest of the chain returns it, then applies the
-policy. Consequences for the SPI contract:
-
-- **User interceptors observe raw error responses** — status, headers, body — exactly as before.
-  Logging, capture and caching interceptors keep working on 4xx/5xx; nothing about `intercept`
-  or `Chain` changes.
-- **Domain facades only ever see typed exceptions or successful responses.** The eight post-chain
-  status checks are gone; `http.status_code` is recorded at the boundary, per attempt.
-- **Still two built-ins.** The mapping is a responsibility of the retry interceptor (as in OkHttp,
-  where the retry layer classifies raw status itself), not a third built-in.
-- A user interceptor that *throws* a `FanarException` is treated the same as a mapped one: the
-  policy decides whether to retry it.
-
-### 2026-08-29 — Exceptions propagate through interceptors unchanged (0.4.0)
-
-The 2026-08-28 amendment settled where error *responses* become exceptions; it left unstated what
-an interceptor sees when the rest of the chain *throws*. The contract, now also in the `Interceptor`
-javadoc:
-
-- What comes out of `Chain.proceed` as an exception is a `FanarTransportException` from the
-  transport (connection refused, timeout, interrupt) or whatever a later interceptor throws. HTTP
-  error responses never surface as exceptions to user interceptors — they sit inside the retry
-  boundary and see the raw 4xx/5xx.
-- Exceptions propagate through every interceptor **unchanged**. An interceptor that wants to observe
-  a failure wraps `proceed` in `try`/`catch` (or `try`/`finally`), records, and rethrows the same
-  instance — it never swallows, wraps or substitutes it. `RetryInterceptor` retries a
-  `FanarException` the policy accepts; any other `RuntimeException` passes straight through to the
-  caller.
-- Consequence for the shipped wire logger: through 0.3.0 `WireLoggingInterceptor` logged the `-->`
-  block and nothing else when `proceed` threw, so a transport failure left no trace in the wire log.
-  It now logs `<-- failed <uri> (<ms>ms): <exception class: message>` at the configured level and
-  rethrows.
-
-*Proved by* `WireLoggingInterceptorTest` (`failure_transportExceptionIsLoggedAndRethrownUnchanged`,
-`failure_downstreamInterceptorExceptionIsLoggedAtEveryLevel`, `none_failurePassesThroughSilently`) and,
-through `FanarClient.builder()` against a gone server and a throwing interceptor,
-`WireLoggingInterceptorIntegrationTest` (`aTransportFailureBelowItIsLoggedOnEveryAttemptAndPropagates`,
-`aLaterInterceptorThrowingIsLoggedAndPropagatesUnchanged`).
+- `FanarClientRetryIntegrationTest.userInterceptorsSeeRawErrorResponses` — through
+  `FanarClient.builder()`: the user interceptor sees the raw 503, the caller sees the decoded
+  success.
+- `WireLoggingInterceptorIntegrationTest` — a transport failure below the logger is logged on every
+  attempt and propagates unchanged; a later interceptor throwing is logged and propagates unchanged.
+- `WireLoggingInterceptorTest` — the same contract at unit level across all four levels.
 
 ## References
 

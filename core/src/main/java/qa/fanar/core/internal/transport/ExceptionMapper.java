@@ -26,6 +26,8 @@ import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
+import qa.fanar.core.FanarUnexpectedClientException;
+import qa.fanar.core.FanarUnexpectedServerException;
 import qa.fanar.core.FanarUnprocessableException;
 import qa.fanar.core.RateLimitInfo;
 
@@ -45,7 +47,7 @@ import qa.fanar.core.RateLimitInfo;
  * {@code content_filter} code and the HTTP-400 fallback. Mapping is permissive (ADR-015): a value
  * this SDK ships no constant for decodes into a {@code ContentFilterType} carrying the new wire
  * string. Absent, JSON-{@code null} and blank all mean "the server provided none" and yield
- * {@code null} (ADR-006 amendment 2026-09-15).</p>
+ * {@code null} (ADR-006).</p>
  *
  * <p>The two routes treat {@code type} differently on purpose. {@link #byCode} drops it for every
  * non-filter code, because a code this SDK recognises is a <em>better</em> signal than the status
@@ -125,7 +127,15 @@ public final class ExceptionMapper {
             case 500 -> new FanarInternalServerException(detail);
             case 503 -> new FanarOverloadedException(detail);
             case 504 -> new FanarTimeoutException(detail);
-            default -> new FanarInternalServerException("HTTP " + status + ": " + detail);
+            // A status the Fanar wire contract does not declare. Route it by range so the 4xx/5xx
+            // branch invariant holds (ADR-006): a 4xx is the caller's to fix and must not be
+            // retried, a 5xx may succeed on a later attempt. Both carry the status as received and
+            // a null code — no ErrorCode describes a response we have not modelled. The caller
+            // only maps error responses (RetryInterceptor guards on status >= 400), so the lower
+            // bound needs no second guard here.
+            default -> status < 500
+                    ? new FanarUnexpectedClientException(detail, status)
+                    : new FanarUnexpectedServerException(detail, status);
         };
     }
 

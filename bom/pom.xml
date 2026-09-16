@@ -59,6 +59,11 @@
                 <artifactId>fanar-spring-boot-4-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>qa.fanar</groupId>
+                <artifactId>fanar-spring-ai-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

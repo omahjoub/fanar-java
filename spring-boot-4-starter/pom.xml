@@ -126,6 +126,26 @@
         <plugins>
             <plugin>
                 <!--
+                  This starter ships no `module-info.java` on purpose (ADR-020): Spring's
+                  classpath scanning and `@AutoConfiguration` predate a clean JPMS story. Without
+                  a descriptor JPMS falls back to deriving a module name from the jar filename —
+                  and derivation *fails* here, because `fanar-spring-boot-4-starter` yields the
+                  component `4`, which is not a Java identifier. The jar could not be placed on
+                  the module path at all. This header supplies the name explicitly, so
+                  JPMS-strict consumers can use the starter as an automatic module.
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Automatic-Module-Name>qa.fanar.spring.boot.v4</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!--
                   `jackson-databind` and `slf4j-api` are declared as `compile` so the runtime
                   Jackson 3 / SLF4J classes ride along to consumers (Spring Boot apps already
                   have them, but a non-Spring consumer of the starter wouldn't). The starter's

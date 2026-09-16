@@ -12,6 +12,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -66,6 +68,10 @@ class DefaultHttpTransportTest {
 
     @Test
     void requestTimeoutIsAppliedWhenSet() throws Exception {
+        // The handler stalls past the client's request timeout. This is the documented exception
+        // to the no-sleep rule (CONTRIBUTING, Testing): the behaviour under test *is* elapsed time,
+        // and the sleep is a generous upper bound on the server side, never a synchronisation
+        // point on the test side.
         HttpServer server = startServer(exchange -> {
             try {
                 Thread.sleep(2_000);
@@ -113,7 +119,14 @@ class DefaultHttpTransportTest {
 
     @Test
     void interruptedSendPreservesInterruptFlag() throws Exception {
+        // The handler stalls so the client is still blocked in send() when we interrupt it.
+        // `requestArrived` is what makes the interrupt deterministic: it fires once the server has
+        // the request in hand, which means the worker is inside send() and not merely started.
+        // (The stall itself is the documented exception to the no-sleep rule — the behaviour under
+        // test is a thread blocked on I/O.)
+        CountDownLatch requestArrived = new CountDownLatch(1);
         HttpServer server = startServer(exchange -> {
+            requestArrived.countDown();
             try {
                 Thread.sleep(5_000);
             } catch (InterruptedException ignored) {
@@ -137,7 +150,8 @@ class DefaultHttpTransportTest {
                 }
             });
             worker.start();
-            Thread.sleep(200);
+            assertTrue(requestArrived.await(5, TimeUnit.SECONDS),
+                    "the worker must be blocked inside send() before we interrupt it");
             worker.interrupt();
             worker.join(3_000);
 

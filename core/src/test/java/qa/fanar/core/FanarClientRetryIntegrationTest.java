@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>This is the seam the unit tests cannot see. {@code RetryInterceptorTest} proves the loop on
  * outcomes it is handed and the facade tests prove mapping with retries disabled; only a test
  * that crosses facade → chain → transport can prove that an error response actually reaches the
- * retry decision — which through 0.2.0 it never did (ADR-012 amendment, 2026-08-28). Every ADR-014
+ * retry decision — which through 0.2.0 it never did (ADR-012). Every ADR-014
  * / ADR-025 promise a consumer can observe is asserted here: retry on 5xx, {@code Retry-After}
  * honoured up to {@code maxDelay}, abort above it with the hint preserved, quota not retried but
  * hinted, non-retryable errors not retried, attempts exhausted → last error, and user interceptors
@@ -176,7 +176,7 @@ class FanarClientRetryIntegrationTest {
 
     @Test
     void userInterceptorsSeeRawErrorResponses() {
-        // ADR-012 amendment: mapping happens at the retry boundary, outside user interceptors,
+        // ADR-012: mapping happens at the retry boundary, outside user interceptors,
         // so logging / capture interceptors keep observing 4xx/5xx as responses.
         server.enqueue(Reply.of(503, "busy"), ok());
         List<Integer> seen = new CopyOnWriteArrayList<>();
@@ -368,7 +368,12 @@ class FanarClientRetryIntegrationTest {
         assertTrue(subscriber.items().isEmpty());
         assertTrue(obs.events.isEmpty(), "no retry_attempt event");
         assertEquals(0, obs.attributes.get(FanarObservationAttributes.FANAR_RETRY_COUNT));
-        assertTrue(obs.errors.isEmpty(), "the handshake observation had already closed successfully");
+        // The observation spans the stream rather than closing at the handshake (ADR-013), so a
+        // mid-stream drop is recorded on it. It is reported before the subscriber's onError, so
+        // awaiting the error above is enough to see it here. Previously this assertion read
+        // `obs.errors.isEmpty()` — a dropped stream was telemetered as a clean success.
+        assertEquals(1, obs.errors.size(), "the mid-stream failure reaches the observation");
+        assertInstanceOf(IOException.class, obs.errors.getFirst());
     }
 
     @Test

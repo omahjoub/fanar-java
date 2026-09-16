@@ -50,9 +50,34 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
         Objects.requireNonNull(operationName, "operationName");
         List<ObservationHandle> handles = new ArrayList<>(plugins.size());
         for (ObservabilityPlugin p : plugins) {
-            handles.add(p.start(operationName));
+            ObservationHandle h;
+            try {
+                h = p.start(operationName);
+            } catch (RuntimeException e) {
+                h = null;
+            }
+            // A plugin that failed to start, or returned null, still occupies a slot: the silent
+            // handle keeps the fan-out total and every later call safe.
+            handles.add(h == null ? NoopObservationHandle.INSTANCE : h);
         }
         return new CompositeObservationHandle(handles);
+    }
+
+    /**
+     * Run one child's call, absorbing a {@link RuntimeException} it throws.
+     *
+     * <p>Telemetry is not worth a failed request: one misbehaving backend must neither break the
+     * caller's call nor stop its siblings observing (ADR-022). {@link Error} is not caught — it is
+     * not the plugin's to recover from. Core carries no logger (zero runtime dependencies,
+     * ADR-002), so the failure is dropped here; a plugin that wants its own faults visible reports
+     * them itself.</p>
+     */
+    private static void isolate(Runnable call) {
+        try {
+            call.run();
+        } catch (RuntimeException ignored) {
+            // Deliberately swallowed — see above.
+        }
     }
 
     private static final class CompositeObservationHandle implements ObservationHandle {
@@ -68,7 +93,7 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
         public ObservationHandle attribute(String key, Object value) {
             Objects.requireNonNull(key, "key");
             for (ObservationHandle h : handles) {
-                h.attribute(key, value);
+                isolate(() -> h.attribute(key, value));
             }
             return this;
         }
@@ -77,7 +102,7 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
         public ObservationHandle event(String name) {
             Objects.requireNonNull(name, "name");
             for (ObservationHandle h : handles) {
-                h.event(name);
+                isolate(() -> h.event(name));
             }
             return this;
         }
@@ -86,7 +111,7 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
         public ObservationHandle error(Throwable error) {
             Objects.requireNonNull(error, "error");
             for (ObservationHandle h : handles) {
-                h.error(error);
+                isolate(() -> h.error(error));
             }
             return this;
         }
@@ -96,7 +121,13 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
             Objects.requireNonNull(operationName, "operationName");
             List<ObservationHandle> children = new ArrayList<>(handles.size());
             for (ObservationHandle h : handles) {
-                children.add(h.child(operationName));
+                ObservationHandle c;
+                try {
+                    c = h.child(operationName);
+                } catch (RuntimeException e) {
+                    c = null;
+                }
+                children.add(c == null ? NoopObservationHandle.INSTANCE : c);
             }
             return new CompositeObservationHandle(children);
         }
@@ -107,7 +138,7 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
             // tracing-aware plugin contributing all headers and others returning empty maps.
             Map<String, String> merged = new LinkedHashMap<>();
             for (ObservationHandle h : handles) {
-                merged.putAll(h.propagationHeaders());
+                isolate(() -> merged.putAll(h.propagationHeaders()));
             }
             return merged;
         }
@@ -118,7 +149,7 @@ public final class CompositeObservabilityPlugin implements ObservabilityPlugin {
                 return;
             }
             for (ObservationHandle h : handles) {
-                h.close();
+                isolate(h::close);
             }
         }
     }

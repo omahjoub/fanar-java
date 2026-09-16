@@ -13,14 +13,25 @@ what gets published, and the directory layout.
 
 ## Decision
 
-Four artifacts are **published** to Maven Central:
+Modules divide into three kinds, and which kind a module is decides everything else about it —
+whether it publishes, whether it carries the quality gates, whether it may take a dependency:
 
-| Artifact | Packaging | Purpose |
+| Kind | Publishes | Examples |
 |---|---|---|
-| `qa.fanar:fanar-core` | jar | Typed API, SPIs, DTO reachability metadata |
-| `qa.fanar:fanar-json-jackson2` | jar | Jackson 2 adapter, `provided` scope on Jackson (ADR-008) |
-| `qa.fanar:fanar-json-jackson3` | jar | Jackson 3 adapter, `provided` scope on Jackson (ADR-008) |
-| `qa.fanar:fanar-java-bom` | pom | Bill-of-Materials pinning the three module versions |
+| **Library** — the SDK a consumer depends on | yes, as a jar | `fanar-core`, the two JSON codecs, the three observability adapters, `fanar-interceptor-logging`, the two starters |
+| **BOM** — one version coordinate for all of the above | yes, as a pom | `fanar-java-bom` |
+| **Support** — samples, live e2e, the native-image probe, the test fixture | never (`maven.deploy.skip`) | `spring-*-sample`, `e2e`, `e2e-graalvm`, `test-support` |
+
+`bom/pom.xml` manages **every** library module, which is the BOM's whole job: a module that ships
+but is missing from the BOM is a module a consumer must version by hand, which is exactly the
+mixed-version problem the BOM exists to prevent. Adding a library module means adding a BOM entry in
+the same change — and since that was reviewer memory once and failed for five months, it is now
+enforced: `check-build` compares the BOM's managed set against the published set and fails on either
+direction.
+
+The artifacts are **not yet on Maven Central** — they ship as GitHub Release assets while the
+Sonatype path is arranged (`docs/PROJECT_STATE.md`). Nothing about the layout changes when that
+lands; the publication target does.
 
 The **reactor parent POM is internal**: it exists at the repository root to orchestrate the reactor build but is
 **never published to Maven Central**. Consumers import the BOM, not the reactor parent.
@@ -65,8 +76,13 @@ Repository layout is **flat**:
   serves that role.
 
 ### Neutral
-- Every module ships a `module-info.java` (JLBP-20, ADR-011).
-- The BOM module ships no classes and no `module-info.java`; it's pom-packaging only.
+- **The library modules that can carry a `module-info.java` do**: core, both JSON codecs, the three
+  observability adapters, the logging interceptor. The two Spring starters deliberately do not —
+  Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS story (ADR-020) — and
+  instead declare an explicit `Automatic-Module-Name`, because without one JPMS derives the name
+  from the filename and `fanar-spring-boot-4-starter` derives to an invalid one. Support modules
+  need neither.
+- The BOM ships no classes and no descriptor; it is pom-packaging only.
 
 ## References
 

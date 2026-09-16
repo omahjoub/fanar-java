@@ -36,11 +36,15 @@ import qa.fanar.core.FanarQuotaExceededException;
 import qa.fanar.core.FanarRateLimitException;
 import qa.fanar.core.FanarTimeoutException;
 import qa.fanar.core.FanarTooLargeException;
+import qa.fanar.core.FanarUnexpectedClientException;
+import qa.fanar.core.FanarUnexpectedServerException;
 import qa.fanar.core.FanarUnprocessableException;
 import qa.fanar.core.RateLimitInfo;
+import qa.fanar.core.RetryPolicy;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -276,10 +280,39 @@ class ExceptionMapperTest {
     }
 
     @Test
-    void unknownStatusMapsToInternalServer() {
-        FanarException ex = ExceptionMapper.map(response(418, "teapot", Map.of()));
-        assertInstanceOf(FanarInternalServerException.class, ex);
-        assertTrue(ex.getMessage().contains("418"));
+    void unknown4xxMapsToUnexpectedClientAndIsNotRetryable() {
+        // A proxy answering 407, a gateway answering 405: the caller's to fix, never retried
+        // (ADR-006's 4xx branch invariant). Status is carried as received; no ErrorCode fits.
+        FanarException ex = ExceptionMapper.map(response(407, "proxy auth required", Map.of()));
+        assertInstanceOf(FanarUnexpectedClientException.class, ex);
+        assertEquals(407, ex.httpStatus());
+        assertNull(ex.code());
+        assertEquals("proxy auth required", ex.getMessage());
+        assertFalse(RetryPolicy.isDefaultRetryable(ex), "an unmodelled 4xx must not be retried");
+    }
+
+    @Test
+    void the408And425ExceptionsStayRetryableDespiteBeingClientClass() {
+        // The two 4xx that mean "try again" rather than "fix your request" (ADR-014). They are
+        // client-class so they file under FanarClientException, but the retry predicate makes an
+        // exception for them — routing by branch alone would silently stop retrying a gateway
+        // timeout.
+        for (int status : new int[] {408, 425}) {
+            FanarException ex = ExceptionMapper.map(response(status, "try later", Map.of()));
+            assertInstanceOf(FanarUnexpectedClientException.class, ex, "status " + status);
+            assertEquals(status, ex.httpStatus());
+            assertTrue(RetryPolicy.isDefaultRetryable(ex), "status " + status + " must stay retryable");
+        }
+    }
+
+    @Test
+    void unknownNon4xxMapsToUnexpectedServerAndStaysRetryable() {
+        FanarException ex = ExceptionMapper.map(response(502, "bad gateway", Map.of()));
+        assertInstanceOf(FanarUnexpectedServerException.class, ex);
+        assertEquals(502, ex.httpStatus(), "the status is reported as received, not substituted");
+        assertNull(ex.code());
+        assertEquals("bad gateway", ex.getMessage());
+        assertTrue(RetryPolicy.isDefaultRetryable(ex), "an unmodelled 5xx may succeed on retry");
     }
 
     @Test
@@ -307,9 +340,11 @@ class ExceptionMapperTest {
 
     @Test
     void blankBodyForUnknownStatusUsesDefaultReason() {
-        // Hits the default branch of defaultReason(): "HTTP <status>".
+        // Hits the default branch of defaultReason(): "HTTP <status>". The mapper no longer
+        // re-prefixes it — the status travels on httpStatus(), not twice in the message.
         FanarException ex = ExceptionMapper.map(response(418, "", Map.of()));
-        assertEquals("HTTP 418: HTTP 418", ex.getMessage());
+        assertEquals("HTTP 418", ex.getMessage());
+        assertEquals(418, ex.httpStatus());
     }
 
     @Test
@@ -338,7 +373,7 @@ class ExceptionMapperTest {
         assertInstanceOf(FanarInternalServerException.class, ex);
     }
 
-    // --- content-filter type (ADR-006 amendment 2026-09-15)
+    // --- content-filter type (ADR-006)
     //
     // Through 0.4.0 filterType() was dead API: ErrorEnvelope dropped the envelope's `type` member,
     // so no server response could reach it. These pin the wiring; the seam-crossing proof that it

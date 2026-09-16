@@ -15,7 +15,7 @@
 
 ## Test plan
 
-- [ ] `mvn verify` passes locally
+- [ ] `./mvnw verify` passes locally
 - [ ] Live tests pass against the real Fanar API (if applicable, with `FANAR_API_KEY` set)
 - [ ] GraalVM `--self-test` passes (if the SDK's reflective surface changed)
 
@@ -26,13 +26,18 @@
 - [ ] Public API changes are intentional, documented in javadoc, and an ADR was added/updated if the design changed
 - [ ] Which `*IntegrationTest` proves the behaviour this PR claims? (100 % JaCoCo on a unit is not proof of wiring — see CONTRIBUTING "Testing")
 - [ ] Breaking changes carry `@Deprecated(since, forRemoval = true)` and a migration path in the PR description
-- [ ] BOM updated if modules were added or removed
 - [ ] No third-party types leak into `qa.fanar.core` public API
-- [ ] If a non-obvious project decision was made, capture it in `memory/` so future contributors find it
+- [ ] If a non-obvious decision was made, it is captured where it belongs — an ADR under `docs/adr/` for design, a dated row in `docs/WIRE_OBSERVATIONS.md` for observed API behaviour, a `docs/PROJECT_STATE.md` entry for scope
 
 <!--
 The full engineering checklist (no version ranges, no split packages, dependency hygiene,
 core-vs-adapter rules, native-image reachability, …) lives in
-`docs/JAVA_LIBRARY_BEST_PRACTICES.md`. CI enforces every machine-checkable item from there on
-every push — the boxes above are the human-judgment residue.
+`docs/JAVA_LIBRARY_BEST_PRACTICES.md`.
+
+CI runs on pushes to `main` and on PRs targeting `main`, and enforces four gates: JaCoCo 100 %,
+`dependency:analyze` strict, doclint, and the full test suite on Java 21 and 25 — plus
+`check-docs` (every relative link, `#fragment`, image and README version snippet) and
+`check-build` (BOM completeness, string-named classes, coverage opt-outs). Everything else on that
+list, including "no version ranges", is reviewer judgment. The boxes above are the part a machine
+cannot check.
 -->
