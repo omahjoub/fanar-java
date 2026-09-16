@@ -68,7 +68,7 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
    use — the endpoint's 403 `invalid_authorization` and the model gate's 422 `unprocessable` — and
    asserts each routes by envelope code (ADR-006), never by HTTP status or message text.
    `LiveSadiqValidateTest` fails loudly until the key is upgraded; its caveat is written from the
-   2026-09-15 observation, not a prediction (`tasks/lessons.md`, 0.2.0 cycle).
+   2026-09-15 observation, not a prediction.
 
 5. **No framework-adapter work.** The Spring Boot 4 starter contributes a single `FanarClient`
    bean (plus `FanarJsonCodec` and `RetryPolicy`), never one bean per domain, so `sadiq()` is
