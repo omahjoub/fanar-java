@@ -134,10 +134,6 @@ def _named_classes(path: str) -> list[str]:
     """Class names a metadata file asserts, restricted to ones we could have renamed."""
     full = os.path.join(REPO, path)
     names: list[str] = []
-    if not os.path.exists(full):
-        # Tracked but absent from disk: a rename that was not staged. Report it rather than
-        # dying with a traceback in a CI log.
-        return ["<missing file>"]
     if "/META-INF/services/" in path:
         # The descriptor's *filename* is the service interface's FQN, and a rename reaches it
         # through neither the compiler nor a find-and-replace over file contents. Miss it and
@@ -167,6 +163,15 @@ def check_string_named_classes(files: list[str]) -> tuple[list[str], int]:
     counted = 0
     for path in sorted(files):
         if "/META-INF/services/" not in path and "/META-INF/native-image/" not in path:
+            continue
+        if not os.path.exists(os.path.join(REPO, path)):
+            # Tracked by git but gone from disk. In CI (a clean checkout) this cannot happen; run
+            # locally it means a delete or rename that has not been staged yet. Say so, rather
+            # than dying with a traceback or inventing a class name.
+            problems.append(
+                f"{path}: tracked by git but missing from disk — stage the delete/rename "
+                f"(`git add -A {os.path.dirname(path)}`) so the check sees the real file set"
+            )
             continue
         for name in _named_classes(path):
             counted += 1

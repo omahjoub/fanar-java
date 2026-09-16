@@ -114,6 +114,65 @@ Any of those need to be declared up front in **reachability metadata** files at
 parts that need it; this guide explains how to add more when you write code that
 introduces new reflective access.
 
+### One metadata schema: `reflect-config.json`
+
+Every module ships the legacy schema — `core` adds `resource-config.json` alongside it. The newer
+unified `reachability-metadata.json` (introduced in GraalVM for JDK 23) is deliberately **not** used
+here, and the reason is measured rather than assumed.
+
+Measured 2026-09-16 on Oracle GraalVM **21.0.11** and **25.0.4**, by registering one class in each
+schema and calling `Class.forName` on both from the built binary. Each toolchain also got a control
+build with neither class registered, and threw for both — so the probe discriminates rather than
+reporting a class that was merely absent:
+
+| Native-image toolchain | `reflect-config.json` (legacy) | `reachability-metadata.json` (unified) |
+|---|:--:|:--:|
+| GraalVM for JDK 21 | resolved | **`ClassNotFoundException`** |
+| GraalVM for JDK 25 | resolved | resolved |
+
+**The legacy schema is the one every supported toolchain reads**; the unified schema is read by a
+strict subset. Java 21 is the floor (`<java.version>21</java.version>`), so a consumer building a
+native image on GraalVM for JDK 21 is a configuration this SDK supports — and only the legacy files
+reach them. GraalVM 25 emitted no deprecation warning for `reflect-config.json`.
+
+**The rule: the metadata schema tracks the supported floor, not the newest toolchain.** Revisit this
+when Java 21 stops being the minimum, not when a newer GraalVM ships. The same rule picks the CI
+matrix: the `21` leg is the one whose failure blocks a release, because it is the weakest link; the
+`25` leg is forward-coverage and is where a deprecation surfaces first.
+
+This was not free to learn. Until 2026-09-16 the two Jackson modules shipped the unified file, CI
+ran JDK 21, and therefore **no toolchain in this project read them**. The gate was green over a
+metadata set nothing validated — and underneath it, the entire streaming decode path was missing
+from `core`'s metadata, so `chat().stream()` threw `UnsupportedFeatureError: Record components not
+available for record class qa.fanar.core.chat.TokenChunk` in any native image. The self-test did not
+catch it because it decoded ten domain responses and no stream chunk. Both are fixed; the probe that
+would have caught it is `decodeStreamChunks`, which exercises all six `StreamEvent` leaves.
+
+---|:--:|:--:|
+| GraalVM for JDK 21 | resolved | **`ClassNotFoundException`** |
+| GraalVM for JDK 25 | resolved | resolved |
+
+**The legacy schema is the one every supported toolchain reads**; the unified schema is read by a
+strict subset. While Java 21 is the floor (`<java.version>21</java.version>`), a consumer building a
+native image on GraalVM for JDK 21 is a configuration this SDK supports, and only the legacy files
+reach them. GraalVM 25 emitted no deprecation warning for `reflect-config.json`.
+
+Nothing is broken by this today, and that is also measured rather than assumed: all eight
+entries in the unified files are redundant under any toolchain. Seven are deserializers that
+`Jackson3FanarJsonCodec.fanarFlatteningModule()` instantiates with `new`, so the call graph
+reaches them without reflection; the eighth is the codec itself, which consumers get through
+`ServiceLoader` — and native-image processes `META-INF/services` on its own. A native binary
+built with the unified file ignored still resolves the codec and builds a `FanarClient`.
+
+Two consequences worth knowing before you trust the gate:
+
+- **The PR gate does not validate those two files.** A wrong entry in them cannot fail CI while
+  CI runs JDK 21. Only `core`'s legacy files are actually enforced.
+- **The bootstrap loop below produces the legacy schema**, because the tracing agent on JDK 21
+  writes the six-file layout. Following Step 4 for a `json-jackson3` entry gives you a
+  `reflect-config.json` to place next to a `reachability-metadata.json` of a different schema.
+  Prefer the legacy file in those directories until CI moves to a GraalVM for JDK 23+.
+
 ---
 
 ## Setup (one time, ~5 minutes)
@@ -349,6 +408,10 @@ everything into `core`'s metadata and split afterwards.
 If the binary now starts cleanly, the metadata is correct. If it crashes with
 `UnsupportedFeatureError` or `ClassNotFoundException`, exercise the failing path under
 the agent again and merge the new entries.
+
+A caveat on "starts cleanly": it proves the entries for the paths the self-test actually walks.
+Add a probe for any path you add metadata for — that gap is exactly how the streaming DTOs stayed
+unregistered while the gate stayed green (see *One metadata schema* above).
 
 ---
 

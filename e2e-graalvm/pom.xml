@@ -234,13 +234,28 @@
                                 <enabled>false</enabled>
                             </metadataRepository>
                             <buildArgs>
+                                <!--
+                                  Quick build mode. This binary is a reachability probe that runs
+                                  once, offline, for a few seconds — its runtime speed is worth
+                                  nothing, and the build is the expensive part of the PR gate.
+                                  Measured 2026-09-16 on GraalVM 21: the compile phase drops from
+                                  19.2s to 5.6s (-71%) and the whole image from 43.4s to 28.6s,
+                                  while the *analysis* phase — the one that computes reachability,
+                                  which is the only thing this gate asserts — is unchanged at
+                                  ~9.5s. -Ob changes code generation, not reachability.
+                                  Do not adopt this for a binary anyone benchmarks or ships.
+                                -->
+                                <buildArg>-Ob</buildArg>
                                 <!-- Required for the JDK HttpClient's HTTPS calls inside the binary. -->
                                 <buildArg>--enable-url-protocols=https</buildArg>
                                 <!--
                                   Forward-compat: catches build-time vs runtime initialization
                                   issues that become defaults in a future GraalVM release.
-                                  Adopting now means the SDK's reachability story keeps working
-                                  on those releases without surprises.
+                                  Kept because it is still meaningful on GraalVM for JDK 21, which
+                                  is the floor this SDK supports. On GraalVM 25 it is already the
+                                  default and warns that it "no longer has any effect" — harmless,
+                                  and the warning is the signal to drop this line when the floor
+                                  moves past 21.
                                 -->
                                 <buildArg>--strict-image-heap</buildArg>
                                 <!--

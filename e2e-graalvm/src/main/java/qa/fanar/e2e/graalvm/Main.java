@@ -29,7 +29,13 @@ import qa.fanar.core.audio.VoiceResponse;
 import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
+import qa.fanar.core.chat.DoneChunk;
+import qa.fanar.core.chat.ErrorChunk;
 import qa.fanar.core.chat.Madhab;
+import qa.fanar.core.chat.ProgressChunk;
+import qa.fanar.core.chat.TokenChunk;
+import qa.fanar.core.chat.ToolCallChunk;
+import qa.fanar.core.chat.ToolResultChunk;
 import qa.fanar.core.chat.UserMessage;
 import qa.fanar.core.images.ImageGenerationRequest;
 import qa.fanar.core.images.ImageGenerationResponse;
@@ -112,6 +118,7 @@ public final class Main {
         decodeImages(codec);
         decodeAudioVoices(codec);
         decodeAudioStt(codec);
+        decodeStreamChunks(codec);
 
         // Encode probes (outgoing requests). The encode path uses Jackson 3's serializer
         // factory which independently introspects records — covering both directions.
@@ -129,11 +136,59 @@ public final class Main {
         exerciseObservabilityPlugins();
         exerciseInterceptors();
 
-        System.out.println("self-test OK: 10 decode probes + 10 encode probes, "
+        System.out.println("self-test OK: 11 decode probes + 10 encode probes, "
                 + "4 obs plugins exercised, wire interceptor instantiated");
     }
 
     // --- domain decode probes ----------------------------------------------------------
+
+    /**
+     * Streaming decode. This is the only probe that reaches the {@code Choice*Deserializer}
+     * classes named in the Jackson modules' reachability metadata — every other decode probe
+     * goes through Jackson's own record introspection. Without it the binary can start cleanly
+     * while those entries are wrong, which is precisely what the metadata is there to prevent.
+     */
+    private static void decodeStreamChunks(FanarJsonCodec codec) throws IOException {
+        // A token delta — ChoiceTokenDeserializer flattens `delta.content` onto the choice.
+        String token = "{\"id\":\"c_1\",\"created\":1700000000,\"model\":\"Fanar-S-1-7B\","
+                + "\"choices\":[{\"index\":0,\"finish_reason\":null,"
+                + "\"delta\":{\"role\":\"assistant\",\"content\":\"pong\"}}]}";
+        TokenChunk t = codec.decode(bytes(token), TokenChunk.class);
+        require(t.choices().size() == 1, "stream token choices");
+        require("pong".equals(t.choices().get(0).content()), "stream token content");
+
+        // A terminal chunk carrying usage — DoneChunk, the other streaming shape.
+        String done = "{\"id\":\"c_1\",\"created\":1700000000,\"model\":\"Fanar-S-1-7B\","
+                + "\"choices\":[],"
+                + "\"usage\":{\"completion_tokens\":1,\"prompt_tokens\":1,\"total_tokens\":2}}";
+        DoneChunk d = codec.decode(bytes(done), DoneChunk.class);
+        require(d.usage() != null, "stream done usage");
+
+        // The remaining StreamEvent leaves. Every one of them is a plain record that Jackson
+        // introspects, so each needs its own record-component metadata; probing only the two
+        // common shapes is how the gap below them stayed invisible.
+        String head = "{\"id\":\"c_1\",\"created\":1700000000,\"model\":\"Fanar-S-1-7B\",";
+
+        ToolCallChunk tc = codec.decode(bytes(head
+                + "\"choices\":[{\"index\":0,\"finish_reason\":null,"
+                + "\"delta\":{\"tool_calls\":[]}}]}"), ToolCallChunk.class);
+        require(tc.choices().size() == 1, "stream tool-call choices");
+
+        ToolResultChunk tr = codec.decode(bytes(head
+                + "\"choices\":[{\"index\":0,\"finish_reason\":null,"
+                + "\"delta\":{\"tool_result\":{\"id\":\"t_1\",\"name\":\"search\","
+                + "\"result\":\"ok\",\"is_error\":false}}}]}"), ToolResultChunk.class);
+        require(tr.choices().size() == 1, "stream tool-result choices");
+
+        ErrorChunk ec = codec.decode(bytes(head
+                + "\"choices\":[{\"index\":0,\"finish_reason\":\"error\","
+                + "\"delta\":{\"content\":\"boom\"}}]}"), ErrorChunk.class);
+        require(ec.choices().size() == 1, "stream error choices");
+
+        ProgressChunk pc = codec.decode(bytes(head
+                + "\"progress\":{\"message\":{\"en\":\"searching\",\"ar\":\"search\"}}}"), ProgressChunk.class);
+        require(pc.message() != null, "stream progress message");
+    }
 
     private static void decodeChat(FanarJsonCodec codec) throws IOException {
         String wire = "{\"id\":\"c_1\",\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,"

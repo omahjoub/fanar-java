@@ -102,6 +102,22 @@ may break public API until 1.0.0 ships.
 
 ### Fixed
 
+- **`fanar-core`** — **streaming was unusable in a GraalVM native image.** Every `StreamEvent` the
+  server can send is a record Jackson introspects, and none of them were in the shipped reachability
+  metadata, so the first chunk of any `chat().stream()` call threw
+  `UnsupportedFeatureError: Record components not available for record class
+  qa.fanar.core.chat.TokenChunk`. Eight entries were missing — `TokenChunk`, `DoneChunk`,
+  `ErrorChunk`, `ToolCallChunk`, `ToolResultChunk`, the `StreamEvent` interface, and the nested
+  `ProgressMessage` / `ToolResultData`. The native self-test never caught it because it decoded ten
+  domain responses and no stream chunk; it now decodes all six `StreamEvent` leaves
+  ([ADR-005](docs/adr/005-streaming-via-flow-publisher.md), [ADR-009](docs/adr/009-native-image-day-one.md)).
+- **`fanar-json-jackson2` / `fanar-json-jackson3`** — their reachability metadata was in the unified
+  `reachability-metadata.json` schema, which **GraalVM for JDK 21 does not read** — so on the SDK's
+  own floor, and in CI, those files were inert. Both are now `reflect-config.json`, the one schema
+  every supported toolchain reads. Measured on GraalVM 21.0.11 and 25.0.4 with a class registered in
+  each schema: legacy resolved on both, unified resolved only on 25. The rule is now written down —
+  the schema tracks the supported Java floor, not the newest toolchain
+  ([`GRAALVM.md`](docs/GRAALVM.md), [`COMPATIBILITY.md`](docs/COMPATIBILITY.md)).
 - **`fanar-java-bom`** — **`fanar-spring-ai-starter` shipped but was absent from the BOM**, in
   every release to date: the jar has been attached since v0.1.0 and the module deploy-enabled since
   v0.2.0, and no release from v0.1.0 to v0.5.0 managed it. A consumer following the README —
@@ -127,6 +143,12 @@ may break public API until 1.0.0 ships.
   and `<snapshots>` were disabled — while its comment claimed Spring AI was still in milestone phase
   and the repository was scoped to admit it. Spring AI 2.0.1 is GA on Central. Proved harmless by a
   fully offline `./mvnw -o clean verify`.
+- **ci** — the GraalVM native-image job now runs a **matrix on GraalVM for JDK 21 and 25** (21 is
+  the floor and the leg that blocks a release; 25 is forward-coverage and surfaces deprecations
+  first), and is roughly twice as fast per leg: quick build mode (`-Ob`) cuts the compile phase from
+  19.2s to 5.6s while leaving the *analysis* phase — the only thing this gate asserts — unchanged,
+  and `-DskipTests` stops re-running a test suite the `test` job already runs on both JDKs. The legs
+  run in parallel, so wall-clock does not double.
 - **ci** — the release build and CI now invoke `./mvnw`, the wrapper pinned to Maven 3.9.16, rather
   than whatever `mvn` the runner image happens to carry; and `-DskipITs=false` is gone from the
   release build, where it did nothing (there is no Failsafe in this project) while implying an

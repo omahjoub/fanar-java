@@ -84,6 +84,16 @@ A **strong, universal foundation** over everything in §1. Nothing more.
 - **Stable extension points** — if a downstream module ever has to fork the core to plug in, we designed the core wrong.
 - **Internals are not a contract** — code under `qa.fanar.core.internal.*` can be refactored, replaced, or removed in any release without breaking downstream modules. Only the top-level API package and `.spi` surface are stability contracts. The module boundary enforces this.
 
+### Supported runtimes
+
+| | Supported | Notes |
+|---|---|---|
+| **Java** | **21+** | `maven.compiler.release` is 21; CI tests on 21 and 25. |
+| **GraalVM native-image** | **GraalVM for JDK 21+** | Every module ships reachability metadata in the legacy `reflect-config.json` schema, which is the only one GraalVM for JDK 21 reads — the unified `reachability-metadata.json` is ignored below JDK 23. CI compiles and self-tests a native binary on GraalVM for JDK **21 and 25**. See [`GRAALVM.md`](GRAALVM.md). |
+
+The metadata schema tracks the supported Java floor, not the newest toolchain: it changes when the
+floor moves past 21, not when a newer GraalVM ships.
+
 ---
 
 ## 3. What downstream modules add
