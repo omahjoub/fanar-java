@@ -1,12 +1,28 @@
 # Project state
 
-> **Snapshot — 2026-09-16.** Last release 0.5.0 (2026-09-15); `main` is on 0.6.0-SNAPSHOT. Updated on every
+> **Snapshot — 2026-09-16.** Last release 0.6.0 (2026-09-16); `main` is on 0.7.0-SNAPSHOT. Updated on every
 > milestone. If this looks wrong or stale, that is the signal — update it in the same PR as whatever moved.
 
 ## Phase
 
-**0.5.0 released 2026-09-15** ([v0.5.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.5.0),
-GitHub Release, 10 artifacts) — "full coverage of the published surface". The 2026-09 spec refresh is
+**0.6.0 released 2026-09-16** ([v0.6.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.6.0),
+GitHub Release, 10 artifacts) — "reconciliation". Every document was checked against the code rather
+than against other documents, and the disagreements were defects more often than drift. Five were
+consumer-facing, two of them making whole integration paths unusable: `chat().stream()` never worked
+under GraalVM native-image (no `StreamEvent` was in the reachability metadata) and
+`fanar-spring-boot-4-starter` could not be placed on the module path at all (JPMS derives the invalid
+component `4` from the filename). Also: `fanar-spring-ai-starter` was published but missing from the
+BOM in every release since v0.1.0; an undeclared HTTP status surfaced as a fabricated `500` after
+three retries; and an `ObservabilityPlugin` could fail the call it observed — but only when installed
+alone, so composing more plugins made you safer. New: `Streams.toStream(...)`
+([ADR-005](adr/005-streaming-via-flow-publisher.md)) and two `Unexpected*` exception leaves
+([ADR-006](adr/006-unchecked-exception-hierarchy.md)). All 29 ADRs now match the code and **none
+carries an amendment** ([ADR-019](adr/019-pre-10-stability-policy.md)); ADR-029 records the
+publication decision, which gates 1.0.0. Two new CI gates (`check-docs`, `check-build`) and a GraalVM
+for JDK 21 + 25 matrix. **Breaking** — observation names, streaming-observation lifecycle, unmapped
+status mapping; see [CHANGELOG](../CHANGELOG.md).
+
+Before it, **0.5.0 (2026-09-15)** — "full coverage of the published surface". The 2026-09 spec refresh is
 absorbed: one new operation (12 → 13; schemas 97 → 100) became a **ninth domain facade**,
 `client.sadiq().validate(...)` over `POST /v1/sadiq/validate`, verifying the Qur'anic verses and hadith
 quoted in arbitrary text and returning them tagged and cited. The returned text is the wire string
@@ -25,7 +41,7 @@ in the [wire-observations ledger](WIRE_OBSERVATIONS.md); the retry boundary publ
 rate-limit window (ADR-026) and stops sleeping past a total budget (ADR-027, that release's one
 breaking change).
 
-**Open on `main` (0.6.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
+**Open on `main` (0.7.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
 verse-match tolerance on the 2026-09-15 run, so a full live run produces **10 failures, or 11 when
 a run's Diwan misses concentrate on one case** — the ten gated by design, plus that one. Miss rate
 by date: 2/4, 2/6, 0/4, 4/7, 4/8 — high, but not trending; 2026-09-15 and 2026-09-16 both saw four
