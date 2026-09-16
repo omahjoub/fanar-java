@@ -5,7 +5,7 @@
 
     <groupId>qa.fanar</groupId>
     <artifactId>fanar-java</artifactId>
-    <version>0.6.0-SNAPSHOT</version>
+    <version>0.6.0</version>
     <packaging>pom</packaging>
 
     <name>Fanar Java SDK</name>
@@ -69,7 +69,7 @@
           publish to Maven Central. Bump to the release date when cutting a release; `artifact:compare`
           verifies the result.
         -->
-        <project.build.outputTimestamp>2026-09-16T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-09-16T15:45:25Z</project.build.outputTimestamp>
 
         <!-- Test -->
         <jacoco.version>0.8.15</jacoco.version>
