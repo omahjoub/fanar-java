@@ -91,6 +91,64 @@ version: `$VERSION`, `dry_run: true`.
 - [ ] Download the `fanar-java-$VERSION` workflow artifact: exactly 10 files, every name ending
       in `$VERSION.jar` / `$VERSION.pom`, no `-SNAPSHOT` anywhere.
 
+### 3b — Consumer smoke (mandatory, and it must happen *here*)
+
+Still on `release/$VERSION`, before anything is tagged. Everything up to this point built the
+modules **inside the reactor**, where Maven resolves siblings from the build itself — it never
+reads the BOM, never resolves a published coordinate, never puts a jar on the module path. The
+reactor is therefore structurally unable to catch a packaging fault, which is why
+`fanar-spring-ai-starter` was published but missing from the BOM for five releases with every
+build green, and why `fanar-spring-boot-4-starter` shipped four times unable to go on the module
+path at all. Both were found in 0.6.0 by doing this, and neither was visible to any other gate.
+
+```bash
+./mvnw install                       # populate ~/.m2 from the release branch
+D=$(mktemp -d) && mkdir -p "$D/src/main/java/smoke"
+cat > "$D/pom.xml" <<XML
+<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
+  <groupId>smoke</groupId><artifactId>consumer</artifactId><version>1.0</version>
+  <properties><maven.compiler.release>21</maven.compiler.release></properties>
+  <dependencyManagement><dependencies><dependency>
+    <groupId>qa.fanar</groupId><artifactId>fanar-java-bom</artifactId>
+    <version>$VERSION</version><type>pom</type><scope>import</scope>
+  </dependency></dependencies></dependencyManagement>
+  <dependencies><!-- no <version> anywhere: the BOM must supply every one -->
+    <dependency><groupId>qa.fanar</groupId><artifactId>fanar-core</artifactId></dependency>
+    <dependency><groupId>qa.fanar</groupId><artifactId>fanar-json-jackson3</artifactId></dependency>
+    <dependency><groupId>qa.fanar</groupId><artifactId>fanar-spring-ai-starter</artifactId></dependency>
+  </dependencies></project>
+XML
+cat > "$D/src/main/java/smoke/Smoke.java" <<'JAVA'
+package smoke;
+import qa.fanar.core.FanarClient;
+public final class Smoke {
+    public static void main(String[] a) {
+        try (FanarClient c = FanarClient.builder().apiKey("sk_smoke").build()) {
+            System.out.println("OK: codec resolved via ServiceLoader, chat=" + (c.chat() != null));
+        }
+    }
+}
+JAVA
+./mvnw -q -f "$D/pom.xml" compile \
+  && ./mvnw -q -f "$D/pom.xml" dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
+java -cp "$D/target/classes:$(cat /tmp/cp.txt)" smoke.Smoke
+
+M=~/.m2/repository/qa/fanar
+java --module-path "$M/fanar-core/$VERSION/fanar-core-$VERSION.jar:$M/fanar-spring-boot-4-starter/$VERSION/fanar-spring-boot-4-starter-$VERSION.jar" --list-modules | grep fanar
+```
+
+- [ ] Every dependency resolves with **no `<version>`** declared — proves the BOM manages each one.
+      A missing BOM entry fails here and nowhere else.
+- [ ] The consumer compiles and `Smoke` prints `OK` — proves `ServiceLoader` finds the codec from a
+      *repository*, which is a different resolution path from the reactor's.
+- [ ] `--list-modules` names every jar (`qa.fanar.core@$VERSION`,
+      `qa.fanar.spring.boot.v4@$VERSION automatic`, …) — proves nothing derives an illegal
+      automatic module name from its filename.
+- [ ] Add any artifact whose packaging changed in this release to the dependency list above.
+
+A failure here is free: fix on the release branch and re-run the dry-run. After the tag it costs a
+re-tag, and once Central arrives it costs a patch version — Central is immutable.
+
 ### 4 — Release PR
 
 - [ ] Open PR `release/$VERSION → main`. Review scope: the version bump + the finalized
@@ -134,8 +192,10 @@ git push -u origin bump/$NEXT
       deliberately skipped on a release branch, where the reactor is `$VERSION` and the README is
       still on the old snapshot by design; it prints a line saying so.
 - [ ] Delete the `release/$VERSION` branch (the tag preserves the commit).
-- [ ] Optional smoke: clone at the tag and `./mvnw install`, or resolve an attached jar into a
-      scratch project.
+- [ ] Confirmation build from the tag: `git clone --depth 1 --branch v$VERSION <repo> /tmp/rc &&
+      cd /tmp/rc && ./mvnw install`. The consumer smoke already ran at step 3b against the same
+      tree; this only adds proof that nothing load-bearing was left uncommitted. Optional, and
+      cheap — unlike step 3b, a failure here is recoverable by re-tagging.
 
 ## Troubleshooting
 
