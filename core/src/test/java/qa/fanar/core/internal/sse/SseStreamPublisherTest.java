@@ -277,15 +277,25 @@ class SseStreamPublisherTest {
 
     @Test
     void cancelSwallowsCloseIoError() throws Exception {
-        PipedOutputStream out = new PipedOutputStream();
-        PipedInputStream piped = new PipedInputStream(out, 8192);
+        // Deliberately not a PipedInputStream: closing one does not wake a reader already parked
+        // inside read(), so whether the producer ever finished came down to which thread won the
+        // race with cancel(). A real response body releases a parked read on close() — modelled
+        // here by the latch — which makes both interleavings terminate.
+        CountDownLatch released = new CountDownLatch(1);
         AtomicBoolean closeCalled = new AtomicBoolean();
         InputStream body = new InputStream() {
-            public int read() throws IOException { return piped.read(); }
-            public int read(byte[] b, int off, int len) throws IOException { return piped.read(b, off, len); }
+            public int read() throws IOException {
+                try {
+                    released.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException(e);
+                }
+                return -1;
+            }
             public void close() throws IOException {
                 closeCalled.set(true);
-                piped.close();
+                released.countDown();
                 throw new IOException("close failure (expected — must be swallowed)");
             }
         };
@@ -296,9 +306,11 @@ class SseStreamPublisherTest {
 
         // Must not propagate the close IOException out of cancel().
         sub.subscription.cancel();
-        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "the producer must finish");
+        // Asserted before the latch: only cancel() can have set it this early. The producer's
+        // own close() in its finally block would set it too, and prove nothing about cancel().
+        assertTrue(closeCalled.get(), "cancel() must close the body");
 
-        assertTrue(closeCalled.get());
+        assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "the producer must finish");
         assertFalse(sub.errored.isDone(), "close-time IOException must be swallowed silently");
     }
 
