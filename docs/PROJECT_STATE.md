@@ -1,35 +1,36 @@
 # Project state
 
-> **Snapshot — 2026-09-15.** Updated on every milestone. If this looks wrong or stale, that is
+> **Snapshot — 2026-09-15 (0.5.0 released).** Updated on every milestone. If this looks wrong or stale, that is
 > the signal — update it in the same PR as whatever moved.
 
 ## Phase
 
-**0.4.0 released 2026-08-30** ([v0.4.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.4.0),
-GitHub Release, 10 artifacts) — "proof over coverage". Every behaviour an ADR promises to a consumer
-is proved through the public API by a named seam-crossing `*IntegrationTest` (a rule in CONTRIBUTING,
-backed by the unpublished `test-support` fixture); what the live API actually does is recorded, dated
-and pinned by tests, in the [wire-observations ledger](WIRE_OBSERVATIONS.md); the wire log keeps
-failures; the retry boundary publishes the server's rate-limit window (`fanar.ratelimit.*` attributes,
-`RateLimitInfo` on both 429s — ADR-026) and stops sleeping past a total budget (`maxTotalDelay`,
-`RetryPolicy.builder()`, `fanar.retry.max-total-delay` — ADR-027, the release's one breaking change);
-the eight facades share one internal `Dispatcher` (nine on `main`, see below). See [CHANGELOG](../CHANGELOG.md).
+**0.5.0 released 2026-09-15** ([v0.5.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.5.0),
+GitHub Release, 10 artifacts) — "full coverage of the published surface". The 2026-09 spec refresh is
+absorbed: one new operation (12 → 13; schemas 97 → 100) became a **ninth domain facade**,
+`client.sadiq().validate(...)` over `POST /v1/sadiq/validate`, verifying the Qur'anic verses and hadith
+quoted in arbitrary text and returning them tagged and cited. The returned text is the wire string
+verbatim — the SDK does not parse the markup ([ADR-028](adr/028-sadiq-validation-facade.md)). The
+endpoint requires additional authorization, so its live cases fail loudly until the key is upgraded.
+Plus `FanarContentFilterException.filterType()` fixed from dead public API
+([ADR-006](adr/006-unchecked-exception-hierarchy.md) amendment), an internal envelope-parser
+robustness fix, and a corrected scope claim — the chat endpoint **accepts and silently ignores**
+user `tools` rather than rejecting them, which is what makes the Spring AI adapter's silent
+degradation the right behaviour ([ADR-021](adr/021-spring-ai-2-adapter.md) amendment). **No breaking
+changes**, unlike 0.4.0. See [CHANGELOG](../CHANGELOG.md).
 
-Unreleased on `main` (0.5.0-SNAPSHOT) — the **2026-09 spec refresh** is absorbed: one new operation
-(12 → 13; schemas 97 → 100) becomes a **ninth domain facade**, `client.sadiq().validate(...)` over
-`POST /v1/sadiq/validate`, verifying the Qur'anic verses and hadith quoted in arbitrary text and
-returning them tagged and cited. The returned text is the wire string verbatim — the SDK does not
-parse the markup (ADR-028). The endpoint requires additional authorization, so its live cases fail
-loudly until the key is upgraded; both plausible gate codes are proved routed against a scripted
-server. Plus one bug fix — `FanarContentFilterException.filterType()` was dead public API (the
-error-envelope parser dropped the spec's `type` member, so the accessor could only ever return
-`null`) and is now wired on both construction sites, proved through the public API by
-`FanarClientErrorEnvelopeIntegrationTest` ([ADR-006](adr/006-unchecked-exception-hierarchy.md)
-amendment 2026-09-15). Two items from the 0.4.0 plan were deliberately left out and carry into the
-next cycle: the live-suite budget hygiene + nightly run (parked 2026-08-30 pending a higher-quota
-API key requested from the Fanar team — if granted, only the nightly remains worth doing) and Maven
-Central readiness (blocked on the `qa.fanar` namespace, a Fanar-team question too; fallback
-`io.github.omahjoub`).
+Before it, **0.4.0 (2026-08-30)** — "proof over coverage": every behaviour an ADR promises is proved
+through the public API by a named seam-crossing `*IntegrationTest`; live behaviour is dated and pinned
+in the [wire-observations ledger](WIRE_OBSERVATIONS.md); the retry boundary publishes the server's
+rate-limit window (ADR-026) and stops sleeping past a total budget (ADR-027, that release's one
+breaking change).
+
+**Open on `main` (0.6.0-SNAPSHOT).** One item shipped untriaged and is the first thing to settle:
+`LivePoemsTest` overran its 3× verse-match tolerance on the 2026-09-15 run, so a full live run
+currently produces **11** failures where the ledger documents 10 (miss rate by date: 0/4 → 2/6 →
+4/7, one way). Either the budget rises or `LivePoemsTest` joins the known-failing list — see
+`tasks/todo.md` Phase A. Also carried: the live-suite nightly and Maven Central readiness, both
+pending answers from the Fanar team.
 
 ## Planned
 
