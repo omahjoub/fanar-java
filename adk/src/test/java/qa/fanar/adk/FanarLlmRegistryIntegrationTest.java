@@ -44,10 +44,12 @@ class FanarLlmRegistryIntegrationTest {
     private final ScriptedHttpServer server = ScriptedHttpServer.start();
 
     @Test
-    void registrationIsExplicitLazyAndShared() {
+    void registrationIsExplicitLazyAndShared() throws ClassNotFoundException {
+        Class.forName("qa.fanar.adk.FanarLlm", true, getClass().getClassLoader());
         assertThrows(IllegalArgumentException.class, () -> LlmRegistry.getLlm("fanar/Fanar-Probe"),
-                "loading FanarLlm registers nothing");
-        server.enqueue(Reply.json(200, PLAIN_COMPLETION), Reply.json(200, PLAIN_COMPLETION));
+                "initialising FanarLlm registers nothing");
+        server.enqueue(Reply.json(200, PLAIN_COMPLETION), Reply.json(200, PLAIN_COMPLETION),
+                Reply.json(200, PLAIN_COMPLETION), Reply.json(200, PLAIN_COMPLETION));
         AtomicInteger builds = new AtomicInteger();
         InMemorySessionService sessions = new InMemorySessionService();
 
@@ -80,8 +82,22 @@ class FanarLlmRegistryIntegrationTest {
             assertEquals(UnsupportedFeaturePolicy.REJECT, plain.options().unsupportedFeatures());
             assertEquals("pong", plain.generateContent(request(user("ping")), false).blockingSingle()
                     .content().get().text());
+            assertSame(probe, LlmRegistry.getLlm("fanar/Fanar-Probe"),
+                    "re-registration replaces the factory for new names only; resolved names keep their instance");
+
+            FanarLlm.register(client, FanarLlmOptions.builder().persona("imam").build());
+            FanarLlm withOptions = assertInstanceOf(FanarLlm.class, LlmRegistry.getLlm("fanar/Fanar-Third"));
+            assertEquals("imam", withOptions.options().persona());
+            assertEquals("pong", withOptions.generateContent(request(user("ping")), false).blockingSingle()
+                    .content().get().text());
+
+            FanarLlm.register(() -> client);
+            FanarLlm fromSupplier = assertInstanceOf(FanarLlm.class, LlmRegistry.getLlm("fanar/Fanar-Fourth"));
+            assertEquals(UnsupportedFeaturePolicy.REJECT, fromSupplier.options().unsupportedFeatures());
+            assertEquals("pong", fromSupplier.generateContent(request(user("ping")), false).blockingSingle()
+                    .content().get().text());
         }
 
-        assertEquals(2, server.hits());
+        assertEquals(4, server.hits());
     }
 }

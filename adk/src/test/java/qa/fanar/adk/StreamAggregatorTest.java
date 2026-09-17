@@ -57,7 +57,7 @@ class StreamAggregatorTest {
         assertTrue(last.partial().isEmpty());
         assertEquals(FinishReason.Known.STOP, last.finishReason().get().knownEnum());
         assertEquals(1, last.groundingMetadata().get().groundingChunks().get().size(), "references survive an empty later done chunk");
-        assertTrue(last.usageMetadata().isEmpty(), "the later done chunk's null usage wins, as the server's last word");
+        assertEquals(7, last.usageMetadata().get().totalTokenCount().get(), "a later usage-less terminal chunk keeps the count");
         assertEquals("Fanar-C-2-27B", last.modelVersion().get(), "the server-reported model");
     }
 
@@ -89,7 +89,7 @@ class StreamAggregatorTest {
         LlmResponse last = aggregator.onComplete().blockingFirst();
 
         assertEquals(FinishReason.Known.STOP, last.finishReason().get().knownEnum(), "tool_calls maps to STOP");
-        assertEquals("", last.content().get().text(), "stopped with nothing streamed still carries content");
+        assertTrue(last.content().get().parts().get().isEmpty(), "stopped with nothing streamed still carries (empty) content");
     }
 
     @Test

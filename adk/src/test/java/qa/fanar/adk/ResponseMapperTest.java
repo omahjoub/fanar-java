@@ -32,21 +32,19 @@ class ResponseMapperTest {
     }
 
     @Test
-    void textUsageReferencesAndAPendingCallMap() {
+    void textUsageAndReferencesMapWhileServerSideToolCallsAreNotEmitted() {
         ChatMessage message = new ChatMessage(
                 List.of(new TextContent("hello "), new ImageContent("https://x/i.png"), new TextContent("back")),
                 List.of(REFERENCE),
                 List.of(new ToolCall("t1", "retrieve", Map.of("q", "x"), "done", null, false),
-                        new ToolCall("t2", "lookup", Map.of("q", "y"), null, null, false)));
+                        new ToolCall("t2", "lookup", Map.of("q", "y"), null, null, true)));
 
         LlmResponse r = ResponseMapper.toLlmResponse(response("stop", message, USAGE));
 
         assertEquals("model", r.content().get().role().get());
         List<Part> parts = r.content().get().parts().get();
-        assertEquals(2, parts.size());
+        assertEquals(1, parts.size(), "no tool was declared, so nothing is handed to ADK for dispatch");
         assertEquals("hello back", parts.get(0).text().get());
-        assertEquals("lookup", parts.get(1).functionCall().get().name().get(), "only the pending call is dispatched");
-        assertEquals(Map.of("q", "y"), parts.get(1).functionCall().get().args().get());
         assertEquals(FinishReason.Known.STOP, r.finishReason().get().knownEnum());
         assertTrue(r.errorCode().isEmpty());
         assertEquals(5, r.usageMetadata().get().promptTokenCount().get());
@@ -65,7 +63,7 @@ class ResponseMapperTest {
         LlmResponse stopped = ResponseMapper.toLlmResponse(response("stop", empty, null));
         LlmResponse truncated = ResponseMapper.toLlmResponse(response("length", empty, null));
 
-        assertEquals("", stopped.content().get().parts().get().get(0).text().get());
+        assertTrue(stopped.content().get().parts().get().isEmpty(), "content present, no parts: the event is built and history drops it");
         assertTrue(stopped.errorCode().isEmpty());
         assertTrue(stopped.usageMetadata().isEmpty());
         assertTrue(stopped.groundingMetadata().isEmpty());
@@ -90,6 +88,8 @@ class ResponseMapperTest {
         LlmResponse withText = ResponseMapper.outcome(List.of(Part.fromText("partial")), "error", "boom", null,
                 List.of(), "Fanar");
         LlmResponse without = ResponseMapper.outcome(List.of(), null, "boom", null, List.of(), "Fanar");
+        LlmResponse truncated = ResponseMapper.outcome(List.of(), "length", "boom", null, List.of(), "Fanar");
+        LlmResponse stoppedAfterError = ResponseMapper.outcome(List.of(), "stop", "boom", null, List.of(), "Fanar");
 
         assertEquals("partial", withText.content().get().text());
         assertEquals(FinishReason.Known.OTHER, withText.errorCode().get().knownEnum());
@@ -97,6 +97,11 @@ class ResponseMapperTest {
         assertTrue(without.content().isEmpty());
         assertEquals(FinishReason.Known.OTHER, without.errorCode().get().knownEnum());
         assertTrue(without.finishReason().isEmpty());
+        assertEquals(FinishReason.Known.MAX_TOKENS, truncated.errorCode().get().knownEnum(), "a real reason is kept");
+        assertEquals(FinishReason.Known.OTHER, stoppedAfterError.errorCode().get().knownEnum(),
+                "a terminal chunk after an error frame never relabels the error as STOP");
+        assertTrue(stoppedAfterError.finishReason().isEmpty(), "and never reports STOP as the finish reason of a failed call");
+        assertEquals(FinishReason.Known.MAX_TOKENS, truncated.finishReason().get().knownEnum(), "a real reason is still reported");
     }
 
     @Test

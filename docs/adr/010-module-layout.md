@@ -78,11 +78,12 @@ Repository layout is **flat**:
 
 ### Neutral
 - **The library modules that can carry a `module-info.java` do**: core, both JSON codecs, the three
-  observability adapters, the logging interceptor. The two Spring starters deliberately do not —
-  Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS story (ADR-020) — and
-  instead declare an explicit `Automatic-Module-Name`, because without one JPMS derives the name
-  from the filename and `fanar-spring-boot-4-starter` derives to an invalid one. Support modules
-  need neither.
+  observability adapters, the logging interceptor. The two Spring starters and `fanar-adk`
+  deliberately do not — Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS
+  story (ADR-020), and ADK's stack declares no JPMS modules (ADR-030) — and instead declare an
+  explicit `Automatic-Module-Name`, because without one JPMS derives the name from the filename:
+  `fanar-spring-boot-4-starter` derives to an invalid one, `fanar-adk` to one off the package root.
+  Support modules need neither.
 - The BOM ships no classes and no descriptor; it is pom-packaging only.
 
 ## References

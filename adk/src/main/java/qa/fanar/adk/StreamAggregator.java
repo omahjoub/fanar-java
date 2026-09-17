@@ -90,7 +90,9 @@ final class StreamAggregator {
     }
 
     private Flowable<LlmResponse> onDone(DoneChunk chunk) {
-        usage = chunk.usage();
+        if (chunk.usage() != null) {
+            usage = chunk.usage();   // a later usage-less terminal chunk must not erase the count
+        }
         for (ChoiceFinal choice : chunk.choices()) {
             noteFinish(choice.finishReason());
             if (!choice.references().isEmpty()) {

@@ -60,8 +60,7 @@ class FanarLlmIntegrationTest {
             assertEquals("hello back", r.content().get().text());
             assertEquals("model", r.content().get().role().get());
             List<Part> parts = r.content().get().parts().get();
-            assertEquals("lookup", parts.get(1).functionCall().get().name().get(),
-                    "the pending call is handed to ADK; the executed retrieval is not");
+            assertEquals(1, parts.size(), "server-side tool calls are not emitted as function calls");
             assertEquals(FinishReason.Known.STOP, r.finishReason().get().knownEnum());
             assertEquals(7, r.usageMetadata().get().totalTokenCount().get());
             assertEquals("Fanar-Sadiq", r.modelVersion().get(), "the model the server reports");

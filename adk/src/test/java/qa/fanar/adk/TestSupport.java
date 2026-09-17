@@ -20,14 +20,14 @@ final class TestSupport {
             .withBaseDelay(Duration.ofMillis(1))
             .withMaxDelay(Duration.ofMillis(1));
 
-    /** One user tool: a retrieval the server already ran; one pending call awaiting a client. */
+    /** Two server-side retrievals, both already executed (result populated), as Fanar sends them. */
     static final String COMPLETION = """
             {"id":"resp-1","object":"chat.completion","created":1700000000,"model":"Fanar-Sadiq",
              "choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hello back",
                "references":[{"index":0,"number":1,"source":"Sahih al-Bukhari","content":"a quoted hadith"}],
                "tool_calls":[
                  {"id":"t1","name":"retrieve","arguments":{"q":"zakat"},"result":"three passages","is_error":false},
-                 {"id":"t2","name":"lookup","arguments":{"q":"gold"},"result":null,"is_error":false}]}}],
+                 {"id":"t2","name":"lookup","arguments":{"q":"gold"},"result":"two passages","is_error":false}]}}],
              "usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}
             """;
 

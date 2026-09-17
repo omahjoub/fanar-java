@@ -1,16 +1,22 @@
 package qa.fanar.adk;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.google.adk.models.LlmRequest;
 import com.google.genai.types.Content;
 import com.google.genai.types.FileData;
+import com.google.genai.types.FunctionDeclaration;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.Part;
+import com.google.genai.types.Tool;
 
 import qa.fanar.core.chat.AssistantMessage;
 import qa.fanar.core.chat.ChatModel;
@@ -30,15 +36,15 @@ import qa.fanar.core.chat.VideoPart;
  */
 final class RequestMapper {
 
-    /** ADK's marker tool for structured output when an agent has both tools and an output schema. */
-    static final String SET_MODEL_RESPONSE_TOOL = "set_model_response";
+    /** The built-in tool slots of a genai {@code Tool}, for naming one that carries no function declaration. */
+    private static final Map<String, Function<Tool, Optional<?>>> BUILT_IN_TOOLS = builtInTools();
 
     private RequestMapper() {
         // static only
     }
 
     static ChatRequest toChatRequest(LlmRequest request, ChatModel model, FanarLlmOptions options) {
-        Set<String> unsupported = new LinkedHashSet<>();
+        Set<UnsupportedFeature> unsupported = new LinkedHashSet<>();
         Optional<GenerateContentConfig> config = request.config();
         List<Message> messages = new ArrayList<>();
 
@@ -55,8 +61,11 @@ final class RequestMapper {
         collectTools(request, config, unsupported);
         config.ifPresent(c -> collectStructuredOutput(c, unsupported));
 
-        if (!unsupported.isEmpty() && options.unsupportedFeatures() == UnsupportedFeaturePolicy.REJECT) {
-            throw new UnsupportedFeatureException(List.copyOf(unsupported));
+        // Under IGNORE the drop must still leave something to send; an empty conversation is not
+        // a request Fanar can answer, and core's "messages must not be empty" would name the wrong cause.
+        if (!unsupported.isEmpty()
+                && (options.unsupportedFeatures() == UnsupportedFeaturePolicy.REJECT || messages.isEmpty())) {
+            throw new UnsupportedFeatureException(List.copyOf(unsupported), options.unsupportedFeatures());
         }
 
         ChatRequest.Builder builder = ChatRequest.builder().model(model).messages(messages);
@@ -67,7 +76,7 @@ final class RequestMapper {
 
     // --- messages ------------------------------------------------------------------------------
 
-    private static Message toMessage(Content content, Set<String> unsupported) {
+    private static Message toMessage(Content content, Set<UnsupportedFeature> unsupported) {
         String role = content.role().orElse("user");
         boolean modelTurn = role.equalsIgnoreCase("model") || role.equalsIgnoreCase("assistant");
         StringBuilder text = new StringBuilder();
@@ -78,28 +87,29 @@ final class RequestMapper {
                 continue;
             }
             if (part.text().isPresent()) {
-                if (!text.isEmpty()) {
-                    text.append('\n');
-                }
-                text.append(part.text().get());
+                appendLine(text, part.text().get());
             } else if (part.fileData().isPresent()) {
                 collectFileData(part.fileData().get(), media, unsupported);
             } else if (part.inlineData().isPresent()) {
-                unsupported.add("inline data of type '"
-                        + part.inlineData().get().mimeType().orElse("unknown") + "'");
+                unsupported.add(UnsupportedFeature.part("inline data of type '"
+                        + part.inlineData().get().mimeType().orElse("unknown") + "'"));
             } else if (part.functionCall().isPresent()) {
-                unsupported.add("a function call part");
+                unsupported.add(UnsupportedFeature.part("a function call part"));
             } else if (part.functionResponse().isPresent()) {
-                unsupported.add("a function response part");
+                unsupported.add(UnsupportedFeature.part("a function response part"));
+            } else if (part.toolCall().isPresent()) {
+                unsupported.add(UnsupportedFeature.part("a tool call part"));
+            } else if (part.toolResponse().isPresent()) {
+                unsupported.add(UnsupportedFeature.part("a tool response part"));
             } else if (part.executableCode().isPresent() || part.codeExecutionResult().isPresent()) {
-                unsupported.add("a code execution part");
+                unsupported.add(UnsupportedFeature.part("a code execution part"));
             }
             // anything else (a bare thought signature, an empty part) has nothing to send
         }
 
         if (modelTurn) {
             if (!media.isEmpty()) {
-                unsupported.add("media in a model turn");
+                unsupported.add(UnsupportedFeature.part("media in a model turn"));
             }
             return text.isEmpty() ? null : AssistantMessage.of(text.toString());
         }
@@ -114,60 +124,96 @@ final class RequestMapper {
         return new UserMessage(parts, null);
     }
 
-    private static void collectFileData(FileData file, List<UserContentPart> media, Set<String> unsupported) {
+    private static void collectFileData(FileData file, List<UserContentPart> media, Set<UnsupportedFeature> unsupported) {
         String mime = file.mimeType().orElse("");
         Optional<String> uri = file.fileUri();
         if (uri.isEmpty()) {
-            unsupported.add("file data without a URI");
+            unsupported.add(UnsupportedFeature.part("file data without a URI"));
         } else if (mime.startsWith("image/")) {
             media.add(ImagePart.of(uri.get()));
         } else if (mime.startsWith("video/")) {
             media.add(new VideoPart(uri.get()));
         } else {
-            unsupported.add("file data of type '" + mime + "'");
+            unsupported.add(UnsupportedFeature.part("file data of type '" + mime + "'"));
         }
     }
 
+    /** Text parts of one content, one per line; the same rule for the system instruction and the turns. */
     private static String textOf(Content content) {
         StringBuilder text = new StringBuilder();
         for (Part part : content.parts().orElse(List.of())) {
-            part.text().ifPresent(text::append);
+            part.text().ifPresent(t -> appendLine(text, t));
         }
         return text.toString();
     }
 
-    // --- features Fanar cannot honour ----------------------------------------------------------
-
-    private static void collectTools(LlmRequest request, Optional<GenerateContentConfig> config, Set<String> unsupported) {
-        Set<String> names = new LinkedHashSet<>(request.tools().keySet());
-        config.flatMap(GenerateContentConfig::tools).ifPresent(tools -> tools.forEach(tool ->
-                tool.functionDeclarations().ifPresent(declarations -> declarations.forEach(declaration ->
-                        declaration.name().ifPresent(names::add)))));
-        for (String name : names) {
-            unsupported.add(SET_MODEL_RESPONSE_TOOL.equals(name)
-                    ? "an output schema (" + SET_MODEL_RESPONSE_TOOL + " tool)"
-                    : "tool '" + name + "'");
+    private static void appendLine(StringBuilder text, String line) {
+        if (!text.isEmpty()) {
+            text.append('\n');
         }
+        text.append(line);
     }
 
-    private static void collectStructuredOutput(GenerateContentConfig config, Set<String> unsupported) {
+    // --- features Fanar cannot honour ----------------------------------------------------------
+
+    private static void collectTools(LlmRequest request, Optional<GenerateContentConfig> config,
+                                     Set<UnsupportedFeature> unsupported) {
+        Set<String> names = new LinkedHashSet<>(request.tools().keySet());
+        List<String> builtIns = new ArrayList<>();
+        config.flatMap(GenerateContentConfig::tools).ifPresent(tools -> tools.forEach(tool -> {
+            List<FunctionDeclaration> declarations = tool.functionDeclarations().orElse(List.of());
+            if (declarations.isEmpty()) {
+                builtIns.add(builtInName(tool));
+            }
+            declarations.forEach(declaration -> declaration.name().ifPresent(names::add));
+        }));
+        names.forEach(name -> unsupported.add(UnsupportedFeature.tool("tool '" + name + "'")));
+        builtIns.forEach(kind -> unsupported.add(UnsupportedFeature.tool("a built-in tool (" + kind + ")")));
+    }
+
+    /** ADK's Google-only tools ride in a {@code Tool} without declarations; name the slot(s) they fill. */
+    private static String builtInName(Tool tool) {
+        String kinds = BUILT_IN_TOOLS.entrySet().stream()
+                .filter(entry -> entry.getValue().apply(tool).isPresent())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.joining(", "));
+        return kinds.isEmpty() ? "unknown" : kinds;
+    }
+
+    private static Map<String, Function<Tool, Optional<?>>> builtInTools() {
+        Map<String, Function<Tool, Optional<?>>> slots = new LinkedHashMap<>();
+        slots.put("codeExecution", Tool::codeExecution);
+        slots.put("googleSearch", Tool::googleSearch);
+        slots.put("googleSearchRetrieval", Tool::googleSearchRetrieval);
+        slots.put("googleMaps", Tool::googleMaps);
+        slots.put("computerUse", Tool::computerUse);
+        slots.put("retrieval", Tool::retrieval);
+        slots.put("urlContext", Tool::urlContext);
+        slots.put("fileSearch", Tool::fileSearch);
+        slots.put("enterpriseWebSearch", Tool::enterpriseWebSearch);
+        slots.put("mcpServers", Tool::mcpServers);
+        slots.put("parallelAiSearch", Tool::parallelAiSearch);
+        return Map.copyOf(slots);
+    }
+
+    private static void collectStructuredOutput(GenerateContentConfig config, Set<UnsupportedFeature> unsupported) {
         if (config.responseSchema().isPresent() || config.responseJsonSchema().isPresent()) {
-            unsupported.add("an output schema");
+            unsupported.add(UnsupportedFeature.outputSchema("an output schema"));
         } else {
             config.responseMimeType()
                     .filter(mime -> !"text/plain".equals(mime))
-                    .ifPresent(mime -> unsupported.add("response MIME type '" + mime + "'"));
+                    .ifPresent(mime -> unsupported.add(UnsupportedFeature.outputSchema("response MIME type '" + mime + "'")));
         }
     }
 
     // --- knobs ---------------------------------------------------------------------------------
 
+    /** {@code candidateCount} is not forwarded: ADK's {@code LlmResponse} carries one candidate. */
     private static void applyConfig(GenerateContentConfig config, ChatRequest.Builder builder) {
         config.temperature().ifPresent(v -> builder.temperature(decimal(v)));
         config.topP().ifPresent(v -> builder.topP(decimal(v)));
         config.topK().ifPresent(v -> builder.topK(Math.round(v)));
         config.maxOutputTokens().ifPresent(builder::maxTokens);
-        config.candidateCount().ifPresent(builder::n);
         config.stopSequences().filter(stop -> !stop.isEmpty()).ifPresent(builder::stop);
         config.presencePenalty().ifPresent(v -> builder.presencePenalty(decimal(v)));
         config.frequencyPenalty().ifPresent(v -> builder.frequencyPenalty(decimal(v)));

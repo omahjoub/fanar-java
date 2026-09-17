@@ -52,6 +52,10 @@ class FanarLlmPolicyIntegrationTest {
         return Map.of("answer", 42);
     }
 
+    private static UnsupportedFeature tool(String detail) {
+        return new UnsupportedFeature(UnsupportedFeature.Kind.TOOL, detail);
+    }
+
     private List<Event> run(BaseAgent agent, String text) {
         Runner runner = Runner.builder().agent(agent).appName("app")
                 .artifactService(new InMemoryArtifactService()).sessionService(sessions).build();
@@ -67,7 +71,7 @@ class FanarLlmPolicyIntegrationTest {
                     .build();
 
             UnsupportedFeatureException ex = assertThrows(UnsupportedFeatureException.class, () -> run(agent, "hi"));
-            assertEquals(List.of("tool 'lookup'"), ex.features());
+            assertEquals(List.of(tool("tool 'lookup'")), ex.features());
         }
         assertEquals(0, server.hits());
     }
@@ -80,7 +84,7 @@ class FanarLlmPolicyIntegrationTest {
             LlmAgent root = LlmAgent.builder().name("root").model(model).subAgents(child).build();
 
             UnsupportedFeatureException ex = assertThrows(UnsupportedFeatureException.class, () -> run(root, "hi"));
-            assertEquals(List.of("tool 'transfer_to_agent'"), ex.features());
+            assertEquals(List.of(tool("tool 'transfer_to_agent'")), ex.features());
         }
         assertEquals(0, server.hits());
     }
@@ -94,7 +98,7 @@ class FanarLlmPolicyIntegrationTest {
                     .build();
 
             UnsupportedFeatureException ex = assertThrows(UnsupportedFeatureException.class, () -> run(agent, "hi"));
-            assertEquals(List.of("an output schema"), ex.features());
+            assertEquals(List.of(new UnsupportedFeature(UnsupportedFeature.Kind.OUTPUT_SCHEMA, "an output schema")), ex.features());
         }
         assertEquals(0, server.hits());
     }
@@ -123,16 +127,24 @@ class FanarLlmPolicyIntegrationTest {
 
     @Test
     void aWorkflowParentInjectsNoTransferToolSoRejectNeedsNoOptIn() {
-        server.enqueue(Reply.json(200, PLAIN_COMPLETION));
+        server.enqueue(Reply.json(200, PLAIN_COMPLETION), Reply.json(200, PLAIN_COMPLETION));
 
         try (FanarClient client = client(server)) {
-            LlmAgent step = LlmAgent.builder().name("fanar").model(new FanarLlm(client, ChatModel.FANAR)).build();
-            SequentialAgent flow = SequentialAgent.builder().name("flow").subAgents(step).build();
+            FanarLlm model = new FanarLlm(client, ChatModel.FANAR);
+            LlmAgent first = LlmAgent.builder().name("fanar1").model(model).build();
+            LlmAgent second = LlmAgent.builder().name("fanar2").model(model).build();
+            SequentialAgent flow = SequentialAgent.builder().name("flow").subAgents(first, second).build();
 
             List<Event> events = run(flow, "hi");
+            assertEquals("fanar2", events.getLast().author());
             assertEquals("pong", events.getLast().content().get().text());
         }
 
-        assertEquals(1, server.hits());
+        assertEquals(2, server.hits(), "one call per step, no transfer tool anywhere");
+        String second = server.lastReceived().bodyAsString();
+        assertFalse(second.contains("\"tools\""), second);
+        assertTrue(second.contains("[fanar1] said: pong"), "ADK narrates step one's reply to step two: " + second);
+        assertEquals(2, second.split("\"role\":\"user\"", -1).length - 1,
+                "the narration travels as a second user message, so Fanar sees two in a row: " + second);
     }
 }

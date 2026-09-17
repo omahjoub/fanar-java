@@ -12,70 +12,63 @@ import qa.fanar.core.chat.Source;
  * Fanar-only request knobs for one {@link FanarLlm} instance (ADR-030), plus the policy for
  * features Fanar cannot honour. ADK's {@code GenerateContentConfig} has no extension seam, so these
  * are set once per model instance; an agent that needs different values gets its own
- * {@link FanarLlm}. A {@code null} field is not sent. Values are validated by
+ * {@link FanarLlm}. An unset knob is not sent. Values are validated by
  * {@code qa.fanar.core.chat.ChatRequest} when the request is built, so an out-of-range value
  * surfaces as an {@code IllegalArgumentException} through the model's {@code Flowable}.
  *
  * <p>The knobs mirror the Fanar-only set of the Spring AI adapter's {@code FanarChatOptions}
  * (ADR-024): the Sadiq retrieval controls, thinking, and the sampling extras Fanar accepts beyond
- * what ADK's configuration carries.</p>
- *
- * @param unsupportedFeatures        what to do with features Fanar cannot honour; never {@code null}
- * @param persona                    Sadiq persona
- * @param madhab                     Sadiq schools of jurisprudence to answer from
- * @param enableThinking             emit the model's reasoning
- * @param restrictToIslamic          restrict Sadiq answers to Islamic sources
- * @param bookNames                  Sadiq book filter
- * @param preferredSources           Sadiq preferred sources
- * @param excludeSources             Sadiq excluded sources
- * @param filterSources              Sadiq source filter
- * @param logitBias                  token logit bias
- * @param minP                       minimum-p sampling
- * @param repetitionPenalty          repetition penalty
- * @param bestOf                     candidates generated server-side before choosing
- * @param lengthPenalty              length penalty
- * @param earlyStopping              stop beam search early
- * @param stopTokenIds               stop token ids
- * @param ignoreEos                  keep generating past end-of-sequence
- * @param minTokens                  minimum tokens to generate
- * @param skipSpecialTokens          strip special tokens from the output
- * @param spacesBetweenSpecialTokens add spaces between special tokens
- * @param truncatePromptTokens       truncate the prompt to this many tokens
- * @param promptLogprobs             prompt log-probabilities to return
+ * what ADK's configuration carries. Like that class this is a builder-built value, not a record,
+ * so a knob Fanar adds later is an added setter rather than a changed constructor.</p>
  */
-public record FanarLlmOptions(
-        UnsupportedFeaturePolicy unsupportedFeatures,
-        String persona,
-        List<Madhab> madhab,
-        Boolean enableThinking,
-        Boolean restrictToIslamic,
-        List<BookName> bookNames,
-        List<Source> preferredSources,
-        List<Source> excludeSources,
-        List<Source> filterSources,
-        Map<String, Double> logitBias,
-        Double minP,
-        Double repetitionPenalty,
-        Integer bestOf,
-        Double lengthPenalty,
-        Boolean earlyStopping,
-        List<Integer> stopTokenIds,
-        Boolean ignoreEos,
-        Integer minTokens,
-        Boolean skipSpecialTokens,
-        Boolean spacesBetweenSpecialTokens,
-        Integer truncatePromptTokens,
-        Integer promptLogprobs) {
+public final class FanarLlmOptions {
 
-    public FanarLlmOptions {
-        Objects.requireNonNull(unsupportedFeatures, "unsupportedFeatures");
-        madhab = copyOf(madhab);
-        bookNames = copyOf(bookNames);
-        preferredSources = copyOf(preferredSources);
-        excludeSources = copyOf(excludeSources);
-        filterSources = copyOf(filterSources);
-        stopTokenIds = copyOf(stopTokenIds);
-        logitBias = logitBias == null ? null : Map.copyOf(logitBias);
+    private final UnsupportedFeaturePolicy unsupportedFeatures;
+    private final String persona;
+    private final List<Madhab> madhab;
+    private final Boolean enableThinking;
+    private final Boolean restrictToIslamic;
+    private final List<BookName> bookNames;
+    private final List<Source> preferredSources;
+    private final List<Source> excludeSources;
+    private final List<Source> filterSources;
+    private final Map<String, Double> logitBias;
+    private final Double minP;
+    private final Double repetitionPenalty;
+    private final Integer bestOf;
+    private final Double lengthPenalty;
+    private final Boolean earlyStopping;
+    private final List<Integer> stopTokenIds;
+    private final Boolean ignoreEos;
+    private final Integer minTokens;
+    private final Boolean skipSpecialTokens;
+    private final Boolean spacesBetweenSpecialTokens;
+    private final Integer truncatePromptTokens;
+    private final Integer promptLogprobs;
+
+    private FanarLlmOptions(Builder b) {
+        this.unsupportedFeatures = Objects.requireNonNull(b.unsupportedFeatures, "unsupportedFeatures");
+        this.persona = b.persona;
+        this.madhab = copyOf(b.madhab);
+        this.enableThinking = b.enableThinking;
+        this.restrictToIslamic = b.restrictToIslamic;
+        this.bookNames = copyOf(b.bookNames);
+        this.preferredSources = copyOf(b.preferredSources);
+        this.excludeSources = copyOf(b.excludeSources);
+        this.filterSources = copyOf(b.filterSources);
+        this.logitBias = b.logitBias == null ? null : Map.copyOf(b.logitBias);
+        this.minP = b.minP;
+        this.repetitionPenalty = b.repetitionPenalty;
+        this.bestOf = b.bestOf;
+        this.lengthPenalty = b.lengthPenalty;
+        this.earlyStopping = b.earlyStopping;
+        this.stopTokenIds = copyOf(b.stopTokenIds);
+        this.ignoreEos = b.ignoreEos;
+        this.minTokens = b.minTokens;
+        this.skipSpecialTokens = b.skipSpecialTokens;
+        this.spacesBetweenSpecialTokens = b.spacesBetweenSpecialTokens;
+        this.truncatePromptTokens = b.truncatePromptTokens;
+        this.promptLogprobs = b.promptLogprobs;
     }
 
     private static <T> List<T> copyOf(List<T> list) {
@@ -87,11 +80,70 @@ public record FanarLlmOptions(
         return builder().build();
     }
 
+    /** A builder with every knob unset and the policy at {@link UnsupportedFeaturePolicy#REJECT}. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Fluent builder; every knob starts unset. */
+    /** A builder pre-filled with this value's knobs, for deriving a variant. */
+    public Builder toBuilder() {
+        return new Builder()
+                .unsupportedFeatures(unsupportedFeatures).persona(persona).madhab(madhab)
+                .enableThinking(enableThinking).restrictToIslamic(restrictToIslamic).bookNames(bookNames)
+                .preferredSources(preferredSources).excludeSources(excludeSources).filterSources(filterSources)
+                .logitBias(logitBias).minP(minP).repetitionPenalty(repetitionPenalty).bestOf(bestOf)
+                .lengthPenalty(lengthPenalty).earlyStopping(earlyStopping).stopTokenIds(stopTokenIds)
+                .ignoreEos(ignoreEos).minTokens(minTokens).skipSpecialTokens(skipSpecialTokens)
+                .spacesBetweenSpecialTokens(spacesBetweenSpecialTokens).truncatePromptTokens(truncatePromptTokens)
+                .promptLogprobs(promptLogprobs);
+    }
+
+    /** What to do with features Fanar cannot honour; never {@code null}. */
+    public UnsupportedFeaturePolicy unsupportedFeatures() { return unsupportedFeatures; }
+    /** Sadiq persona. */
+    public String persona() { return persona; }
+    /** Sadiq schools of jurisprudence to answer from. */
+    public List<Madhab> madhab() { return madhab; }
+    /** Emit the model's reasoning (Fanar returns it inline as a {@code <think>} block). */
+    public Boolean enableThinking() { return enableThinking; }
+    /** Restrict Sadiq answers to Islamic sources. */
+    public Boolean restrictToIslamic() { return restrictToIslamic; }
+    /** Sadiq book filter. */
+    public List<BookName> bookNames() { return bookNames; }
+    /** Sadiq preferred sources. */
+    public List<Source> preferredSources() { return preferredSources; }
+    /** Sadiq excluded sources. */
+    public List<Source> excludeSources() { return excludeSources; }
+    /** Sadiq source filter. */
+    public List<Source> filterSources() { return filterSources; }
+    /** Token logit bias. */
+    public Map<String, Double> logitBias() { return logitBias; }
+    /** Minimum-p sampling. */
+    public Double minP() { return minP; }
+    /** Repetition penalty. */
+    public Double repetitionPenalty() { return repetitionPenalty; }
+    /** Candidates generated server-side before choosing. */
+    public Integer bestOf() { return bestOf; }
+    /** Length penalty. */
+    public Double lengthPenalty() { return lengthPenalty; }
+    /** Stop beam search early. */
+    public Boolean earlyStopping() { return earlyStopping; }
+    /** Stop token ids. */
+    public List<Integer> stopTokenIds() { return stopTokenIds; }
+    /** Keep generating past end-of-sequence. */
+    public Boolean ignoreEos() { return ignoreEos; }
+    /** Minimum tokens to generate. */
+    public Integer minTokens() { return minTokens; }
+    /** Strip special tokens from the output. */
+    public Boolean skipSpecialTokens() { return skipSpecialTokens; }
+    /** Add spaces between special tokens. */
+    public Boolean spacesBetweenSpecialTokens() { return spacesBetweenSpecialTokens; }
+    /** Truncate the prompt to this many tokens. */
+    public Integer truncatePromptTokens() { return truncatePromptTokens; }
+    /** Prompt log-probabilities to return. */
+    public Integer promptLogprobs() { return promptLogprobs; }
+
+    /** Fluent builder; each setter mirrors the accessor of the same name and accepts {@code null} to unset. */
     public static final class Builder {
 
         private UnsupportedFeaturePolicy unsupportedFeatures = UnsupportedFeaturePolicy.REJECT;
@@ -148,12 +200,7 @@ public record FanarLlmOptions(
          * @throws NullPointerException if the policy was set to {@code null}
          */
         public FanarLlmOptions build() {
-            return new FanarLlmOptions(
-                    unsupportedFeatures, persona, madhab, enableThinking, restrictToIslamic,
-                    bookNames, preferredSources, excludeSources, filterSources, logitBias,
-                    minP, repetitionPenalty, bestOf, lengthPenalty, earlyStopping, stopTokenIds,
-                    ignoreEos, minTokens, skipSpecialTokens, spacesBetweenSpecialTokens,
-                    truncatePromptTokens, promptLogprobs);
+            return new FanarLlmOptions(this);
         }
     }
 }

@@ -32,7 +32,8 @@ public final class FanarLlm extends BaseLlm {
     /** The registry pattern {@link #register} claims; the model id follows the prefix. */
     public static final String REGISTRY_PATTERN = "fanar/.*";
 
-    private static final String REGISTRY_PREFIX = "fanar/";
+    /** What a registry name starts with; the Fanar model id follows it. */
+    public static final String REGISTRY_PREFIX = "fanar/";
 
     private final Supplier<FanarClient> client;
     private final ChatModel chatModel;
@@ -60,6 +61,9 @@ public final class FanarLlm extends BaseLlm {
      * {@code LinkageError}; built lazily, a missing key or codec surfaces as a model error with
      * its message intact.
      *
+     * <p>A client built this way is never closed by the adapter: ADK's {@code BaseLlm} has no
+     * close hook. Build the client outside and pass it in when its lifecycle matters.</p>
+     *
      * @param client  builds the client once; the result is reused for every request
      * @param model   the Fanar chat model
      * @param options Fanar-only knobs and the unsupported-feature policy
@@ -82,6 +86,8 @@ public final class FanarLlm extends BaseLlm {
      * {@code FanarLlm} over {@code ChatModel.of("Fanar-C-2-27B")}. Opt-in and explicit — loading
      * this class registers nothing. ADK caches one instance per model name for the life of the
      * JVM, shared by every agent using that name; all of them share the client the supplier builds.
+     * A later call replaces the factory for names not yet resolved; names already resolved keep
+     * their instance, client and options.
      *
      * @param client  builds the shared client once, on the first request
      * @param options applied to every model resolved through the registry
@@ -94,10 +100,20 @@ public final class FanarLlm extends BaseLlm {
                 new FanarLlm(shared, ChatModel.of(name.substring(REGISTRY_PREFIX.length())), options));
     }
 
+    /** {@link #register(Supplier, FanarLlmOptions)} with {@link FanarLlmOptions#defaults()}. */
+    public static void register(Supplier<FanarClient> client) {
+        register(client, FanarLlmOptions.defaults());
+    }
+
+    /** {@link #register(Supplier, FanarLlmOptions)} over an already-built client. */
+    public static void register(FanarClient client, FanarLlmOptions options) {
+        Objects.requireNonNull(client, "client");
+        register(() -> client, options);
+    }
+
     /** {@link #register(Supplier, FanarLlmOptions)} over an already-built client and default options. */
     public static void register(FanarClient client) {
-        Objects.requireNonNull(client, "client");
-        register(() -> client, FanarLlmOptions.defaults());
+        register(client, FanarLlmOptions.defaults());
     }
 
     /** The Fanar chat model; {@link #model()} is its wire id. */
@@ -105,6 +121,7 @@ public final class FanarLlm extends BaseLlm {
         return chatModel;
     }
 
+    /** The Fanar-only knobs and the unsupported-feature policy this instance applies. */
     public FanarLlmOptions options() {
         return options;
     }

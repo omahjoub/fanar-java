@@ -95,6 +95,34 @@ class FanarLlmErrorIntegrationTest {
     }
 
     @Test
+    void aClientThatCannotBeBuiltSurfacesAsAModelErrorWithItsMessage() {
+        AtomicReference<Exception> seen = new AtomicReference<>();
+        InMemorySessionService sessions = new InMemorySessionService();
+        // What FanarClient.Builder.build() throws with no key: the text a consumer would otherwise
+        // lose to ADK's agent loader when the client is built in a static initialiser.
+        String message = "No Fanar API key configured. Call FanarClient.Builder.apiKey(...) or set the FANAR_API_KEY environment variable.";
+
+        LlmAgent agent = LlmAgent.builder()
+                .name("fanar")
+                .model(new FanarLlm(() -> { throw new IllegalStateException(message); }, ChatModel.FANAR))
+                .onModelErrorCallbackSync((context, llmRequest, error) -> {
+                    seen.set(error);
+                    return Optional.empty();
+                })
+                .build();
+        Runner runner = Runner.builder().agent(agent).appName("app")
+                .artifactService(new InMemoryArtifactService()).sessionService(sessions).build();
+        Session session = sessions.createSession("app", "user").blockingGet();
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> runner
+                .runAsync("user", session.id(), Content.fromParts(Part.fromText("ping")))
+                .toList().blockingGet());
+        assertEquals(message, ex.getMessage(), "the builder's own message survives");
+        assertSame(ex, seen.get(), "and reaches onModelErrorCallback first");
+        assertEquals(0, server.hits());
+    }
+
+    @Test
     void aModelErrorReachesAdksCallbackAndThenTheCaller() {
         server.enqueue(Reply.of(429, "come back later", Map.of("Retry-After", "7200")));
         AtomicReference<Exception> seen = new AtomicReference<>();

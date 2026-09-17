@@ -89,4 +89,42 @@ class FanarLlmOptionsTest {
     void policyIsRequired() {
         assertThrows(NullPointerException.class, () -> FanarLlmOptions.builder().unsupportedFeatures(null).build());
     }
+
+    @Test
+    void toBuilderCarriesEveryKnobIntoAVariant() {
+        FanarLlmOptions base = FanarLlmOptions.builder()
+                .unsupportedFeatures(UnsupportedFeaturePolicy.IGNORE).persona("p").madhab(List.of(Madhab.HANAFI))
+                .enableThinking(true).restrictToIslamic(true).bookNames(List.of(BookName.of("b")))
+                .preferredSources(List.of(Source.of("q"))).excludeSources(List.of(Source.of("w")))
+                .filterSources(List.of(Source.of("h"))).logitBias(Map.of("1", 1.0)).minP(0.1).repetitionPenalty(1.1)
+                .bestOf(2).lengthPenalty(0.9).earlyStopping(true).stopTokenIds(List.of(7)).ignoreEos(false)
+                .minTokens(1).skipSpecialTokens(true).spacesBetweenSpecialTokens(false).truncatePromptTokens(100)
+                .promptLogprobs(2).build();
+
+        FanarLlmOptions variant = base.toBuilder().persona("other").build();
+
+        assertEquals("other", variant.persona());
+        assertEquals(UnsupportedFeaturePolicy.IGNORE, variant.unsupportedFeatures());
+        assertEquals(List.of(Madhab.HANAFI), variant.madhab());
+        assertEquals(true, variant.enableThinking());
+        assertEquals(true, variant.restrictToIslamic());
+        assertEquals(List.of(BookName.of("b")), variant.bookNames());
+        assertEquals(List.of(Source.of("q")), variant.preferredSources());
+        assertEquals(List.of(Source.of("w")), variant.excludeSources());
+        assertEquals(List.of(Source.of("h")), variant.filterSources());
+        assertEquals(Map.of("1", 1.0), variant.logitBias());
+        assertEquals(0.1, variant.minP());
+        assertEquals(1.1, variant.repetitionPenalty());
+        assertEquals(2, variant.bestOf());
+        assertEquals(0.9, variant.lengthPenalty());
+        assertEquals(true, variant.earlyStopping());
+        assertEquals(List.of(7), variant.stopTokenIds());
+        assertEquals(false, variant.ignoreEos());
+        assertEquals(1, variant.minTokens());
+        assertEquals(true, variant.skipSpecialTokens());
+        assertEquals(false, variant.spacesBetweenSpecialTokens());
+        assertEquals(100, variant.truncatePromptTokens());
+        assertEquals(2, variant.promptLogprobs());
+        assertEquals("p", base.persona(), "the base value is untouched");
+    }
 }

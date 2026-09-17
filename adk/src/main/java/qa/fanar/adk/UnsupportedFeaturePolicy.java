@@ -2,9 +2,10 @@ package qa.fanar.adk;
 
 /**
  * What {@link FanarLlm} does with request features Fanar's chat endpoint cannot honour
- * (ADR-030): function declarations, whether the agent declared them or ADK injected them; an
- * output schema or a non-text response MIME type; and request parts with no Fanar mapping, such
- * as inline bytes, function calls and responses, or executable code.
+ * (ADR-030): function declarations, whether the agent declared them or ADK injected them, or a
+ * built-in tool that carries none; an output schema or a non-text response MIME type; and request
+ * parts with no Fanar mapping, such as inline bytes, function or tool calls and responses, or
+ * executable code.
  */
 public enum UnsupportedFeaturePolicy {
 
@@ -16,6 +17,9 @@ public enum UnsupportedFeaturePolicy {
      */
     REJECT,
 
-    /** Drop the unsupported features and send the rest of the request. */
+    /**
+     * Drop the unsupported features and send the rest of the request; if nothing sendable is left
+     * once they are dropped, the request is still refused with {@link UnsupportedFeatureException}.
+     */
     IGNORE
 }

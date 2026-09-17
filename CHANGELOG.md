@@ -21,10 +21,11 @@ may break public API until 1.0.0 ships.
   by name (`fanar/<model>`) is an explicit `FanarLlm.register(...)`. Features Fanar cannot honour
   — tool declarations, including the transfer tool ADK injects for multi-agent trees, output
   schemas, unmapped parts — are refused before the wire by default (`UnsupportedFeaturePolicy.REJECT`,
-  `UnsupportedFeatureException`, deliberately not a `FanarException`) rather than dropped;
-  `IGNORE` opts in. Streaming follows ADK's protocol (partials, then one aggregated final response),
-  finish reasons map onto ADK's vocabulary, Sadiq references become grounding metadata, and Fanar
-  errors reach `onModelErrorCallback` unwrapped. No retry, logging or exception wrapping of its
+  `UnsupportedFeatureException` carrying typed `UnsupportedFeature`s, deliberately not a
+  `FanarException`) rather than dropped; `IGNORE` opts in. Streaming follows ADK's protocol
+  (partials, then one aggregated final response), finish reasons map onto ADK's vocabulary, Sadiq
+  references become grounding metadata, server-side tool calls are not emitted, and Fanar errors
+  reach `onModelErrorCallback` unwrapped. No retry, logging or exception wrapping of its
   own; the OpenTelemetry span nests under ADK's `call_llm`. Provided-scope ADK 1.9.
 - **`e2e`** — `LiveAgenticGateTest` pins the `Fanar-Agentic` model gate (422 "Model not
   authorized" for the standard key) and goes red the day it lifts, the signal to probe user tools

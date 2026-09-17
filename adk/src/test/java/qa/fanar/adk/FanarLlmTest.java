@@ -34,8 +34,11 @@ class FanarLlmTest {
                     ChatModel.FANAR, FanarLlmOptions.defaults()));
             assertThrows(NullPointerException.class, () -> new FanarLlm(client, ChatModel.FANAR).generateContent(null, false));
             assertThrows(NullPointerException.class, () -> FanarLlm.register((FanarClient) null));
-            assertThrows(NullPointerException.class, () -> FanarLlm.register(null, FanarLlmOptions.defaults()));
+            assertThrows(NullPointerException.class, () -> FanarLlm.register((java.util.function.Supplier<FanarClient>) null, FanarLlmOptions.defaults()));
             assertThrows(NullPointerException.class, () -> FanarLlm.register(() -> client, null));
+            assertThrows(NullPointerException.class, () -> FanarLlm.register((FanarClient) null, FanarLlmOptions.defaults()));
+            assertThrows(NullPointerException.class, () -> FanarLlm.register((java.util.function.Supplier<FanarClient>) null));
+            assertEquals("fanar/", FanarLlm.REGISTRY_PREFIX);
         }
     }
 

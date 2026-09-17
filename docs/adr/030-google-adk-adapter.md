@@ -44,13 +44,15 @@ What the adapter cost, in order:
   event**, and a step with no events ends the run: the caller sees a completed run with zero
   events and no error.
 
-Six failure modes, five of them silent, none discoverable from `BaseLlm`'s signature, and each is
-one-time knowledge every ADK user of Fanar would rediscover.
+All but the first are silent, none is discoverable from `BaseLlm`'s signature, and each is one-time
+knowledge every ADK user of Fanar would rediscover. The second is a user error the builder's env
+fallback already answers; it is listed as cost, and no decision below acts on it.
 
-Two ADK facts shape the design rather than the failure list. `usageMetadata()`, `finishReason()`
-and `modelVersion()` are the entire observability contract: ADK builds the `call_llm` span itself
-in `BaseLlmFlow`, derives every attribute from `LlmRequest` and `LlmResponse`, makes the span
-current for the whole subscription, and no model in ADK emits telemetry of its own. And
+Two ADK facts shape the design rather than the failure list. ADK builds the `call_llm` span itself
+in `BaseLlmFlow`, derives its attributes from `LlmRequest` and `LlmResponse` — token counts and the
+finish reason as attributes, the whole response, model version included, as one serialised
+attribute — makes the span current for the whole subscription, and no model in ADK emits
+telemetry of its own. And
 `LlmResponse.customMetadata` exists but `BaseLlmFlow` does not copy it onto the event, so nothing
 placed there reaches sessions or the UI.
 
@@ -107,7 +109,8 @@ Three open questions, decided below:
   a concrete Google type with no extension seam, so there is no per-call surface to extend.
   ADR-024's rejection of a generic map stands here for the same reasons — undiscoverable, untyped,
   bypasses `ChatRequest` validation. `FanarLlmOptions` carries the Fanar-only set `FanarChatOptions`
-  exposes, plus the policy below. Per-agent variation is one `FanarLlm` per agent, which ADK
+  exposes, plus the policy below, and like `FanarChatOptions` it is a builder-built class rather
+  than a record, so a knob Fanar adds later is an added setter, not a changed public constructor. Per-agent variation is one `FanarLlm` per agent, which ADK
   supports natively because `LlmAgent.Builder.model(BaseLlm)` takes an instance.
 
 - **Request mapping.** The system instruction ADK assembles becomes one `SystemMessage`. Each
@@ -115,16 +118,19 @@ Three open questions, decided below:
   with its text parts concatenated. A `fileData` part with an image or video MIME type becomes an
   `ImagePart` or `VideoPart` by URL, the wire shape `COMPATIBILITY.md` lists as supported.
   `GenerateContentConfig` fields with a `ChatRequest` counterpart are forwarded; the `Float`-typed
-  ones are converted through their decimal string so `0.7f` arrives as `0.7`. Fields with no
-  counterpart are not forwarded; the module's Javadoc, not this record, holds that list.
+  ones are converted through their decimal string so `0.7f` arrives as `0.7`. `candidateCount` is
+  not, because ADK's `LlmResponse` carries one candidate; fields with no counterpart are not
+  forwarded either, and the module's Javadoc, not this record, holds that list.
 
 - **Features Fanar cannot honour are governed by one policy, `UnsupportedFeaturePolicy`, resolved
   per model instance, default `REJECT`.** The features are function declarations (whether the
-  agent declared them or ADK injected them), structured output (an output schema or a non-text
-  response MIME type, which `LlmAgent.outputSchema` sets), and request parts with no Fanar mapping
-  (inline bytes, function calls and responses, executable code). Under `REJECT` the adapter
-  surfaces an `UnsupportedFeatureException` naming the offending items before anything goes on the
-  wire. Under `IGNORE`, the opt-in, they are dropped and the request proceeds. This is a different
+  agent declared them, ADK injected them, or a built-in tool carries none), structured output (an
+  output schema or a non-text response MIME type, which `LlmAgent.outputSchema` sets), and request
+  parts with no Fanar mapping; the exact set is `UnsupportedFeature.Kind` plus the cases in
+  `RequestMapperTest`. Under `REJECT` the adapter surfaces an `UnsupportedFeatureException`, whose
+  `features()` carry the kind and the item, before anything goes on the wire. Under `IGNORE`, the
+  opt-in, they are dropped and the request proceeds — unless nothing sendable is left, which is
+  refused under either policy. This is a different
   choice from ADR-021, which governs the Spring AI module only, because the two frameworks fail
   differently. In Spring AI, tool callbacks are one opt-in advisor; dropping them costs that
   feature. In ADK, the runner's loop *is* function calling, and ADK injects tools the user never
@@ -138,16 +144,20 @@ Three open questions, decided below:
 - **`UnsupportedFeatureException` is a final class in `qa.fanar.adk` rooted in
   `UnsupportedOperationException`. It is not a `FanarException`.** The hierarchy of ADR-006 is
   sealed and core is a named module, so nothing outside core can extend it, and it has no pre-wire
-  member: core signals pre-wire misuse with plain JDK exceptions (`ChatRequest` throws
-  `IllegalArgumentException`). The adapter follows that convention with one typed subclass so
-  callers can catch it. A consumer catching `FanarException` at a boundary will not catch it, and
+  member: core signals pre-wire problems with plain JDK exceptions. The adapter does the same with
+  one JDK-rooted subclass, of `UnsupportedOperationException` rather than core's
+  `IllegalArgumentException`, because the request is well-formed and asks for a capability this
+  model lacks; `features()` carries the kind and the item so a caller can branch without parsing. A consumer catching `FanarException` at a boundary will not catch it, and
   that is the correct reading: it is a request the SDK refused to send, not a wire error.
 
 - **Multi-agent recipes rather than a multi-agent ban.** `AgentTransfer` injects nothing when the
   parent is a workflow agent (sequential, parallel, loop), or when an agent with no sub-agents
   disallows transfer to both parent and peers; in the latter case ADK's `Runner` routes the next
   user turn back to the root agent. A Fanar agent therefore works as a workflow step or as a leaf
-  specialist under an LLM-driven root without opting into `IGNORE`. Both recipes ship with the
+  specialist under a root whose model can call tools — Gemini or Claude, not Fanar, which cannot
+  emit `transfer_to_agent` — without opting into `IGNORE`. In both recipes ADK narrates earlier
+  agents' replies to the next agent as user-role text, so Fanar receives consecutive user
+  messages; the ledger records no observation of that shape yet. Both recipes ship with the
   module's documentation.
 
 - **`LlmRegistry` registration is opt-in, by a static method on `FanarLlm`, under the pattern
@@ -159,25 +169,26 @@ Three open questions, decided below:
   remainder to `ChatModel.of`.
 
 - **Response mapping.** Content is emitted with `role("model")`. Fanar's finish reason maps onto
-  ADK's known vocabulary so ADK's telemetry and UI read it: `stop` to `STOP`, `length` to
-  `MAX_TOKENS`, `content_filter` to `SAFETY`, anything else to `OTHER`. One rule applies in both
-  modes: when there is content, the response carries content and finish reason; when there is
+  ADK's known vocabulary so ADK's telemetry and UI read it; the table is
+  `ResponseMapper.finishReason`, pinned by `ResponseMapperTest.finishReasonsMapOntoAdksVocabulary`.
+  One rule applies in both modes: when there is content, the response carries content and finish reason; when there is
   nothing to show, or the stream reported an `ErrorChunk`, it carries `errorCode` and
   `errorMessage`. Every response carries content or `errorCode`, never `errorMessage` alone,
-  because of the zero-events failure above. ADK's own Gemini model applies the first rule when not
+  because of the zero-events failure above, and `errorCode` is never `STOP`: a terminal chunk
+  after an error frame does not relabel the error. ADK's own Gemini model applies the first rule when not
   streaming and marks any non-stop finish as an error when streaming; the adapter does not copy
   that asymmetry. `usageMetadata` is filled from `CompletionUsage`; `modelVersion` from the model
   the server reports, not the one requested, which is how the `Islamic-RAG` alias shows up as
   `Fanar-Sadiq`.
 
-- **Sadiq references become `groundingMetadata`; tool calls are routed by `ToolCall.result()`.**
+- **Sadiq references become `groundingMetadata`; server-side tool calls are not emitted.**
   `groundingMetadata` is copied onto the event and is ADK's native home for citations, so each
   `Reference` becomes a grounding chunk carrying the source and the quoted text. The `tool_calls`
-  Fanar returns today are retrievals the server already performed, `result()` populated; emitting
-  them as ADK `functionCall` parts would make ADK dispatch them a second time, locally, against a
-  tool map with no such name, so they are not emitted. A `ToolCall` whose `result()` is `null` is
-  a call awaiting a client round trip and becomes a `functionCall` part. Writing the rule against
-  the discriminator keeps it correct if a model ever returns a pending call.
+  Fanar returns are retrievals the server already performed (wire ledger, 2026-04-25); no tool was
+  declared on the request under either policy, so a `functionCall` part would have ADK look for a
+  tool it does not have, skip it, and re-invoke the model because the event is not final. They are
+  therefore not emitted at all. The inbound half of tool calling arrives together with the outbound
+  half, under a forwarding policy constant, when a model is shown to honour declared tools.
 
 - **Streaming.** Every `TokenChunk` with text becomes a `partial(true)` response; the adapter
   accumulates the text and, when the publisher completes, emits one non-partial response carrying
@@ -192,8 +203,9 @@ Three open questions, decided below:
   wrapped in `Flowable.defer` so nothing runs, and nothing throws, before ADK subscribes, and both
   then run on ADK's subscribing thread. That thread is inside ADK's `call_llm` span scope, and the
   OpenTelemetry adapter parents on the current context, so the Fanar HTTP span nests under ADK's.
-  A `subscribeOn` hop would split them into two traces. ADK's own Gemini model blocks the
-  subscribing thread the same way. The `Flow.Publisher`-to-`Flowable` bridge is
+  A `subscribeOn` hop would split them into two traces. ADK's own models start the HTTP call at
+  assembly and block the subscriber in `Flowable.fromFuture`; the adapter is stricter, nothing
+  before subscription. The `Flow.Publisher`-to-`Flowable` bridge is
   `org.reactivestreams.FlowAdapters`, which puts `reactive-streams` in the adapter's bytecode and
   therefore among its declared dependencies.
 
@@ -315,10 +327,17 @@ Seam-crossing, in `qa.fanar.adk`, through `FanarClient.builder()` and `ScriptedH
 - `FanarLlmErrorIntegrationTest` — a 429 whose `Retry-After` exceeds the budget surfaces as
   `FanarRateLimitException` through `Flowable.error` with `code()`, `httpStatus()` and
   `retryAfter()` intact and reaches `onModelErrorCallback`; a 503 followed by a 200 costs two
-  hits, proving the client's policy applies and the adapter adds none.
+  hits, proving the client's policy applies and the adapter adds none; a client supplier that
+  fails surfaces its own message through the callback and the caller with zero hits.
+- `FanarLeafIntegrationTest` — a stand-in tool-capable root transfers to a Fanar leaf that
+  disallows transfer to parent and peers: no tool in the leaf's request, one hit, and the next
+  user turn goes back to the root with Fanar uncalled.
+- `FanarLlmTracingIntegrationTest` — with one tracer provider on both sides, the Fanar span's
+  parent is ADK's `call_llm` span, non-streaming and streaming.
 - `FanarLlmPolicyIntegrationTest` — `REJECT` with a declared tool, with an `AgentTransfer`-injected
   tool through a real `Runner` and sub-agent, and with an output schema: zero hits and an exception
-  naming the item; `IGNORE`: one hit and no `tools` key on the wire.
+  naming the item; `IGNORE`: one hit and no `tools` key on the wire; a two-step workflow costs two
+  hits with no tool, the second carrying ADK's narration of step one as a second user message.
 - `FanarRunnerIntegrationTest` — a streaming turn through `Runner` and `InMemorySessionService`
   costs exactly one hit, persists one non-partial event with role `model`, and the next turn
   re-sends it as history.

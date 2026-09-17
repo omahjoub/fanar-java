@@ -19,7 +19,6 @@ import qa.fanar.core.chat.CompletionUsage;
 import qa.fanar.core.chat.Reference;
 import qa.fanar.core.chat.ResponseContent;
 import qa.fanar.core.chat.TextContent;
-import qa.fanar.core.chat.ToolCall;
 
 /**
  * Fanar responses to ADK {@code LlmResponse}s (ADR-030). One outcome rule serves both the
@@ -40,17 +39,13 @@ final class ResponseMapper {
         }
         ChatChoice choice = response.choices().getFirst();
         ChatMessage message = choice.message();
+        // Fanar's tool_calls are retrievals the server already performed (wire ledger, 2026-04-25);
+        // no tool was declared on this request, so ADK has nothing to dispatch and they are not
+        // emitted. The inbound half arrives together with the outbound half, under a forwarding policy.
         List<Part> parts = new ArrayList<>();
         String text = textOf(message.content());
         if (!text.isEmpty()) {
             parts.add(Part.fromText(text));
-        }
-        for (ToolCall call : message.toolCalls()) {
-            // A populated result is a retrieval the server already performed; only a call still
-            // awaiting a client round trip is handed to ADK for dispatch.
-            if (call.result() == null) {
-                parts.add(Part.fromFunctionCall(call.name(), call.arguments()));
-            }
         }
         return outcome(parts, choice.finishReason().wireValue(), null, response.usage(),
                 message.references(), response.model());
@@ -68,18 +63,23 @@ final class ResponseMapper {
                                List<Reference> references, String modelVersion) {
         LlmResponse.Builder builder = LlmResponse.builder().modelVersion(modelVersion);
         FinishReason finish = wireFinish == null ? null : finishReason(wireFinish);
-        if (finish != null) {
+        boolean stopped = finish != null && finish.knownEnum() == FinishReason.Known.STOP;
+        // A response that ended in an error never reports STOP as its finish reason either: ADK's
+        // telemetry would record gen_ai.response.finish_reasons = ["stop"] for a failed call.
+        if (finish != null && !(error != null && stopped)) {
             builder.finishReason(finish);
         }
-        boolean stopped = finish != null && finish.knownEnum() == FinishReason.Known.STOP;
 
         if (error != null) {
-            builder.errorCode(errorCode(finish)).errorMessage(error);
+            // Never STOP as an error code: a terminal chunk after an error frame must not relabel it.
+            builder.errorCode(stopped ? other() : errorCode(finish)).errorMessage(error);
             if (!parts.isEmpty()) {
                 builder.content(modelContent(parts));
             }
         } else if (!parts.isEmpty() || stopped) {
-            builder.content(modelContent(parts.isEmpty() ? List.of(Part.fromText("")) : parts));
+            // A stop with nothing to show carries an empty content: ADK still builds the event, and
+            // Contents drops it from the next turn's history instead of re-sending an empty text part.
+            builder.content(modelContent(parts));
         } else {
             builder.errorCode(errorCode(finish)).errorMessage("Fanar returned no content"
                     + (wireFinish == null ? "" : " (finish reason: " + wireFinish + ")"));
@@ -99,12 +99,16 @@ final class ResponseMapper {
             case "stop", "tool_calls", "function_call" -> new FinishReason(FinishReason.Known.STOP);
             case "length" -> new FinishReason(FinishReason.Known.MAX_TOKENS);
             case "content_filter" -> new FinishReason(FinishReason.Known.SAFETY);
-            default -> new FinishReason(FinishReason.Known.OTHER);
+            default -> other();
         };
     }
 
     private static FinishReason errorCode(FinishReason finish) {
-        return finish == null ? new FinishReason(FinishReason.Known.OTHER) : finish;
+        return finish == null ? other() : finish;
+    }
+
+    private static FinishReason other() {
+        return new FinishReason(FinishReason.Known.OTHER);
     }
 
     static Content modelContent(List<Part> parts) {

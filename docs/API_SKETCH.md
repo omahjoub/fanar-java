@@ -555,7 +555,8 @@ LlmAgent byName = LlmAgent.builder().name("fanar").model("fanar/Fanar-C-2-27B").
 Tool declarations, the `transfer_to_agent` tool ADK injects for multi-agent trees, output schemas
 and parts Fanar cannot carry are refused before the wire with an `UnsupportedFeatureException`
 (default `UnsupportedFeaturePolicy.REJECT`); `IGNORE` drops them instead. Workflow steps and leaf
-specialists that disallow transfer to parent and peers get no injected tool and need no opt-in.
+specialists that disallow transfer to parent and peers get no injected tool and need no opt-in
+(a leaf's root must be a model that can call tools; Fanar cannot emit `transfer_to_agent`).
 Sadiq references arrive as ADK grounding metadata; Fanar errors reach `onModelErrorCallback`
 unwrapped.
 
