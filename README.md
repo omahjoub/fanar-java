@@ -31,7 +31,7 @@ Memory, templating, vectors, evaluation belong in **framework modules** on top.
 
 ## Quick start
 
-Three install paths depending on your stack.
+Four install paths depending on your stack.
 
 ### 1. Pure Java (any framework, no Spring)
 
@@ -106,6 +106,26 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 // auto-register too.
 ```
 
+### 4. Google ADK (no Spring)
+
+```xml
+<dependency>
+    <groupId>qa.fanar</groupId>
+    <artifactId>fanar-adk</artifactId>
+    <version>0.7.0-SNAPSHOT</version>
+</dependency>
+```
+
+```java
+FanarLlm model = new FanarLlm(() -> FanarClient.builder().build(), ChatModel.FANAR); // key from FANAR_API_KEY
+LlmAgent agent = LlmAgent.builder().name("fanar").model(model).instruction("Answer in Arabic.").build();
+```
+
+Built and tested against Google ADK Java 1.9; ADK itself stays the application's dependency
+(`com.google.adk:google-adk`, plus `google-adk-dev` for the dev UI), and the adapter brings the
+Jackson 2 codec ADK's classpath already satisfies. Tool declarations and output schemas are refused by default because Fanar's chat
+endpoint silently ignores them ([ADR-030](docs/adr/030-google-adk-adapter.md)).
+
 ## Modules
 
 | Module | Purpose |
@@ -118,10 +138,11 @@ ChatClient chatClient(ChatModel model, ChatMemory memory) {     // Spring AI typ
 | `fanar-spring-boot-4-sample` | Runnable sample app. |
 | `fanar-spring-ai-starter` | Spring AI 2.0 `ChatModel` / `ImageModel` / `TextToSpeechModel` / `TranscriptionModel` adapters. |
 | `fanar-spring-ai-sample` | Runnable sample app with `ChatClient` + memory. |
+| `fanar-adk` | Google ADK Java `BaseLlm` adapter (`FanarLlm`) — no Spring required. |
 | `fanar-java-bom` | Imports for aligned versioning. |
 
 <p align="center">
-  <img src="docs/images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, and three categories of extension modules (JSON codecs, observability adapters, interceptors) implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+  <img src="docs/images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, the Google ADK adapter (fanar-adk) depends on fanar-core directly, and three categories of extension modules (JSON codecs, observability adapters, interceptors) implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
 </p>
 
 ## Docs

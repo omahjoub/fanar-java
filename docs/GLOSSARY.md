@@ -94,7 +94,7 @@ Exact model IDs as accepted by the API.
 - **`StreamEvent`** — the sealed interface over SSE chunk types: `TokenChunk`, `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`. Consumed via pattern-matching switch, or through `Streams.toStream(...)` for a blocking `Stream`.
 - **Wire-logging interceptor** — `qa.fanar.interceptor.logging.WireLoggingInterceptor`, OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`). Logs to SLF4J under `fanar.wire`. Auto-wired by the SB4 starter when `fanar.wire-logging.level` ≠ `NONE`.
 
-## Framework-adapter terms (Spring Boot 4 + Spring AI)
+## Framework-adapter terms (Spring Boot 4, Spring AI, Google ADK)
 
 Some words are overloaded — the Spring AI **`ChatModel`** type is unrelated to Fanar's `ChatModel` model-id record. The list below disambiguates.
 
@@ -105,6 +105,8 @@ Some words are overloaded — the Spring AI **`ChatModel`** type is unrelated to
 - **`ChatMemory`** — Spring AI's chat-history SPI. We use `MessageWindowChatMemory` (sliding window, in-memory) in the sample; production apps swap for the JDBC / Redis variants Spring AI ships.
 - **`MessageChatMemoryAdvisor`** — Spring AI's memory advisor. Loads prior messages into the prompt by `conversationId`, persists the response on the way out.
 - **`FanarChatOptions` / `FanarTextToSpeechOptions` / `FanarImageOptions`** — Fanar-specific options classes (ADR-024) implementing Spring AI's portable options interfaces; the way to reach Fanar-only knobs (persona, madhab, thinking, RAG scoping, emotional TTS, prompt revision) from the Spring AI surface.
+- **`FanarLlm`** — the Google ADK `BaseLlm` adapter over a `FanarClient` (`fanar-adk`, ADR-030). Holds no per-request state, so one instance can serve any number of agents; Fanar-only knobs come in through `FanarLlmOptions`, one instance per distinct configuration.
+- **`UnsupportedFeaturePolicy`** — what `FanarLlm` does with request features Fanar cannot honour (tools, output schema, unmapped parts): `REJECT` (default, throws `UnsupportedFeatureException`, not a `FanarException`) or `IGNORE`.
 
 ## Build / tooling terms
 

@@ -157,8 +157,8 @@ it is never published, so no consumer classpath ever sees it.
 ## JLBP-19: Place each package in only one module
 
 Package layout (see JLBP-5) gives each module a distinct subtree. The seven library modules that can carry a `module-info.java` do, and JPMS enforces no-split-packages at compile
-time for them. The two Spring starters carry none by design (ADR-020), so the rule rests on review there — each
-module still owns a distinct subtree.
+time for them. The two Spring starters and `fanar-adk` carry none by design (ADR-020, ADR-030), so the rule rests on
+review there — each module still owns a distinct subtree.
 
 ## JLBP-20: Give each JAR file a module name
 
@@ -166,10 +166,12 @@ Every published jar resolves to a stable module name, by one of two routes:
 
 - **A `module-info.java`** — core, both JSON codecs, the three observability adapters, the logging interceptor.
 - **An `Automatic-Module-Name` manifest entry** — the two Spring starters, which carry no descriptor because
-  Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS story (ADR-020). This is not optional
-  for them: without it JPMS derives the name from the *filename*, and `fanar-spring-boot-4-starter` derives
-  `fanar.spring.boot.4.starter` — `4` is not a Java identifier, so derivation fails and the jar cannot go on the
-  module path at all.
+  Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS story (ADR-020), and `fanar-adk`, which
+  carries none because ADK, google-genai and RxJava run on the classpath and declare no JPMS modules (ADR-030).
+  This is not optional for the starters: without it JPMS derives the name from the *filename*, and
+  `fanar-spring-boot-4-starter` derives `fanar.spring.boot.4.starter` — `4` is not a Java identifier, so derivation
+  fails and the jar cannot go on the module path at all. For `fanar-adk` derivation would succeed (`fanar.adk`); the
+  entry exists to keep the module name on the package root (ADR-011).
 
 `fanar-java-bom` has no classes and needs neither. A module that has a descriptor does not also need the manifest
 entry: JPMS ignores it when a descriptor is present.

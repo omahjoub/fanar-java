@@ -78,3 +78,4 @@ the list instead.
 - [020 — Spring Boot 4 starter shape](020-spring-boot-4-starter.md)
 - [021 — Spring AI 2.0 adapter](021-spring-ai-2-adapter.md)
 - [024 — Spring AI vendor options (FanarChatOptions family)](024-spring-ai-vendor-options.md)
+- [030 — Google ADK Java adapter](030-google-adk-adapter.md)

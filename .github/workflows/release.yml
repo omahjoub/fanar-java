@@ -78,7 +78,7 @@ jobs:
 
       - name: Stage artifacts
         # Only ship consumable library artifacts:
-        #   - 9 library jars (core, jackson2/3, obs-3, interceptor-logging, sb4-starter, spring-ai-starter)
+        #   - 10 library jars (core, jackson2/3, obs-3, interceptor-logging, sb4-starter, spring-ai-starter, adk)
         #   - the BOM (.pom — pom-packaging artifact, copied from the source pom.xml)
         # The sample apps are intentionally NOT here. Their poms set `maven.deploy.skip` and
         # `maven.install.skip`; they're runnable demos meant to be cloned + `./mvnw spring-boot:run`,
@@ -94,7 +94,7 @@ jobs:
           for m in core json-jackson2 json-jackson3 \
                     obs-slf4j obs-otel obs-micrometer \
                     interceptor-logging \
-                    spring-boot-4-starter spring-ai-starter; do
+                    spring-boot-4-starter spring-ai-starter adk; do
             cp "$m/target/fanar-$m-$V.jar" artifacts/
           done
 

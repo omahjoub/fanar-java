@@ -64,7 +64,7 @@ than quietly failing it.
 
 ### 3. If the groupId changes, the package root changes with it
 
-Path 3 is not "edit sixteen POMs". ADR-011 and JLBP-6 make artifact id and package root correspond,
+Path 3 is not "edit seventeen POMs". ADR-011 and JLBP-6 make artifact id and package root correspond,
 and the reason they do applies here with force: a package named `qa.fanar.*` claims a domain we do
 not control, which is the same objection that blocks the groupId. Measured blast radius:
 

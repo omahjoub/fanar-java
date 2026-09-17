@@ -18,7 +18,7 @@ whether it publishes, whether it carries the quality gates, whether it may take 
 
 | Kind | Publishes | Examples |
 |---|---|---|
-| **Library** — the SDK a consumer depends on | yes, as a jar | `fanar-core`, the two JSON codecs, the three observability adapters, `fanar-interceptor-logging`, the two starters |
+| **Library** — the SDK a consumer depends on | yes, as a jar | `fanar-core`, the two JSON codecs, the three observability adapters, `fanar-interceptor-logging`, the two starters, `fanar-adk` |
 | **BOM** — one version coordinate for all of the above | yes, as a pom | `fanar-java-bom` |
 | **Support** — samples, live e2e, the native-image probe, the test fixture | never (`maven.deploy.skip`) | `spring-*-sample`, `e2e`, `e2e-graalvm`, `test-support` |
 
@@ -55,8 +55,9 @@ Repository layout is **flat**:
   multi-module from the start regardless.
 - **Nested directory layout** (`/modules/core/`, `/modules/json/jackson2/`). *Rejected*: four modules don't need
   hierarchy; flat paths are shorter in relative-path references (POM, IDE navigation, CI workflows). Nested layout
-  can be introduced later once the module count justifies it — but doing so is a breaking refactor, so we only pay
-  it once the count passes ~10.
+  can be introduced later — but doing so is a breaking refactor of every relative path (POMs, CI path filters,
+  docs), so it is paid only when flatness has a cost someone can name, not at a module count: the reactor passed
+  ten modules during 2026 without one, and ADR-030 adds another module flat.
 - **Published reactor parent** (users could import it as a parent POM). *Rejected*: creates confusion about which
   artifact consumers should import. The BOM is the single user-facing multi-module coordinate.
 
@@ -70,18 +71,19 @@ Repository layout is **flat**:
   new reactor entry, BOM update.
 
 ### Negative / Trade-offs
-- Reorganizing to nested layout later (if the repo grows past ~10 modules) is a breaking refactor for contributors'
-  local builds and tooling. Rare event; deferred cost.
+- Reorganizing to nested layout later is a breaking refactor for contributors' local builds and tooling. Deferred
+  until flatness has a named cost (see Alternatives).
 - Internal reactor parent is invisible to consumers — they can't import it as a Maven parent. Intentional; the BOM
   serves that role.
 
 ### Neutral
 - **The library modules that can carry a `module-info.java` do**: core, both JSON codecs, the three
-  observability adapters, the logging interceptor. The two Spring starters deliberately do not —
-  Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS story (ADR-020) — and
-  instead declare an explicit `Automatic-Module-Name`, because without one JPMS derives the name
-  from the filename and `fanar-spring-boot-4-starter` derives to an invalid one. Support modules
-  need neither.
+  observability adapters, the logging interceptor. The two Spring starters and `fanar-adk`
+  deliberately do not — Spring's classpath scanning and `@AutoConfiguration` predate a clean JPMS
+  story (ADR-020), and ADK's stack declares no JPMS modules (ADR-030) — and instead declare an
+  explicit `Automatic-Module-Name`, because without one JPMS derives the name from the filename:
+  `fanar-spring-boot-4-starter` derives to an invalid one, `fanar-adk` to one off the package root.
+  Support modules need neither.
 - The BOM ships no classes and no descriptor; it is pom-packaging only.
 
 ## References

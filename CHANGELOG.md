@@ -9,6 +9,33 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Added
+
+- **`fanar-adk`** — a Google ADK Java adapter: `qa.fanar.adk.FanarLlm` implements ADK's
+  `BaseLlm` over a `FanarClient`, so ADK agents, the dev UI, sessions, callbacks and plugins run
+  on Fanar models ([ADR-030](docs/adr/030-google-adk-adapter.md)). Layered directly on core, no
+  Spring; the Jackson 2 codec ships at runtime scope because ADK already carries Jackson 2, so one
+  dependency plus ADK is a working agent. The client can be supplied lazily (built on the first
+  request) so a missing key or codec surfaces as a model error instead of vanishing into ADK's
+  agent loader. Fanar-only knobs are per model instance (`FanarLlmOptions`); registry resolution
+  by name (`fanar/<model>`) is an explicit `FanarLlm.register(...)`. Features Fanar cannot honour
+  — tool declarations, including the transfer tool ADK injects for multi-agent trees, output
+  schemas, unmapped parts — are refused before the wire by default (`UnsupportedFeaturePolicy.REJECT`,
+  `UnsupportedFeatureException` carrying typed `UnsupportedFeature`s, deliberately not a
+  `FanarException`) rather than dropped; `IGNORE` opts in. Streaming follows ADK's protocol
+  (partials, then one aggregated final response), finish reasons map onto ADK's vocabulary, Sadiq
+  references become grounding metadata, server-side tool calls are not emitted, and Fanar errors
+  reach `onModelErrorCallback` unwrapped. No retry, logging or exception wrapping of its
+  own; the OpenTelemetry span nests under ADK's `call_llm`. Provided-scope ADK 1.9.
+- **`e2e`** — `LiveAgenticGateTest` pins the `Fanar-Agentic` model gate (422 "Model not
+  authorized" for the standard key) and goes red the day it lifts, the signal to probe user tools
+  ([ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)).
+
+### Changed
+
+- **BOM / release** — the published set is now ten library jars plus the BOM (`fanar-adk` added);
+  `docs/RELEASING.md` counts and the consumer smoke follow.
+
 ## [0.6.0] - 2026-09-16
 
 A reconciliation release. Every document in this repository was checked against the code rather
