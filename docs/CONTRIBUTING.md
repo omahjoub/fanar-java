@@ -43,6 +43,7 @@ fails, that is a bug — please open an issue.
 ./mvnw -pl core -am verify                 # core + the test-support fixture its integration tests use
 ./mvnw -pl json-jackson3 -am verify        # adapter + its dependencies
 ./mvnw -pl spring-ai-starter -am verify    # Spring AI adapter + starter chain
+./mvnw -pl adk -am verify                  # the Google ADK adapter (ADK itself is provided-scope)
 ./mvnw -pl core -am test -Dtest=ChatRequestTest -Dsurefire.failIfNoSpecifiedTests=false   # one test class
 ./mvnw test -Dgroups=integration           # only the seam-crossing tests — `test`, not `verify` (see below)
 ```

@@ -15,10 +15,10 @@ process **here** in the same PR as the fix — that's how the next release avoid
   picked, bypassing the reviewed-main-commit guarantee. Don't.
 - **The bump-back is part of the release**, not an afterthought. Until it merges, every dev
   build claims the released version, and re-releasing that version fails noisily.
-- **What ships**: exactly 10 artifacts — 9 library jars (`fanar-core`, `fanar-json-jackson2`,
+- **What ships**: exactly 11 artifacts — 10 library jars (`fanar-core`, `fanar-json-jackson2`,
   `fanar-json-jackson3`, `fanar-obs-slf4j`, `fanar-obs-otel`, `fanar-obs-micrometer`,
-  `fanar-interceptor-logging`, `fanar-spring-boot-4-starter`, `fanar-spring-ai-starter`) plus
-  `fanar-java-bom-<V>.pom`. Sample apps and test modules are deliberately excluded.
+  `fanar-interceptor-logging`, `fanar-spring-boot-4-starter`, `fanar-spring-ai-starter`,
+  `fanar-adk`) plus `fanar-java-bom-<V>.pom`. Sample apps and test modules are deliberately excluded.
 
 ## The checklist
 
@@ -88,7 +88,7 @@ version: `$VERSION`, `dry_run: true`.
 
 - [ ] *Verify pom version* step passed.
 - [ ] Full build green (the release jars are exactly what this build produces).
-- [ ] Download the `fanar-java-$VERSION` workflow artifact: exactly 10 files, every name ending
+- [ ] Download the `fanar-java-$VERSION` workflow artifact: exactly 11 files, every name ending
       in `$VERSION.jar` / `$VERSION.pom`, no `-SNAPSHOT` anywhere.
 
 ### 3b — Consumer smoke (mandatory, and it must happen *here*)
@@ -116,6 +116,7 @@ cat > "$D/pom.xml" <<XML
     <dependency><groupId>qa.fanar</groupId><artifactId>fanar-core</artifactId></dependency>
     <dependency><groupId>qa.fanar</groupId><artifactId>fanar-json-jackson3</artifactId></dependency>
     <dependency><groupId>qa.fanar</groupId><artifactId>fanar-spring-ai-starter</artifactId></dependency>
+    <dependency><groupId>qa.fanar</groupId><artifactId>fanar-adk</artifactId></dependency>
   </dependencies></project>
 XML
 cat > "$D/src/main/java/smoke/Smoke.java" <<'JAVA'
@@ -134,7 +135,7 @@ JAVA
 java -cp "$D/target/classes:$(cat /tmp/cp.txt)" smoke.Smoke
 
 M=~/.m2/repository/qa/fanar
-java --module-path "$M/fanar-core/$VERSION/fanar-core-$VERSION.jar:$M/fanar-spring-boot-4-starter/$VERSION/fanar-spring-boot-4-starter-$VERSION.jar" --list-modules | grep fanar
+java --module-path "$M/fanar-core/$VERSION/fanar-core-$VERSION.jar:$M/fanar-spring-boot-4-starter/$VERSION/fanar-spring-boot-4-starter-$VERSION.jar:$M/fanar-adk/$VERSION/fanar-adk-$VERSION.jar" --list-modules | grep fanar
 ```
 
 - [ ] Every dependency resolves with **no `<version>`** declared — proves the BOM manages each one.
@@ -142,8 +143,8 @@ java --module-path "$M/fanar-core/$VERSION/fanar-core-$VERSION.jar:$M/fanar-spri
 - [ ] The consumer compiles and `Smoke` prints `OK` — proves `ServiceLoader` finds the codec from a
       *repository*, which is a different resolution path from the reactor's.
 - [ ] `--list-modules` names every jar (`qa.fanar.core@$VERSION`,
-      `qa.fanar.spring.boot.v4@$VERSION automatic`, …) — proves nothing derives an illegal
-      automatic module name from its filename.
+      `qa.fanar.spring.boot.v4@$VERSION automatic`, `qa.fanar.adk@$VERSION automatic`, …) —
+      proves nothing derives an illegal automatic module name from its filename.
 - [ ] Add any artifact whose packaging changed in this release to the dependency list above.
 
 A failure here is free: fix on the release branch and re-run the dry-run. After the tag it costs a
@@ -164,9 +165,9 @@ git push origin v$VERSION
 ```
 
 The tag push fires `release.yml` for real: pom guard → full build → GitHub Release
-`Fanar Java SDK v$VERSION` with the 10 artifacts attached and auto-generated PR notes.
+`Fanar Java SDK v$VERSION` with the 11 artifacts attached and auto-generated PR notes.
 
-- [ ] Release page exists with all 10 assets.
+- [ ] Release page exists with all 11 assets.
 - [ ] Replace the auto-generated notes with curated notes (template below), keeping the
       auto-generated PR list at the bottom if useful.
 
@@ -237,7 +238,7 @@ branch.
 
 ## Install
 Not yet on Maven Central: `./mvnw install` from a clone, or use the attached jars
-(9 library jars + `fanar-java-bom` for version alignment). Pair `fanar-core` with
+(10 library jars + `fanar-java-bom` for version alignment). Pair `fanar-core` with
 `fanar-json-jackson3` (Jackson 3) or `fanar-json-jackson2` (Jackson 2).
 
 **Full changelog:** [CHANGELOG.md](https://github.com/omahjoub/fanar-java/blob/v$VERSION/CHANGELOG.md) · [v<prev>...v$VERSION](https://github.com/omahjoub/fanar-java/compare/v<prev>...v$VERSION)

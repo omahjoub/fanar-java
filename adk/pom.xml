@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.7.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-adk</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Google ADK</name>
+    <description>Google ADK (Agent Development Kit) model adapter for the Fanar Java SDK: a
+        `BaseLlm` over `FanarClient`, so ADK agents, the dev UI, sessions, callbacks and plugins
+        run on Fanar models (ADR-030).</description>
+
+    <dependencies>
+        <!-- fanar-core: the adapter references FanarClient and the chat domain types directly. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Runtime codec (ADR-030): ADK depends on Jackson 2 at compile scope, so Jackson 2 is on
+             every ADK classpath already and this codec costs the consumer nothing. Without it a
+             consumer's FanarClient.builder().build() fails inside the agent's static initialiser and
+             ADK's loader drops the agent with an unnamed LinkageError. Never imported here — discovered
+             through ServiceLoader (ADR-008) — so dep-analyze would flag it; whitelisted below. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-json-jackson2</artifactId>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- The ADK stack is `provided`: the consuming agent application already depends on ADK,
+             and controls its version. Versions are pinned in the reactor's version catalogue. -->
+        <dependency>
+            <groupId>com.google.adk</groupId>
+            <artifactId>google-adk</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- google-genai: ADK's request/response types (Content, Part, GenerateContentConfig,
+             FinishReason, GroundingMetadata) appear in the adapter's own bytecode. -->
+        <dependency>
+            <groupId>com.google.genai</groupId>
+            <artifactId>google-genai</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- RxJava: BaseLlm.generateContent returns a Flowable. -->
+        <dependency>
+            <groupId>io.reactivex.rxjava3</groupId>
+            <artifactId>rxjava</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- reactive-streams: FlowAdapters bridges core's Flow.Publisher to RxJava, so the type is
+             in our bytecode; transitive via RxJava on every consumer classpath. -->
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Scripted loopback HttpServer for the *IntegrationTest classes (JDK-only, never published). -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-java-test-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <!--
+                  Like the Spring starters, this module ships no `module-info.java` (ADR-030, ADR-020):
+                  ADK, google-genai and RxJava run on the classpath and declare no JPMS modules. JPMS
+                  would derive `fanar.adk` from the filename, which resolves but does not match the
+                  package root. Naming it explicitly keeps the module name and the package root
+                  aligned (ADR-011).
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Automatic-Module-Name>qa.fanar.adk</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- No module descriptor here, and the ADK stack mixes automatic and explicit modules
+                     (RxJava is automatic, reactive-streams explicit). Left to its module-path mode the
+                     javadoc tool cannot resolve org.reactivestreams from RxJava's Flowable signatures;
+                     classpath mode is what a descriptor-less jar means anyway. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <legacyMode>true</legacyMode>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- The runtime codec above is declared for consumers, never referenced by this
+                     module's bytecode; dep-analyze flags it as unused-declared. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <configuration>
+                            <ignoredUnusedDeclaredDependencies combine.children="append">
+                                <ignoredUnusedDeclaredDependency>qa.fanar:fanar-json-jackson2:*</ignoredUnusedDeclaredDependency>
+                            </ignoredUnusedDeclaredDependencies>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

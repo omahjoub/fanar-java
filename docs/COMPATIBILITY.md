@@ -116,20 +116,26 @@ Compose any combination via `ObservabilityPlugin.compose(slf4j, otel, micrometer
 |---|---|---|
 | Spring Boot 4 | `fanar-spring-boot-4-starter` | `@AutoConfiguration` + typed `fanar.*` properties + auto-wired `Interceptor` / `ObservabilityPlugin` beans + `FanarHealthIndicator` (when `spring-boot-health` is on the classpath). Wire-logging interceptor enabled via `fanar.wire-logging.level`. It contributes a **single `FanarClient` bean**, not one bean per domain, so every facade — `sadiq()` included — is reachable from it with no extra configuration and a new core domain needs no starter change. |
 | Spring AI 2.0 | `fanar-spring-ai-starter` | `ChatModel` + `StreamingChatModel` + `ImageModel` + `TextToSpeechModel` + `TranscriptionModel` adapters layered on top of the SB4 starter. Memory + RAG advisors compose via Spring AI's `ChatClient`; we don't expose memory primitives in core. |
+| Google ADK Java | `fanar-adk` | `BaseLlm` adapter (`FanarLlm`) directly on core, no Spring: ADK agents, the dev UI, sessions, callbacks and plugins run on Fanar models. Ships the Jackson 2 codec at runtime scope because ADK already carries Jackson 2. Fanar-only knobs are set per model instance (`FanarLlmOptions`); features Fanar cannot honour are refused by default (`UnsupportedFeaturePolicy`, see Deferred below); Sadiq references surface as ADK grounding metadata ([ADR-030](adr/030-google-adk-adapter.md)). |
 
 ### Framework adapters — planned
 
 - **Spring Boot 3** — Jackson 2 codec, mechanical port of the SB4 starter.
-- **LangChain4j** — `ChatLanguageModel` provider binding; same shape as the Spring AI adapter.
+- **LangChain4j** — `ChatLanguageModel` provider binding; same shape as the Spring AI adapter. Ordered after ADK because ADK's integration cost was measured first ([ADR-030](adr/030-google-adk-adapter.md)).
 - **Quarkus** — CDI beans, build-time wiring, native-image friendliness.
 
-### Deferred — Spring AI gaps with rationale
+### Deferred — framework-adapter gaps with rationale
+
+Spring AI first, then Google ADK.
 
 - **`ModerationModel`** — Fanar returns continuous `safety` + `culturalAwareness` scores; Spring AI's `Categories` is a fixed set of boolean flags (`isHate()`, `isViolence()`, … — 19 in Spring AI 2.0.1). A best-effort mapping would report every one of them `false`, which misleads. Use `FanarClient.moderations()` directly.
 - **Qur'an + hadith validation** — Spring AI has no model interface for quotation verification, so there is no slot to adapt `POST /v1/sadiq/validate` into; inventing one would be a Fanar-shaped API wearing a framework's name (ADR-024 draws that line). Use `FanarClient.sadiq().validate(...)` directly — the starter's `FanarClient` bean already exposes it. It composes naturally with the Spring AI `ChatModel` as a post-processing step: generate, then validate the answer's quotations.
 - **`EmbeddingModel`** — Fanar has no embeddings endpoint at all (the ❌ in §1 above). RAG users bring their own embedder (`spring-ai-openai`, `spring-ai-transformers`, etc.).
 - **Native chat structured output** — Fanar exposes no `response_format` field. Spring AI's prompt-engineering converters (`BeanOutputConverter`) still work end-to-end since they shape the prompt text, not a model flag.
-- **User-supplied tool calling** — Fanar's chat endpoint **accepts `tools` / `tool_choice` and silently ignores them** (live-proved 2026-09-15; this line read "rejects" until then, inferred from the schema — [ledger](WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)). Spring AI's tool-callback advisors degrade silently in our adapter (we drop `ToolResponseMessage` from outbound prompts and never emit `tool_calls` to consumers) — which is the right handling either way, since forwarding them would produce a no-op a caller could not distinguish from the model declining to call a tool.
+- **User-supplied tool calling** — Fanar's chat endpoint **accepts `tools` / `tool_choice` and silently ignores them** (live-proved 2026-09-15; this line read "rejects" until then, inferred from the schema — [ledger](WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)). Spring AI's tool-callback advisors degrade silently in our adapter (we drop `ToolResponseMessage` from outbound prompts and never emit `tool_calls` to consumers) — which is the right handling either way, since forwarding them would produce a no-op a caller could not distinguish from the model declining to call a tool. The ADK adapter makes the opposite choice, below.
+- **ADK function calling and multi-agent transfer** — in ADK the runner's loop *is* function calling, and ADK injects a `transfer_to_agent` tool for any agent with transfer targets; forwarding tools Fanar ignores would return 200 with plain text and never transfer, indistinguishable from the model declining. `fanar-adk` refuses such a request before the wire (`UnsupportedFeaturePolicy.REJECT`, an `UnsupportedFeatureException` naming the tools); `IGNORE` opts into the drop. Workflow parents (sequential, parallel, loop) and leaf agents that disallow transfer to parent and peers get no injected tool and need no opt-in ([ADR-030](adr/030-google-adk-adapter.md)).
+- **ADK output schema** — `LlmAgent.outputSchema` sets a response schema Fanar has no field for, after which ADK parses prose as JSON; refused by default under the same policy.
+- **ADK inline media and live sessions** — inline bytes are refused (image and video parts map by URL; `data:` URIs are documented on `ImagePart` but not yet in the [ledger](WIRE_OBSERVATIONS.md)), and `connect()` throws: Fanar has no bidirectional API.
 
 ### What still belongs downstream
 

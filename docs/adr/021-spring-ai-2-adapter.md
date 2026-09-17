@@ -91,5 +91,5 @@ Three open questions:
 - [`COMPATIBILITY.md`](../COMPATIBILITY.md) §3 — full deferred-with-rationale list.
 - [`WIRE_OBSERVATIONS.md`](../WIRE_OBSERVATIONS.md) — the live evidence for the tool-calling
   behaviour above. Still open there: `Fanar-Agentic` and `Fanar-Sadiq-Agentic`, which the server
-  accepts but gates for our key. If an agentic variant does honour user tools, this record and
-  ADR-024 are the ones to revisit.
+  accepts but gates for our key. If an agentic variant does honour user tools, this record,
+  ADR-024 and ADR-030 are the ones to revisit.

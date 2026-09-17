@@ -57,7 +57,7 @@ that are sliding 24 h windows rather than the per-day limits above — the dated
 ### Module layout
 
 <p align="center">
-  <img src="images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, and three categories of extension modules implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+  <img src="images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, the Google ADK adapter (fanar-adk) depends on fanar-core directly, and three categories of extension modules implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
 </p>
 
 ```
@@ -81,6 +81,7 @@ fanar-java                            (reactor parent — NOT published)
 ├── spring-boot-4-sample/             qa.fanar:fanar-spring-boot-4-sample   — jar  (runnable sample; not published)
 ├── spring-ai-starter/                qa.fanar:fanar-spring-ai-starter      — jar  (Spring AI 2.0 ChatModel/Image/TTS/STT adapters)
 ├── spring-ai-sample/                 qa.fanar:fanar-spring-ai-sample       — jar  (runnable sample; not published)
+├── adk/                              qa.fanar:fanar-adk                    — jar  (Google ADK BaseLlm adapter, on core)
 ├── e2e/                              qa.fanar:fanar-java-e2e               — jar  (live integration tests; not published)
 ├── e2e-graalvm/                      qa.fanar:fanar-java-e2e-graalvm       — jar  (native-image self-test + live walk; not published)
 ├── test-support/                     qa.fanar:fanar-java-test-support      — jar  (scripted HttpServer + collecting subscriber for *IntegrationTest; not published)
@@ -88,8 +89,9 @@ fanar-java                            (reactor parent — NOT published)
 ```
 
 Core, both JSON codecs, the three observability adapters and the logging interceptor ship a
-`module-info.java`. The two Spring starters deliberately do not — Spring's classpath scanning and
-`@AutoConfiguration` predate a clean JPMS story (ADR-020) — and instead declare an explicit
+`module-info.java`. The two Spring starters and `fanar-adk` deliberately do not — Spring's classpath
+scanning and `@AutoConfiguration` predate a clean JPMS story (ADR-020), and ADK's framework stack
+(ADK, google-genai, RxJava) declares no JPMS modules (ADR-030) — and instead declare an explicit
 `Automatic-Module-Name` in their manifest, without which JPMS would derive a module name from the
 filename and `fanar-spring-boot-4-starter` derives an invalid one. The reactor parent is never
 published; consumers import the BOM, which manages every published library module.
@@ -97,7 +99,7 @@ published; consumers import the BOM, which manages every published library modul
 ### Framework adapter layering
 
 <p align="center">
-  <img src="images/fanar_java_runtime_architecture.svg" alt="Runtime composition: Spring AI's fluent surface (ChatClient, advisors, ChatMemory, RAG) sits over fanar-spring-ai-starter (which exposes ChatModel/ImageModel/TextToSpeechModel/TranscriptionModel beans), which sits over fanar-spring-boot-4-starter (which builds the FanarClient bean), which sits over fanar-core. Three SPI seams (JSON codec, interceptor chain, observability) are implemented by sibling modules. JDK HttpClient is the default transport." width="720">
+  <img src="images/fanar_java_runtime_architecture.svg" alt="Runtime composition: Spring AI's fluent surface (ChatClient, advisors, ChatMemory, RAG) sits over fanar-spring-ai-starter (which exposes ChatModel/ImageModel/TextToSpeechModel/TranscriptionModel beans), which sits over fanar-spring-boot-4-starter (which builds the FanarClient bean), which sits over fanar-core; the Google ADK adapter (fanar-adk) is a parallel top lane sitting directly over fanar-core. Three SPI seams (JSON codec, interceptor chain, observability) are implemented by sibling modules. JDK HttpClient is the default transport." width="720">
 </p>
 
 The framework story is two slices stacked over the core, each adapter a sibling Maven module:
@@ -131,6 +133,11 @@ The framework story is two slices stacked over the core, each adapter a sibling 
 Memory, prompt templating, RAG advisors, structured-output converters, vector stores all live
 in Spring AI; we expose `ChatModel` (the SPI) and they compose on top. We never have to update
 those features; tracking Spring AI's milestones suffices.
+
+`fanar-adk` is the third framework adapter and sits beside this stack rather than on it: it depends
+on `fanar-core` directly, with `fanar-json-jackson2` at runtime scope, because an ADK application is
+not a Spring application — no starter is there to supply a codec, and Jackson 2 is already on every
+ADK classpath (ADR-030).
 
 ### Request flow — sync call
 
@@ -303,6 +310,9 @@ zone (ADR-018).
 | Spring AI 2.0 image adapter | `qa.fanar.spring.ai.FanarImageModel` | **implemented** — `ImageModel`; maps `ImagePrompt` onto `ImageGenerationRequest`, joins multi-message prompts with newlines, returns `b64Json` |
 | Spring AI 2.0 audio adapters | `qa.fanar.spring.ai.FanarTextToSpeechModel`, `FanarTranscriptionModel` | **implemented** — TTS satisfies `StreamingTextToSpeechModel` by wrapping the one-shot result as a single-element `Flux`; STT reads bytes from Spring's `Resource`, infers `Content-Type` from filename extension, always requests text format; TTS streams for real via `speechStream` and honours `FanarTextToSpeechOptions` (`withEmotion`, `quranReciter`) |
 | Spring AI 2.0 auto-configuration | `qa.fanar.spring.ai.FanarSpringAiAutoConfiguration` | **implemented** — registers all four model beans `@ConditionalOnMissingBean` so users override per slot; activates after `FanarAutoConfiguration` |
+| Google ADK chat adapter | `qa.fanar.adk.FanarLlm` | **implemented** — ADK `BaseLlm` over a `FanarClient` (or a `Supplier<FanarClient>` resolved on the first request, so a missing key or codec surfaces as a model error, not a `LinkageError`); maps `LlmRequest` onto `ChatRequest` and `ChatResponse` / `StreamEvent` onto `LlmResponse` (Sadiq references become `groundingMetadata`); `LlmRegistry` registration is opt-in under `fanar/.*` (ADR-030) |
+| Google ADK options | `qa.fanar.adk.FanarLlmOptions` | **implemented** — Fanar-only knobs per model instance (the `FanarChatOptions` set) + the unsupported-feature policy; ADK's `GenerateContentConfig` has no per-call extension seam, so per-agent variation is one `FanarLlm` per agent (ADR-030) |
+| Google ADK unsupported-feature policy | `qa.fanar.adk.UnsupportedFeaturePolicy` / `UnsupportedFeatureException` | **implemented** — `REJECT` by default: tool declarations (user-declared or ADK-injected), output schemas and unmapped parts throw `UnsupportedFeatureException` before anything goes on the wire; `IGNORE` drops them. Rooted in `UnsupportedOperationException`, **not** a `FanarException` (ADR-030) |
 | Reachability metadata | `META-INF/native-image/qa.fanar/<artifact>/` | **shipped** — `fanar-core` carries reflect-config + resource-config metadata for the 34 domain records the JSON codec touches (plus 6 codec helper types); both JSON adapters carry adapter-specific metadata; obs / interceptor modules don't need any (no reflection) |
 
 ---

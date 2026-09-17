@@ -528,17 +528,51 @@ chatClient.prompt()
         .content();
 ```
 
+## 13. Google ADK provider
+
+`fanar-adk` — a Google ADK `BaseLlm` over the client, no Spring required ([ADR-030](adr/030-google-adk-adapter.md)).
+The Jackson 2 codec ships at runtime scope; ADK itself stays the application's dependency.
+
+```java
+// Build the client lazily: ADK's dev server reads ROOT_AGENT reflectively and drops the agent
+// with an unnamed LinkageError if the static initialiser throws.
+FanarLlm model = new FanarLlm(
+        () -> FanarClient.builder().build(),            // key from FANAR_API_KEY
+        ChatModel.FANAR_SADIQ,
+        FanarLlmOptions.builder().madhab(List.of(Madhab.HANAFI)).build());
+
+LlmAgent agent = LlmAgent.builder()
+        .name("sadiq")
+        .model(model)
+        .instruction("Answer from authenticated sources and cite them.")
+        .build();
+
+// Or by name through ADK's registry — opt-in, never a side effect of loading the class:
+FanarLlm.register(() -> FanarClient.builder().build(), FanarLlmOptions.defaults());
+LlmAgent byName = LlmAgent.builder().name("fanar").model("fanar/Fanar-C-2-27B").build();
+```
+
+Tool declarations, the `transfer_to_agent` tool ADK injects for multi-agent trees, output schemas
+and parts Fanar cannot carry are refused before the wire with an `UnsupportedFeatureException`
+(default `UnsupportedFeaturePolicy.REJECT`); `IGNORE` drops them instead. Workflow steps and leaf
+specialists that disallow transfer to parent and peers get no injected tool and need no opt-in.
+Sadiq references arrive as ADK grounding metadata; Fanar errors reach `onModelErrorCallback`
+unwrapped.
+
 ---
 
 ## What this document does **not** show — and why
 
 - **Conversation memory, prompt templating, vector stores, structured-output synthesis, evaluation harnesses.**
-  These are framework concerns (ADR-002). Spring AI / LangChain4j already solve them; this SDK does not duplicate
-  the work — it exposes the model SPIs they consume. Sections 11–12 above show the integration points.
+  These are framework concerns (ADR-002). Spring AI / LangChain4j / ADK already solve them; this SDK does not duplicate
+  the work — it exposes the model SPIs they consume. Sections 11–13 above show the integration points.
 - **`ModerationModel` / `EmbeddingModel` Spring AI adapters.** Surface mismatches with Fanar — see
   [COMPATIBILITY.md](COMPATIBILITY.md) §3 for the rationale. Use `FanarClient.moderations()` directly; bring an
   external embedder for RAG.
 - **LangChain4j / Quarkus integration.** Planned, same pattern as the Spring AI adapter — see
   [PROJECT_STATE.md](PROJECT_STATE.md) for the roadmap.
+- **ADK tool calling.** Fanar ignores `tools`, so the ADK adapter refuses them by default rather than
+  emitting a no-op — [COMPATIBILITY.md](COMPATIBILITY.md) §3 has the rationale and the two multi-agent
+  recipes that need no opt-in.
 
 Every snippet in this document compiles against the shipped SDK.
