@@ -58,7 +58,7 @@
         <spring-ai.version>2.0.1</spring-ai.version>
         <!-- Google ADK line the fanar-adk adapter is measured against (ADR-030); genai, RxJava and
              reactive-streams are what that ADK release declares, pinned so a Boot bump cannot move them. -->
-        <google-adk.version>1.9.0</google-adk.version>
+        <google-adk.version>1.10.1</google-adk.version>
         <google-genai.version>1.58.0</google-genai.version>
         <rxjava.version>3.1.12</rxjava.version>
         <reactive-streams.version>1.0.4</reactive-streams.version>
