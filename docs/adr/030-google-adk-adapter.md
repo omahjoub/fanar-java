@@ -297,7 +297,11 @@ Three open questions, decided below:
   which will arrive as support questions; the two multi-agent recipes and `IGNORE` are the
   answers.
 - Coupled to the ADK 1.9 line, whose streaming protocol is enforced only by `BaseLlmFlow`'s
-  behaviour. An ADK bump is a seam-test run.
+  behaviour. An ADK bump is a seam-test run. *2026-09-23, 1.9.0 → 1.10.1:* no adapter change;
+  the run failed only `FanarLlmPolicyIntegrationTest`'s narration pin, because ADK 1.10 fences
+  another agent's relayed text between `<<<BEGIN_QUOTED_AGENT_CONTENT>>>` and
+  `<<<END_QUOTED_AGENT_CONTENT>>>` markers (`Fencing`, ported from ADK Python). The test now pins
+  `[name] said:` followed by the reply and leaves the wording to ADK.
 - ADK's dependency tree is large and reaches the adapter's test classpath through `provided`
   scope; CI's newer-JDK leg has to load it.
 - The `Runner`-level tests depend on ADK internals — `InMemorySessionService`, transfer injection —

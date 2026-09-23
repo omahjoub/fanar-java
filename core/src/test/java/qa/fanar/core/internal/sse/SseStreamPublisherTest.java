@@ -11,6 +11,7 @@ import qa.fanar.core.internal.observability.NoopObservationHandle;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -60,9 +61,13 @@ class SseStreamPublisherTest {
         out.write("data: {\"a\":1}\n\ndata: {\"a\":2}\n\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
 
-        // After the first emission, the producer parks awaiting demand.
+        // After the first emission the producer decodes the second frame and, with demand
+        // exhausted, parks in awaitDemand. Wait for the park itself before requesting: a request
+        // that lands first is honoured too, but then the producer never waits, and this is the
+        // test that proves wait() wakes on request.
         sub.nextReceived.get(5, TimeUnit.SECONDS);
         assertEquals(1, sub.events.size());
+        awaitParkedInAwaitDemand(sub.producer);
 
         // Request one more — producer wakes up and delivers the second event.
         sub.subscription.request(1);
@@ -206,9 +211,12 @@ class SseStreamPublisherTest {
         out.write("data: {}\n\ndata: {}\n\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
 
-        // The first delivery proves the producer consumed the single unit of demand and is now
-        // parked; cancelling then wakes it, and the observation close proves it exited.
+        // The first delivery proves the producer consumed the single unit of demand; the park
+        // itself is waited for, not inferred, so the cancel wakes a parked producer rather than
+        // beating it to the loop check (both are correct, only the first exercises the wait). The
+        // observation close then proves it exited.
         sub.nextReceived.get(5, TimeUnit.SECONDS);
+        awaitParkedInAwaitDemand(sub.producer);
         sub.subscription.cancel();
         assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "cancel must wake and finish the producer");
 
@@ -418,6 +426,28 @@ class SseStreamPublisherTest {
         return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Blocks until {@code producer} is parked in {@code awaitDemand}'s {@code wait()} — state
+     * {@code WAITING} with that frame on its stack. Only then is a request or cancel guaranteed to
+     * wake a parked producer rather than beat it to the loop check; both interleavings are correct,
+     * but only the first exercises the wait, and JaCoCo counts a {@code wait()} that never returns
+     * normally as an unexecuted line. Yields until a deadline — no sleep.
+     */
+    private static void awaitParkedInAwaitDemand(Thread producer) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (!parkedInAwaitDemand(producer)) {
+            assertTrue(System.nanoTime() < deadline,
+                    "producer never parked in awaitDemand; state " + producer.getState());
+            Thread.yield();
+        }
+    }
+
+    private static boolean parkedInAwaitDemand(Thread producer) {
+        return producer.getState() == Thread.State.WAITING
+                && Arrays.stream(producer.getStackTrace())
+                        .anyMatch(frame -> "awaitDemand".equals(frame.getMethodName()));
+    }
+
     /** Codec that returns the shape map on odd calls and a pre-canned event on even calls, in order. */
     private static FanarJsonCodec scriptedCodec(StreamEvent... events) {
         return new FanarJsonCodec() {
@@ -456,6 +486,8 @@ class SseStreamPublisherTest {
         final long initialDemand;
 
         volatile Flow.Subscription subscription;
+        /** The producer thread, captured on the first delivery — onNext runs on it. */
+        volatile Thread producer;
 
         CollectingSubscriber(long initialDemand) {
             this.initialDemand = initialDemand;
@@ -468,6 +500,7 @@ class SseStreamPublisherTest {
         }
         @Override
         public void onNext(StreamEvent item) {
+            producer = Thread.currentThread();
             events.add(item);
             firstLatch.countDown();
             secondLatch.countDown();

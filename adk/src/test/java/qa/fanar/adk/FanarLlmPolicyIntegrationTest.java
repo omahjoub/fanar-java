@@ -143,7 +143,9 @@ class FanarLlmPolicyIntegrationTest {
         assertEquals(2, server.hits(), "one call per step, no transfer tool anywhere");
         String second = server.lastReceived().bodyAsString();
         assertFalse(second.contains("\"tools\""), second);
-        assertTrue(second.contains("[fanar1] said: pong"), "ADK narrates step one's reply to step two: " + second);
+        int narration = second.indexOf("[fanar1] said:");
+        assertTrue(narration >= 0 && second.indexOf("pong", narration) > narration,
+                "ADK narrates step one's reply to step two, in wording ADK owns: " + second);
         assertEquals(2, second.split("\"role\":\"user\"", -1).length - 1,
                 "the narration travels as a second user message, so Fanar sees two in a row: " + second);
     }

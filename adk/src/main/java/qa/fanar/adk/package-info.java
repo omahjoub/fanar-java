@@ -40,8 +40,9 @@
  *       next user turn back to the root.</li>
  * </ul>
  * <p>In both recipes ADK narrates earlier agents' replies to the next agent as user-role text
- * ("For context: [name] said: …"), so Fanar receives consecutive user messages; the wire ledger
- * records no observation of that shape yet.</p>
+ * (a "For context: …" preamble, then "[name] said:" and the reply, which ADK 1.10 fences between
+ * quote markers against prompt injection), so Fanar receives consecutive user messages; the wire
+ * ledger records no observation of that shape yet.</p>
  *
  * <h2>Request configuration</h2>
  * <p>{@code GenerateContentConfig} fields with a {@code ChatRequest} counterpart are forwarded:
