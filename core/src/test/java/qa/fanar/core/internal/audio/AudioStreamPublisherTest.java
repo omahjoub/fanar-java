@@ -2,11 +2,11 @@ package qa.fanar.core.internal.audio;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,7 +69,10 @@ class AudioStreamPublisherTest {
 
         out.write(new byte[]{4, 5});
         out.flush();
-        // The producer parks awaiting demand; request one more and it delivers.
+        // Demand is exhausted, so the producer takes chunk 2 and parks in awaitDemand. Wait for
+        // the park itself before requesting: a request that lands first is honoured too, but then
+        // the producer never waits, and this is the test that proves wait() wakes on request.
+        awaitParkedInAwaitDemand(sub.producer);
         sub.subscription.request(1);
         sub.secondReceived.get(5, TimeUnit.SECONDS);
         assertEquals(2, sub.chunks.size());
@@ -210,25 +213,7 @@ class AudioStreamPublisherTest {
     @Test
     void cancelDuringAwaitDemandExitsWithoutDelivery() throws Exception {
         PipedOutputStream out = new PipedOutputStream();
-        PipedInputStream piped = new PipedInputStream(out, 32768);
-
-        // The producer must be parked in awaitDemand — not inside read() — when the cancel lands.
-        // PipedInputStream.read() only checks closedByReader on entry, so a reader already parked
-        // in its wait(1000) loop is never woken by close(): cancelling then would hang. This latch
-        // fires once the second read has *returned*, which is the moment the producer is committed
-        // to awaitDemand. (A fixed sleep used to stand in for this and only guessed.)
-        CountDownLatch secondReadReturned = new CountDownLatch(1);
-        InputStream in = new FilterInputStream(piped) {
-            private int reads;
-            @Override
-            public int read(byte[] b, int off, int len) throws IOException {
-                int n = super.read(b, off, len);
-                if (++reads == 2) {
-                    secondReadReturned.countDown();
-                }
-                return n;
-            }
-        };
+        PipedInputStream in = new PipedInputStream(out, 32768);
 
         CollectingSubscriber sub = new CollectingSubscriber(1); // only allow one chunk
         RecordingObservation obs = new RecordingObservation();
@@ -238,13 +223,18 @@ class AudioStreamPublisherTest {
         out.flush();
         sub.nextReceived.get(5, TimeUnit.SECONDS);
 
-        // Second chunk arrives while demand is exhausted; the producer parks in awaitDemand.
+        // Second chunk arrives while demand is exhausted; the producer takes it and parks in
+        // awaitDemand. The cancel must land on the parked producer and not earlier: a reader
+        // parked inside PipedInputStream.read() (its wait(1000) loop checks closedByReader only on
+        // entry) is never woken by close(), so cancelling then would hang the producer, and a
+        // cancel that beats the producer to the loop check is safe but leaves wait() unexercised.
+        // Only the park itself is observable, so wait for that. (A latch on the second read
+        // returning, and before it a fixed sleep, both stood in for this and only narrowed the
+        // race — the Java 25 CI leg lost it.)
         out.write(new byte[]{2});
         out.flush();
-        assertTrue(secondReadReturned.await(5, TimeUnit.SECONDS), "producer must have taken chunk 2");
+        awaitParkedInAwaitDemand(sub.producer);
 
-        // Safe now: awaitDemand re-checks `cancelled` under the same lock cancel() notifies on,
-        // so the producer exits whether it parked first or not.
         sub.subscription.cancel();
         assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "cancel must wake and finish the producer");
 
@@ -412,6 +402,28 @@ class AudioStreamPublisherTest {
         return buf.toByteArray();
     }
 
+    /**
+     * Blocks until {@code producer} is parked in {@code awaitDemand}'s {@code wait()} — state
+     * {@code WAITING} with that frame on its stack. Only then is a request or cancel guaranteed to
+     * wake a parked producer rather than beat it to the loop check; both interleavings are correct,
+     * but only the first exercises the wait, and JaCoCo counts a {@code wait()} that never returns
+     * normally as an unexecuted line. Yields until a deadline — no sleep.
+     */
+    private static void awaitParkedInAwaitDemand(Thread producer) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (!parkedInAwaitDemand(producer)) {
+            assertTrue(System.nanoTime() < deadline,
+                    "producer never parked in awaitDemand; state " + producer.getState());
+            Thread.yield();
+        }
+    }
+
+    private static boolean parkedInAwaitDemand(Thread producer) {
+        return producer.getState() == Thread.State.WAITING
+                && Arrays.stream(producer.getStackTrace())
+                        .anyMatch(frame -> "awaitDemand".equals(frame.getMethodName()));
+    }
+
     private static class CollectingSubscriber implements Flow.Subscriber<byte[]> {
         final List<byte[]> chunks = new CopyOnWriteArrayList<>();
         final CompletableFuture<Void> completed = new CompletableFuture<>();
@@ -422,6 +434,8 @@ class AudioStreamPublisherTest {
         final long initialDemand;
 
         volatile Flow.Subscription subscription;
+        /** The producer thread, captured on the first delivery — onNext runs on it. */
+        volatile Thread producer;
 
         CollectingSubscriber(long initialDemand) {
             this.initialDemand = initialDemand;
@@ -434,6 +448,7 @@ class AudioStreamPublisherTest {
         }
         @Override
         public void onNext(byte[] item) {
+            producer = Thread.currentThread();
             chunks.add(item);
             if (!nextReceived.isDone()) nextReceived.complete(null);
             else if (!secondReceived.isDone()) secondReceived.complete(null);
