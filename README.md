@@ -121,7 +121,7 @@ FanarLlm model = new FanarLlm(() -> FanarClient.builder().build(), ChatModel.FAN
 LlmAgent agent = LlmAgent.builder().name("fanar").model(model).instruction("Answer in Arabic.").build();
 ```
 
-Built and tested against Google ADK Java 1.9; ADK itself stays the application's dependency
+Built and tested against Google ADK Java 1.10; ADK itself stays the application's dependency
 (`com.google.adk:google-adk`, plus `google-adk-dev` for the dev UI), and the adapter brings the
 Jackson 2 codec ADK's classpath already satisfies. Tool declarations and output schemas are refused by default because Fanar's chat
 endpoint silently ignores them ([ADR-030](docs/adr/030-google-adk-adapter.md)).

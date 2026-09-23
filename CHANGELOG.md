@@ -26,7 +26,7 @@ may break public API until 1.0.0 ships.
   (partials, then one aggregated final response), finish reasons map onto ADK's vocabulary, Sadiq
   references become grounding metadata, server-side tool calls are not emitted, and Fanar errors
   reach `onModelErrorCallback` unwrapped. No retry, logging or exception wrapping of its
-  own; the OpenTelemetry span nests under ADK's `call_llm`. Provided-scope ADK 1.9.
+  own; the OpenTelemetry span nests under ADK's `call_llm`. Provided-scope ADK 1.10.
 - **`e2e`** — `LiveAgenticGateTest` pins the `Fanar-Agentic` model gate (422 "Model not
   authorized" for the standard key) and goes red the day it lifts, the signal to probe user tools
   ([ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)).
