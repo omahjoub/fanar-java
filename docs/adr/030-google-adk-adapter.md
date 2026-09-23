@@ -1,6 +1,6 @@
 # ADR-030 — Google ADK Java adapter
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-09-17
 - **Deciders**: @omahjoub
 
