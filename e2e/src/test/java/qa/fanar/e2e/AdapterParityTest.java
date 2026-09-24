@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,7 @@ import qa.fanar.core.chat.ChatModel;
 import qa.fanar.core.chat.ChatRequest;
 import qa.fanar.core.chat.ChatResponse;
 import qa.fanar.core.chat.Madhab;
+import qa.fanar.core.chat.ProgressChunk;
 import qa.fanar.core.chat.SystemMessage;
 import qa.fanar.core.chat.ToolCall;
 import qa.fanar.core.chat.UserMessage;
@@ -36,6 +38,11 @@ import qa.fanar.core.models.ModelsResponse;
 import qa.fanar.core.poems.PoemGenerationRequest;
 import qa.fanar.core.poems.PoemGenerationResponse;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.DeepResearchDepth;
+import qa.fanar.core.sadiq.DeepResearchReport;
+import qa.fanar.core.sadiq.DeepResearchRequest;
+import qa.fanar.core.sadiq.DeepResearchSection;
+import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.sadiq.SadiqValidationRequest;
 import qa.fanar.core.sadiq.SadiqValidationResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -280,6 +287,188 @@ class AdapterParityTest {
         assertEquals("req_1", decoded3.id());
         assertTrue(decoded3.text().contains("<quran_start>"), "tags must survive decoding unparsed");
         assertTrue(decoded3.text().contains("<hadith_start>"), "hadith tags must survive too");
+    }
+
+    @Test
+    void deepResearchRequestEncodesIdenticallyAcrossAdapters() throws IOException {
+        DeepResearchRequest req = new DeepResearchRequest(
+                ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam",
+                DeepResearchDepth.QUICK, true);
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "DeepResearchRequest must encode to the same JSON shape via both adapters");
+        assertEquals("Fanar-Sadiq-2", shape3.get("model"));
+        assertEquals("The importance of seeking knowledge in Islam", shape3.get("input"));
+        assertEquals("quick", shape3.get("depth"),
+                "DeepResearchDepth must serialize as its wire string through WireValueModule");
+        assertEquals(true, shape3.get("web_search"),
+                "webSearch must reach the wire as snake-case web_search");
+        // No `stream`: the record leaves it out and the facade splices it in per call site.
+        assertEquals(Set.of("model", "input", "depth", "web_search"), shape3.keySet(),
+                "the request must carry exactly its four modelled fields");
+    }
+
+    @Test
+    void deepResearchRequestOmitsUnsetKnobsOnWire() throws IOException {
+        DeepResearchRequest req = DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "topic");
+        Map<?, ?> shape2 = parseAsMap(encode(jackson2, req));
+        Map<?, ?> shape3 = parseAsMap(encode(jackson3, req));
+        assertEquals(shape2, shape3,
+                "DeepResearchRequest with server defaults must encode identically via both adapters");
+        // NON_NULL inclusion strips both knobs; the server applies its defaults (standard, no web).
+        assertFalse(shape3.containsKey("depth"), "null depth must not appear on the wire");
+        assertFalse(shape3.containsKey("web_search"), "null webSearch must not appear on the wire");
+        assertEquals(Set.of("model", "input"), shape3.keySet());
+    }
+
+    @Test
+    void deepResearchReportDecodesIdenticallyAcrossAdapters() throws IOException {
+        // Modelled on the spec's DeepResearchReport example: bilingual title and heading, a
+        // recursive section tree, the source shape every spec sample shows, and the free-form
+        // metadata summary — here with one JSON-null value the record must keep.
+        String wire = """
+                {
+                  "topic": "ما أهمية طلب العلم في الإسلام؟",
+                  "language": "ar",
+                  "title": "The Importance of Seeking Knowledge in Islam",
+                  "title_ar": "أهمية طلب العلم في الإسلام",
+                  "overview": "Why seeking knowledge is an obligation, in three sections.",
+                  "sections": [
+                    {
+                      "heading": "The religious basis for seeking knowledge",
+                      "heading_ar": "الأساس الديني لطلب العلم",
+                      "mode": "general",
+                      "content": "The Quran and the Sunnah stress seeking knowledge [إسلام ويب:228949].",
+                      "cited_sources": [
+                        {
+                          "source": "https://islamweb.net/ar/article/228949/",
+                          "citation_tag": "[إسلام ويب:228949]",
+                          "quote": "العِلْمُ نورٌ للعُقولِ، وضِياءٌ للمجتمعات",
+                          "was_cited": true
+                        }
+                      ],
+                      "children": [
+                        {"heading": "child", "children": []}
+                      ]
+                    }
+                  ],
+                  "sources": [
+                    {
+                      "source": "https://fiqh.islamonline.net/knowledge/",
+                      "citation_tag": "[إسلام أون لاين:943042]",
+                      "quote": "طلب العلم: أهميته وطرق تحصيله",
+                      "was_cited": true
+                    },
+                    {
+                      "source": "https://islamweb.net/ar/article/228949/",
+                      "citation_tag": "[إسلام ويب:228949]",
+                      "quote": "العِلْمُ نورٌ للعُقولِ",
+                      "was_cited": true
+                    }
+                  ],
+                  "markdown": "# The Importance of Seeking Knowledge in Islam",
+                  "metadata": {
+                    "depth": "quick",
+                    "mode": "deep_research",
+                    "elapsed_seconds": 267.32,
+                    "sections_count": 4,
+                    "total_sources": 28,
+                    "web_search_used": false,
+                    "web_sources_count": null,
+                    "adaptive_planning_used": true
+                  }
+                }
+                """;
+        DeepResearchReport decoded2 = jackson2.decode(bytes(wire), DeepResearchReport.class);
+        DeepResearchReport decoded3 = jackson3.decode(bytes(wire), DeepResearchReport.class);
+        assertEquals(decoded2, decoded3,
+                "DeepResearchReport decoded by both adapters must be record-equal");
+        assertEquals("The Importance of Seeking Knowledge in Islam", decoded3.title());
+        assertEquals("أهمية طلب العلم في الإسلام", decoded3.titleAr(),
+                "title_ar on the wire must map to DeepResearchReport.titleAr");
+        assertEquals(1, decoded3.sections().size());
+        DeepResearchSection section = decoded3.sections().getFirst();
+        assertEquals("child", section.children().getFirst().heading(),
+                "sections must nest recursively through children");
+        assertEquals("[إسلام ويب:228949]", section.citedSources().getFirst().citationTag(),
+                "cited_sources / citation_tag on the wire must map to citedSources / citationTag");
+        assertTrue(section.sources().isEmpty(), "absent per-section sources must decode to an empty list");
+        assertEquals(2, decoded3.sources().size());
+        assertEquals("quick", decoded3.metadata().get("depth"));
+        assertTrue(decoded3.metadata().containsKey("web_sources_count"),
+                "a JSON-null metadata value must survive as a key with a null value");
+        assertNull(decoded3.metadata().get("web_sources_count"));
+        Number elapsed = assertInstanceOf(Number.class, decoded3.metadata().get("elapsed_seconds"),
+                "a fractional metadata value must decode as a Number");
+        assertEquals(267.32, elapsed.doubleValue());
+    }
+
+    @Test
+    void deepResearchReportWithNothingSetDecodesToEmptyCollections() throws IOException {
+        // The spec declares no field of the report required; the record normalises absent lists
+        // and the metadata map to empty rather than null.
+        DeepResearchReport decoded2 = jackson2.decode(bytes("{}"), DeepResearchReport.class);
+        DeepResearchReport decoded3 = jackson3.decode(bytes("{}"), DeepResearchReport.class);
+        assertEquals(decoded2, decoded3,
+                "an empty DeepResearchReport must decode identically via both adapters");
+        assertNull(decoded3.title(), "absent title must decode to null");
+        assertTrue(decoded3.sections().isEmpty(), "absent sections must decode to an empty list");
+        assertTrue(decoded3.sources().isEmpty(), "absent sources must decode to an empty list");
+        assertTrue(decoded3.metadata().isEmpty(), "absent metadata must decode to an empty map");
+    }
+
+    @Test
+    void reportChunkDecodesIdenticallyAcrossAdapters() throws IOException {
+        // The spec's stream example: the finished report rides a chat.completion.chunk envelope
+        // in place of `choices`; `object` is not modelled and both adapters must ignore it.
+        String wire = """
+                {
+                  "id": "chatcmpl-a46c47",
+                  "object": "chat.completion.chunk",
+                  "created": 1789988223,
+                  "model": "Fanar-Sadiq-2",
+                  "report": {"title": "أهمية طلب العلم في الإسلام", "sections": [], "sources": []}
+                }
+                """;
+        ReportChunk decoded2 = jackson2.decode(bytes(wire), ReportChunk.class);
+        ReportChunk decoded3 = jackson3.decode(bytes(wire), ReportChunk.class);
+        assertEquals(decoded2, decoded3,
+                "ReportChunk decoded by both adapters must be record-equal");
+        assertEquals("chatcmpl-a46c47", decoded3.id());
+        assertEquals(1_789_988_223L, decoded3.created());
+        assertEquals("Fanar-Sadiq-2", decoded3.model());
+        assertEquals("أهمية طلب العلم في الإسلام", decoded3.report().title());
+        assertTrue(decoded3.report().sections().isEmpty());
+    }
+
+    @Test
+    void progressChunkWithoutAModelDecodesIdenticallyAcrossAdapters() throws IOException {
+        // The spec's deep-research stream example opens with a progress event whose `model` is
+        // JSON null; ProgressChunk allows that, and both flattening deserializers must map it
+        // to null rather than the string "null".
+        String wire = """
+                {
+                  "id": "chatcmpl-a46c47",
+                  "object": "chat.completion.chunk",
+                  "created": 1789987956,
+                  "model": null,
+                  "progress": {
+                    "message": {
+                      "en": "Analyzing topic and planning report structure...",
+                      "ar": "تحليل الموضوع وتخطيط هيكل التقرير..."
+                    }
+                  }
+                }
+                """;
+        ProgressChunk decoded2 = jackson2.decode(bytes(wire), ProgressChunk.class);
+        ProgressChunk decoded3 = jackson3.decode(bytes(wire), ProgressChunk.class);
+        assertEquals(decoded2, decoded3,
+                "ProgressChunk without a model must decode identically via both adapters");
+        assertNull(decoded3.model(), "a JSON-null model must decode to null, not the string \"null\"");
+        assertEquals("Analyzing topic and planning report structure...", decoded3.message().en());
+        assertEquals("تحليل الموضوع وتخطيط هيكل التقرير...", decoded3.message().ar());
+        assertEquals(1_789_987_956L, decoded3.created());
     }
 
     @Test

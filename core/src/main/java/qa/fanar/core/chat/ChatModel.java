@@ -37,7 +37,8 @@ public record ChatModel(String wireValue) {
 
     /**
      * Madhab-aware Islamic RAG model, version 2. Honours the {@code madhab} request filter;
-     * extra authorization required. Rate limit 50/min.
+     * extra authorization required. Rate limits are per endpoint since the 2026-09-23 spec:
+     * 50/min on chat, 200/min on quotation validation, 20/day on deep research.
      */
     public static final ChatModel FANAR_SADIQ_2    = new ChatModel("Fanar-Sadiq-2");
 

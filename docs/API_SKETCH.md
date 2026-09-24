@@ -297,12 +297,66 @@ client.moderations().score(SafetyFilterRequest.of(ModerationModel.FANAR_GUARD_2,
 SadiqValidationResponse validated = client.sadiq().validate(
     SadiqValidationRequest.of(ChatModel.FANAR_SADIQ_2, someAnswerText));
 
+// Deep research — a cited, hierarchical report on a topic from the Islamic knowledge base
+// (2026-09-23 spec, ADR-031). Blocks for minutes; never retried, whatever the client's RetryPolicy
+// (20 runs/day, consumed on admission); requestTimeout bounds only the handshake, never the run.
+// Requires additional authorization on the API key. The stream and async variants follow this block.
+DeepResearchReport report = client.sadiq().deepResearch(
+    DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam"));
+
 // Tokenization
 client.tokens().count(TokenizationRequest.of("some text", ChatModel.FANAR_S_1_7B));
 
 // Model listing
 List<AvailableModel> models = client.models().list().models();
 ```
+
+### Deep research as a stream (2026-09-23 spec)
+
+```java
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
+import qa.fanar.core.chat.*;
+import qa.fanar.core.sadiq.*;
+
+// The stream the server recommends: a bilingual ProgressChunk per research pass, the draft as
+// TokenChunks, the finished report as a ReportChunk, then the terminal DoneChunk whose metadata
+// summarises the run. Never retried; cancel the subscription to abandon the run (ADR-031).
+Flow.Publisher<DeepResearchEvent> research = client.sadiq().deepResearchStream(
+    new DeepResearchRequest(ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam",
+                            DeepResearchDepth.QUICK, true));
+
+research.subscribe(new Flow.Subscriber<DeepResearchEvent>() {
+    public void onSubscribe(Flow.Subscription sub) { sub.request(Long.MAX_VALUE); }
+
+    public void onNext(DeepResearchEvent event) {
+        switch (event) {
+            case ProgressChunk p -> System.err.println("[progress] " + p.message().en());
+            case TokenChunk    t -> System.out.print(t.choices().getFirst().content());      // the draft
+            case ReportChunk   r -> System.out.println(r.report().markdown());                // the result
+            case DoneChunk     d -> System.err.println("[done] " + d.metadata());
+            case ErrorChunk    e -> System.err.println("[error] " + e.choices().getFirst().content());
+        }
+    }
+
+    public void onError(Throwable t) { t.printStackTrace(); }
+    public void onComplete() {}
+});
+
+// Async — the blocking variant on a virtual thread; cancelling the future abandons the run.
+CompletableFuture<DeepResearchReport> pending = client.sadiq().deepResearchAsync(
+    DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam"));
+```
+
+`DeepResearchEvent` is its own sealed union — four of the chat records plus `ReportChunk` — so this `switch` is
+exhaustive over exactly what a research stream emits, and the chat `switch` in §4 is untouched (ADR-005,
+ADR-031). Render `r.report()`, not the concatenated deltas: `title()` / `titleAr()`, `overview()`, `sections()`
+(recursive `children()`, each with `sources()` / `citedSources()`), report-level `sources()`, the run's
+`metadata()` and a `markdown()` rendering. Every scalar on the report is nullable — the spec requires none —
+while the lists and the map are never `null`. `depth` and `webSearch` are optional; `DeepResearchRequest.of`
+leaves both to the server's defaults, and a run takes minutes (`quick` 3–6, `standard` 7–10, `comprehensive`
+longer). The endpoint is gated for the SDK's key, so the report shape is the spec's claim until the first
+admitted run ([wire observations](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2)).
 
 ---
 

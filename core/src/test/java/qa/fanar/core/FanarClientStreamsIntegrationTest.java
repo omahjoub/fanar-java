@@ -29,6 +29,7 @@ import qa.fanar.testsupport.ScriptedHttpServer;
 import qa.fanar.testsupport.ScriptedHttpServer.Reply;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -46,6 +47,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>It is also the only test where the two halves of the demand protocol meet their real
  * counterparts: {@code Streams} requests from the <em>consumer</em> thread inside
  * {@code tryAdvance} while the publisher's producer thread is parked in {@code awaitDemand}.</p>
+ *
+ * <p>The last two cases pin what {@code requestTimeout} means for a stream (ADR-007): it bounds
+ * the wait for the response headers and nothing after them. A body that takes longer than the
+ * timeout is still delivered in full — on JDK 26 the JDK's own request timer would have ended it,
+ * which is why the transport no longer uses that timer — and headers that take longer than the
+ * timeout fail the call with a {@link FanarTransportException} after one hit.</p>
  */
 @Tag("integration")
 class FanarClientStreamsIntegrationTest {
@@ -95,16 +102,61 @@ class FanarClientStreamsIntegrationTest {
         assertEquals(1, server.hits());
     }
 
+    @Test
+    void aBodySlowerThanTheRequestTimeoutIsStillDeliveredInFull() throws Exception {
+        // Headers at once, then the body held back for three times the request timeout. The
+        // timeout must not fire once the headers are in: every frame arrives and the stream
+        // completes normally. (This is the JDK 26 regression guard — see the class Javadoc.)
+        Duration requestTimeout = Duration.ofMillis(500);
+        server.enqueue(Reply.sse("data: {}\n\ndata: {}\n\ndata: [DONE]\n\n")
+                .withBodyDelay(requestTimeout.multipliedBy(3)));
+        CountDownLatch observationClosed = new CountDownLatch(1);
+
+        try (FanarClient client = client(observationClosed, requestTimeout)) {
+            try (Stream<StreamEvent> stream = Streams.toStream(client.chat().stream(ping()))) {
+                assertEquals(2, stream.toList().size(),
+                        "both frames arrive although the body outlasted the request timeout");
+            }
+            assertTrue(observationClosed.await(5, TimeUnit.SECONDS),
+                    "the stream completes normally and closes its observation");
+        }
+
+        assertEquals(1, server.hits());
+    }
+
+    @Test
+    void headersSlowerThanTheRequestTimeoutFailTheCall() {
+        // The other half of the same definition: nothing arrives within the timeout, so the
+        // handshake fails as a transport error after exactly one request. Retries are off so the
+        // hit count states the timeout's own behaviour, not the retry policy's.
+        Duration requestTimeout = Duration.ofMillis(300);
+        server.enqueue(Reply.sse("data: {}\n\ndata: [DONE]\n\n").withHeaderDelay(requestTimeout.multipliedBy(5)));
+
+        try (FanarClient client = client(new CountDownLatch(1), requestTimeout)) {
+            FanarTransportException ex = assertThrows(FanarTransportException.class,
+                    () -> client.chat().stream(ping()));
+            assertTrue(ex.getMessage().startsWith("HTTP request timed out"),
+                    "Expected the timeout message, got: " + ex.getMessage());
+        }
+
+        assertEquals(1, server.hits(), "one handshake, given up on the client side");
+    }
+
     // --- helpers -----------------------------------------------------------------------------
 
     private FanarClient client(CountDownLatch observationClosed) {
+        return client(observationClosed, Duration.ofSeconds(5));
+    }
+
+    private FanarClient client(CountDownLatch observationClosed, Duration requestTimeout) {
         return FanarClient.builder()
                 .apiKey("sk_test")
                 .baseUrl(server.baseUri())
                 .jsonCodec(cannedCodec())
                 .observability(latchingObservability(observationClosed))
+                .retryPolicy(RetryPolicy.disabled())
                 .connectTimeout(Duration.ofSeconds(5))
-                .requestTimeout(Duration.ofSeconds(5))
+                .requestTimeout(requestTimeout)
                 .build();
     }
 

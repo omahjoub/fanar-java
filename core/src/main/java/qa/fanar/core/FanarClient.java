@@ -80,7 +80,11 @@ public final class FanarClient implements AutoCloseable {
     /** Default socket connect timeout. */
     public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(10);
 
-    /** Default per-request timeout applied by the transport when none is configured. */
+    /**
+     * Default bound on how long one request may wait for its response headers, applied by the
+     * transport when none is configured. It does not bound the body: a streaming call that has
+     * received its headers runs until the server ends the stream or the subscriber cancels.
+     */
     public static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
     private final Supplier<String> apiKeySupplier;
@@ -438,7 +442,13 @@ public final class FanarClient implements AutoCloseable {
             return this;
         }
 
-        /** Override the default per-request timeout. */
+        /**
+         * Override the bound on how long one request may wait for its response headers
+         * ({@link #DEFAULT_REQUEST_TIMEOUT} by default). Applies to every operation; once the
+         * headers are in, the body is read without a deadline — cancel the publisher to abandon a
+         * stream. A request that gets no headers in time fails with a
+         * {@link FanarTransportException}, which the {@link RetryPolicy} treats as retryable.
+         */
         public Builder requestTimeout(Duration timeout) {
             this.requestTimeout = Objects.requireNonNull(timeout, "requestTimeout");
             return this;

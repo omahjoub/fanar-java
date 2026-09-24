@@ -9,7 +9,7 @@ the links for depth.
 ## Fanar — the platform
 
 - **Fanar** — Qatar's Arabic-centric multimodal AI platform. Hosts all the models below. Base URL `https://api.fanar.qa`.
-- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 13 endpoints, 15 models.
+- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 14 endpoints, 15 models.
 - **OpenAI-compatible** — Fanar's chat endpoint accepts OpenAI-style request shapes. This SDK still exists because Fanar offers capabilities OpenAI does not (see [Compatibility matrix](COMPATIBILITY.md)).
 
 ## Fanar models
@@ -64,6 +64,7 @@ Exact model IDs as accepted by the API.
 - **Emotional TTS** — `with_emotion` speech synthesis, available on `Fanar-Aura-TTS-2` with the emotion-capable voices (`Abdulrahman`, `Radwa`); other combinations are rejected with HTTP 422 per the spec (unverified live — see [wire observations](WIRE_OBSERVATIONS.md)).
 - **Prompt revision** — image generation's `revise` flag (server default on): Fanar rewrites the prompt for style, quality, and cultural alignment and reports `revised` / `revised_prompt` per image.
 - **Source scoping** (`preferred_sources`, `exclude_sources`, `filter_sources`, `book_names`, `madhab`) — Sadiq-family controls that narrow retrieval to specific corpora or schools.
+- **Deep research** — `POST /v1/sadiq/deep-research`: `Fanar-Sadiq-2` researches a topic over the Islamic knowledge base for minutes (`quick` 3–6, `standard` 7–10, `comprehensive` longer) and returns a cited, hierarchical, bilingual-titled report — streamed as SSE with a progress event per research pass, the draft as token deltas and the finished report as its own event. 20 runs per day, consumed on admission, so the SDK never retries it (ADR-031). Gated for the SDK's key: the report shape is the spec's claim, not an observation ([wire observations](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2)).
 
 ## Java / JVM terms
 
@@ -71,7 +72,7 @@ Exact model IDs as accepted by the API.
 - **BOM** — Bill of Materials. A Maven `packaging=pom` artifact that pins aligned versions of related modules. Our BOM is `fanar-java-bom`.
 - **JPMS** — Java Platform Module System. Each module has a `module-info.java` declaring `requires` / `exports` / eventually `provides` and `uses`.
 - **LTS** — Long-Term Support release of Java (17, 21, 25). Our core minimum is Java 21; CI also runs the current LTS.
-- **Pattern-matching `switch`** — Java 21+ feature that enables exhaustive `switch` over a sealed hierarchy. Used to consume `StreamEvent`.
+- **Pattern-matching `switch`** — Java 21+ feature that enables exhaustive `switch` over a sealed hierarchy. Used to consume `StreamEvent` and `DeepResearchEvent`.
 - **Record** — Java immutable data type with auto-generated canonical constructor, `equals`, `hashCode`, `toString`. All our DTOs are records.
 - **Sealed interface** — a restricted interface whose implementations are a fixed, compiler-known set. Enables exhaustive pattern matching.
 - **SPI** — Service Provider Interface. An interface with one or more pluggable implementations. Our SPIs live in `qa.fanar.core.spi`: `FanarJsonCodec` (discovered via `ServiceLoader`), `Interceptor` and `ObservabilityPlugin` (supplied through the builder).
@@ -90,8 +91,9 @@ Exact model IDs as accepted by the API.
 - **Lighthouse** — shorthand for [COMPATIBILITY.md](COMPATIBILITY.md), the authoritative "what's in / out / framework-layer" matrix.
 - **Observability plugin** — our unified metrics + tracing SPI, one per `FanarClient`. See ADR-013. `ObservabilityPlugin.compose(...)` fans out a single slot to multiple plugins.
 - **Seam** — an extension point on the core where a user or downstream module can supply an alternative (HTTP client, JSON codec, observability backend, interceptor, retry policy). Every seam is behind a typed interface.
-- **SSE** — Server-Sent Events. HTTP content type `text/event-stream`, used by Fanar's streaming chat endpoint. Parsed internally; dispatched as typed `StreamEvent` on `Flow.Publisher`.
+- **SSE** — Server-Sent Events. HTTP content type `text/event-stream`, used by Fanar's streaming chat endpoint and by deep research. Parsed internally; dispatched as typed `StreamEvent` (chat) or `DeepResearchEvent` (deep research) on `Flow.Publisher`.
 - **`StreamEvent`** — the sealed interface over SSE chunk types: `TokenChunk`, `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`. Consumed via pattern-matching switch, or through `Streams.toStream(...)` for a blocking `Stream`.
+- **`DeepResearchEvent`** — the sealed interface over a deep-research stream's events: `ProgressChunk`, `TokenChunk`, `ReportChunk`, `DoneChunk`, `ErrorChunk` — four of them the chat records themselves, each implementing both unions — so a chat `switch` never learns a case chat cannot send (ADR-031).
 - **Wire-logging interceptor** — `qa.fanar.interceptor.logging.WireLoggingInterceptor`, OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`). Logs to SLF4J under `fanar.wire`. Auto-wired by the SB4 starter when `fanar.wire-logging.level` ≠ `NONE`.
 
 ## Framework-adapter terms (Spring Boot 4, Spring AI, Google ADK)

@@ -448,4 +448,47 @@ class ExceptionMapperTest {
             public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
         };
     }
+
+    // --- in-stream error envelopes (ADR-031): no HTTP status, no headers
+
+    @Test
+    void streamEnvelopeRoutesByCodeFirst() {
+        FanarException ex = ExceptionMapper.mapEnvelope(
+                "{\"id\":\"c\",\"created\":2,\"model\":\"m\",\"error\":{\"code\":\"internal_server_error\",\"message\":\"the run blew up\"}}");
+        assertInstanceOf(FanarInternalServerException.class, ex);
+        assertEquals("the run blew up", ex.getMessage());
+    }
+
+    @Test
+    void streamEnvelopeRateLimitCodeCarriesNoHintOrWindow() {
+        FanarRateLimitException ex = (FanarRateLimitException) ExceptionMapper.mapEnvelope(
+                "{\"error\":{\"code\":\"rate_limit_reached\",\"message\":\"slow down\"}}");
+        assertNull(ex.retryAfter(), "a frame has no Retry-After header");
+        assertNull(ex.rateLimit(), "a frame has no rate-limit headers");
+    }
+
+    @Test
+    void streamEnvelopeWithUnknownCodeFallsBackToItsOwnStatus() {
+        FanarException ex = ExceptionMapper.mapEnvelope(
+                "{\"error\":{\"code\":\"brand_new_code\",\"message\":\"m\",\"status\":503}}");
+        assertInstanceOf(FanarOverloadedException.class, ex);
+        assertEquals("m", ex.getMessage());
+    }
+
+    @Test
+    void streamEnvelopeNamingNeitherCodeNorStatusIsAnUnexpectedServerFailureWithTheFrameAsDetail() {
+        FanarException ex = ExceptionMapper.mapEnvelope("{\"error\":{\"message\":\"lost\"}}");
+        FanarUnexpectedServerException unexpected = assertInstanceOf(FanarUnexpectedServerException.class, ex);
+        assertEquals(500, unexpected.httpStatus());
+        assertTrue(ex.getMessage().contains("lost"), "the raw frame keeps the server's message: " + ex.getMessage());
+    }
+
+    @Test
+    void streamEnvelopeThatIsNotAnObjectStillKeepsTheMessage() {
+        // The endpoint's samples check `"error" in chunk` and read `.get("message")`; a string
+        // value is not the documented shape, but the text must not be lost behind a decode error.
+        FanarException ex = ExceptionMapper.mapEnvelope("{\"error\":\"quota exhausted\"}");
+        assertInstanceOf(FanarUnexpectedServerException.class, ex);
+        assertTrue(ex.getMessage().contains("quota exhausted"), ex.getMessage());
+    }
 }

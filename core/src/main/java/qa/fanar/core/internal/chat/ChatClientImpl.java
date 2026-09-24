@@ -146,7 +146,7 @@ public final class ChatClientImpl implements ChatClient {
         ObservationHandle obs = observability.start(OP_STREAM);
         try {
             HttpResponse<InputStream> response = dispatch(request, obs, true);
-            return new SseStreamPublisher(response.body(), jsonCodec, obs, startNanos);
+            return SseStreamPublisher.forChat(response.body(), jsonCodec, obs, startNanos);
         } catch (RuntimeException e) {
             // The handshake failed, so no publisher exists to hand ownership to.
             obs.error(e);

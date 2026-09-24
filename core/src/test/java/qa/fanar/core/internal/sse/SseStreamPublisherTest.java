@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import qa.fanar.core.chat.ChoiceToken;
 import qa.fanar.core.chat.StreamEvent;
 import qa.fanar.core.chat.TokenChunk;
+import qa.fanar.core.sadiq.DeepResearchEvent;
+import qa.fanar.core.sadiq.DeepResearchReport;
+import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.ObservationHandle;
@@ -35,7 +38,7 @@ class SseStreamPublisherTest {
                 """;
 
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(bytes(body), scriptedCodec(
+        SseStreamPublisher.forChat(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "a"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "b"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "c")))
@@ -53,7 +56,7 @@ class SseStreamPublisherTest {
         PipedInputStream in = new PipedInputStream(out, 8192);
 
         CollectingSubscriber sub = new CollectingSubscriber(1); // request exactly one
-        new SseStreamPublisher(in, scriptedCodec(
+        SseStreamPublisher.forChat(in, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "first"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "second")))
         ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
@@ -81,7 +84,7 @@ class SseStreamPublisherTest {
 
     @Test
     void secondSubscriberIsRejected() throws Exception {
-        SseStreamPublisher publisher = new SseStreamPublisher(bytes(""), scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime());
+        SseStreamPublisher<StreamEvent> publisher = SseStreamPublisher.forChat(bytes(""), scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime());
 
         CollectingSubscriber first = new CollectingSubscriber(Long.MAX_VALUE);
         publisher.subscribe(first);
@@ -125,7 +128,7 @@ class SseStreamPublisherTest {
             }
         };
         RecordingObservation obs = new RecordingObservation();
-        new SseStreamPublisher(body, scriptedCodec(
+        SseStreamPublisher.forChat(body, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "x")))
         ), obs, System.nanoTime()).subscribe(sub);
 
@@ -148,7 +151,7 @@ class SseStreamPublisherTest {
             public int read() throws IOException { throw new IOException("boom"); }
         };
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(broken, scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
+        SseStreamPublisher.forChat(broken, scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         Throwable err = sub.errored.get(5, TimeUnit.SECONDS);
         assertInstanceOf(IOException.class, err);
@@ -157,7 +160,7 @@ class SseStreamPublisherTest {
     @Test
     void requestZeroTerminatesWithIllegalArgument() throws Exception {
         CollectingSubscriber sub = new CollectingSubscriber(0); // no initial demand
-        new SseStreamPublisher(bytes(""), scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
+        SseStreamPublisher.forChat(bytes(""), scriptedCodec(), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
         sub.subscription.request(0);
         Throwable err = sub.errored.get(5, TimeUnit.SECONDS);
@@ -169,7 +172,7 @@ class SseStreamPublisherTest {
         String body = "data: {}\n\ndata: {}\n\ndata: {}\n\n";
 
         CollectingSubscriber sub = new CollectingSubscriber(0);
-        new SseStreamPublisher(bytes(body), scriptedCodec(
+        SseStreamPublisher.forChat(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
@@ -186,11 +189,11 @@ class SseStreamPublisherTest {
     @Test
     void nullArgsAreRejected() {
         FanarJsonCodec codec = scriptedCodec();
-        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(null, codec, NoopObservationHandle.INSTANCE, System.nanoTime()));
-        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(bytes(""), null, NoopObservationHandle.INSTANCE, System.nanoTime()));
-        assertThrows(NullPointerException.class, () -> new SseStreamPublisher(bytes(""), codec, null, System.nanoTime()));
+        assertThrows(NullPointerException.class, () -> SseStreamPublisher.forChat(null, codec, NoopObservationHandle.INSTANCE, System.nanoTime()));
+        assertThrows(NullPointerException.class, () -> SseStreamPublisher.forChat(bytes(""), null, NoopObservationHandle.INSTANCE, System.nanoTime()));
+        assertThrows(NullPointerException.class, () -> SseStreamPublisher.forChat(bytes(""), codec, null, System.nanoTime()));
 
-        SseStreamPublisher publisher = new SseStreamPublisher(bytes(""), codec, NoopObservationHandle.INSTANCE, System.nanoTime());
+        SseStreamPublisher<StreamEvent> publisher = SseStreamPublisher.forChat(bytes(""), codec, NoopObservationHandle.INSTANCE, System.nanoTime());
         assertThrows(NullPointerException.class, () -> publisher.subscribe(null));
     }
 
@@ -201,7 +204,7 @@ class SseStreamPublisherTest {
 
         CollectingSubscriber sub = new CollectingSubscriber(1); // only allow one event
         RecordingObservation obs = new RecordingObservation();
-        new SseStreamPublisher(in, scriptedCodec(
+        SseStreamPublisher.forChat(in, scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
         ), obs, System.nanoTime()).subscribe(sub);
@@ -236,7 +239,7 @@ class SseStreamPublisherTest {
                 Thread.currentThread().interrupt();
             }
         };
-        new SseStreamPublisher(bytes(body), scriptedCodec(
+        SseStreamPublisher.forChat(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
         ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
@@ -273,7 +276,7 @@ class SseStreamPublisherTest {
 
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
         RecordingObservation obs = new RecordingObservation();
-        new SseStreamPublisher(body, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
+        SseStreamPublisher.forChat(body, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
         assertTrue(inRead.await(5, TimeUnit.SECONDS));
 
         sub.subscription.cancel();
@@ -310,7 +313,7 @@ class SseStreamPublisherTest {
 
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
         RecordingObservation obs = new RecordingObservation();
-        new SseStreamPublisher(body, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
+        SseStreamPublisher.forChat(body, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
 
         // Must not propagate the close IOException out of cancel().
         sub.subscription.cancel();
@@ -332,7 +335,7 @@ class SseStreamPublisherTest {
 
                 """;
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(bytes(body), scriptedCodec(
+        SseStreamPublisher.forChat(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "x")))
         ), NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(sub);
 
@@ -353,7 +356,7 @@ class SseStreamPublisherTest {
 
         RecordingObservation obs = new RecordingObservation();
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(bytes(body), scriptedCodec(
+        SseStreamPublisher.forChat(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "a"))),
                 new TokenChunk("c", 0L, "m", List.of(new ChoiceToken(0, null, "b")))
         ), obs, System.nanoTime()).subscribe(sub);
@@ -375,7 +378,7 @@ class SseStreamPublisherTest {
         };
         RecordingObservation obs = new RecordingObservation();
         CollectingSubscriber sub = new CollectingSubscriber(Long.MAX_VALUE);
-        new SseStreamPublisher(broken, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
+        SseStreamPublisher.forChat(broken, scriptedCodec(), obs, System.nanoTime()).subscribe(sub);
 
         sub.errored.get(5, TimeUnit.SECONDS);
         assertTrue(obs.closed.await(5, TimeUnit.SECONDS), "a failed stream still closes its observation");
@@ -391,7 +394,7 @@ class SseStreamPublisherTest {
 
         RecordingObservation obs = new RecordingObservation();
         CollectingSubscriber sub = new CollectingSubscriber(1); // one chunk, then cancel
-        new SseStreamPublisher(bytes(body), scriptedCodec(
+        SseStreamPublisher.forChat(bytes(body), scriptedCodec(
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of()),
                 new TokenChunk("c", 0L, "m", List.of())
@@ -405,6 +408,43 @@ class SseStreamPublisherTest {
     }
 
     /** Records what the publisher puts on the observation, and when it closes it. */
+    @Test
+    void forDeepResearchDeliversTheReportChunkAndCompletes() throws Exception {
+        // The deep-research publisher differs from the chat one only in its classifier: a frame
+        // with a top-level `report` becomes a ReportChunk instead of falling through to a token.
+        ReportChunk report = new ReportChunk("c_1", 3L, "Fanar-Sadiq-2",
+                new DeepResearchReport(null, null, "Title", null, null, null, null, null, null));
+        FanarJsonCodec codec = new FanarJsonCodec() {
+            @SuppressWarnings("unchecked")
+            public <T> T decode(InputStream s, Class<T> t) throws IOException {
+                s.readAllBytes();
+                return t == Map.class ? (T) Map.of("report", Map.of()) : t.cast(report);
+            }
+            public void encode(OutputStream s, Object v) { throw new AssertionError("encode must not be called"); }
+        };
+        List<DeepResearchEvent> received = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CountDownLatch completed = new CountDownLatch(1);
+        SseStreamPublisher.forDeepResearch(bytes("data: {\"report\":{}}\n\ndata: [DONE]\n\n"), codec,
+                NoopObservationHandle.INSTANCE, System.nanoTime()).subscribe(new Flow.Subscriber<>() {
+                    public void onSubscribe(Flow.Subscription s) { s.request(Long.MAX_VALUE); }
+                    public void onNext(DeepResearchEvent item) { received.add(item); }
+                    public void onError(Throwable t) { completed.countDown(); }
+                    public void onComplete() { completed.countDown(); }
+                });
+
+        assertTrue(completed.await(5, TimeUnit.SECONDS), "the stream must complete");
+        assertEquals(List.of(report), received);
+        assertEquals("Title", ((ReportChunk) received.getFirst()).report().title());
+    }
+
+    @Test
+    void forDeepResearchRejectsNulls() {
+        FanarJsonCodec codec = scriptedCodec();
+        assertThrows(NullPointerException.class, () -> SseStreamPublisher.forDeepResearch(null, codec, NoopObservationHandle.INSTANCE, 0L));
+        assertThrows(NullPointerException.class, () -> SseStreamPublisher.forDeepResearch(bytes(""), null, NoopObservationHandle.INSTANCE, 0L));
+        assertThrows(NullPointerException.class, () -> SseStreamPublisher.forDeepResearch(bytes(""), codec, null, 0L));
+    }
+
     private static final class RecordingObservation implements ObservationHandle {
         final Map<String, Object> attributes = new ConcurrentHashMap<>();
         final AtomicInteger closes = new AtomicInteger();

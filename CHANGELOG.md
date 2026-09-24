@@ -30,11 +30,92 @@ may break public API until 1.0.0 ships.
 - **`e2e`** — `LiveAgenticGateTest` pins the `Fanar-Agentic` model gate (422 "Model not
   authorized" for the standard key) and goes red the day it lifts, the signal to probe user tools
   ([ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)).
+- **`fanar-core`** — deep research, on the existing `sadiq` facade, over the new
+  `POST /v1/sadiq/deep-research` endpoint ([ADR-031](docs/adr/031-deep-research-facade.md)):
+  `SadiqClient.deepResearchStream(...)` returns a `Flow.Publisher<DeepResearchEvent>` — a bilingual
+  `ProgressChunk` per research pass, the draft as `TokenChunk`s, the finished report as a new
+  `ReportChunk`, then a `DoneChunk` whose `metadata` summarises the run — and `deepResearch(...)` /
+  `deepResearchAsync(...)` collect the `DeepResearchReport` from that same stream. Records in
+  `qa.fanar.core.sadiq`: `DeepResearchRequest` (`model` as a `ChatModel`, following
+  `SadiqValidationRequest`; `input`; an optional `DeepResearchDepth` — an open value class, `QUICK` /
+  `STANDARD` / `COMPREHENSIVE`, registered in both codecs' `WireValueModule` — and `webSearch`),
+  `DeepResearchReport` with recursive `DeepResearchSection`s and typed `DeepResearchSource`s, and
+  `ReportChunk`. `DeepResearchEvent` is its own sealed union over four of the chat records plus
+  `ReportChunk`, so `StreamEvent` is unchanged and no chat `switch` learns a case chat never sends.
+  Stream-first by design: a run takes minutes (`quick` 3–6, `standard` 7–10) and every variant sends
+  `stream:true`, so the client's `requestTimeout` bounds the admission and never the run. **Never
+  retried, whatever the client's `RetryPolicy`** — the endpoint's twenty daily units are consumed on
+  admission, so a repeated attempt would spend one for nothing; the retry boundary still maps errors,
+  and an exhausted window surfaces at once as `FanarRateLimitException` with its hint. The endpoint
+  requires additional authorization (the `sadiq_deep_research` key flag; observed 2026-09-24 as 403
+  `invalid_authorization`, rejected before admission with no window headers) and no call has been
+  admitted for the SDK's key, so the report shape is the spec's claim, marked as such in the ledger; the endpoint gate, the model gate's 422 and the
+  daily-window 429 are proved routed by envelope code against a scripted server
+  (`FanarClientDeepResearchIntegrationTest`). Observations `fanar.sadiq.deep_research` and
+  `fanar.sadiq.deep_research.stream`; six reachability-metadata entries and `e2e-graalvm` probes for
+  the new records.
+- **Spec** — `api-spec/openapi.json` and its YAML twin refreshed to the 2026-09-23 Fanar spec:
+  **13 → 14 operations, 100 → 105 schemas** (paths 12 → 13), `info.version` still 1.0.0. Additive
+  only. The rate-limit table is now keyed per endpoint rather than per model: `Fanar-Sadiq-2` is
+  50/min on chat, 200/min on validation and 20/day on deep research.
+- **`e2e`** — `LiveDeepResearchTest` (2 methods × 2 codecs, `quick` depth under a 15-minute timeout),
+  gated for the standard key and failing loudly until it carries the flag: four more known-failing
+  cases, **10 → 14** per run ([ledger](docs/WIRE_OBSERVATIONS.md#live-suite-budget)).
 
 ### Changed
 
 - **BOM / release** — the published set is now ten library jars plus the BOM (`fanar-adk` added);
   `docs/RELEASING.md` counts and the consumer smoke follow.
+- **`fanar-core`** — `model` is now nullable on every streaming chunk record (`TokenChunk`,
+  `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`, `ReportChunk`), and
+  `StreamEvent.model()` / `DeepResearchEvent.model()` are documented so: the spec marks it required,
+  but its own deep-research example sends the first progress event with `"model": null`, which the
+  records rejected, and an informational field must not fail a minutes-long run at decode. A pre-1.0
+  minor change ([ADR-019](docs/adr/019-pre-10-stability-policy.md)); a consumer that dereferences
+  `model()` should null-check it.
+- **`fanar-core`** — an error envelope arriving *inside* an SSE stream (a top-level `error` on a frame,
+  the shape the deep-research samples check for a run the server abandons after admission) now reaches
+  the subscriber's `onError` as the typed `FanarException` its code routes to — falling back to the
+  status the envelope names, then to `FanarUnexpectedServerException` carrying the raw frame — for
+  chat and deep research alike. Before, it decoded as a chunk and surfaced as a
+  `FanarTransportException("Failed to decode …")` that lost the server's message. A codec runtime
+  failure during SSE decoding (a flattening deserializer's own null check) is now wrapped as
+  `FanarTransportException` with the cause instead of escaping raw; a typed exception a codec throws
+  passes through ([ADR-006](docs/adr/006-unchecked-exception-hierarchy.md),
+  [ADR-017](docs/adr/017-sse-parsing-strategy.md), corrected in place).
+- **`fanar-core`** — on the deep-research stream, a terminal frame whose first choice has a
+  `finish_reason` other than `error` is the `DoneChunk` even when it carries neither `usage` nor
+  `metadata`, so the promised terminal event always arrives; and the blocking `deepResearch()` returns
+  a received report whatever the stream does after it — a dropped connection or an error event no
+  longer costs the caller a run whose result is already in hand (ADR-031 clauses 3 and 4).
+- **`fanar-core`** — `DoneChunk.metadata` keeps `null` values instead of rejecting them (the copy is
+  null-tolerant): a deep-research run summary may carry them.
+- **`fanar-core`** — `TokenChunk`, `ProgressChunk`, `DoneChunk` and `ErrorChunk` implement
+  `qa.fanar.core.sadiq.DeepResearchEvent` as well as `StreamEvent`; nothing changes for a consumer of
+  either union. Internally the SSE decoder carries one classifier per endpoint
+  (`StreamEventDecoder.forChat` / `forDeepResearch`) and the publisher is generic over the event type.
+- **`fanar-spring-boot-4-starter` / `fanar-spring-ai-starter` / `fanar-adk`** — no change required, by
+  design. The SB4 starter contributes a single `FanarClient` bean, so `sadiq().deepResearch*` is
+  reachable through it as it is; Spring AI has no model interface for a research run and ADR-024
+  forbids inventing one; an ADK `BaseTool` over the facade is a separate record
+  ([ADR-021](docs/adr/021-spring-ai-2-adapter.md), [ADR-024](docs/adr/024-spring-ai-vendor-options.md),
+  [ADR-030](docs/adr/030-google-adk-adapter.md)) — recorded in `COMPATIBILITY.md` §3.
+
+### Fixed
+
+- **`fanar-core`** — `requestTimeout` now bounds the wait for response headers on every JDK,
+  and nothing after them. The transport used `HttpRequest.Builder.timeout`, whose built-in timer
+  stops at the headers through JDK 25 but runs until the body is consumed from JDK 26, so on
+  JDK 26 every stream longer than the timeout (60 s by default) died with a
+  `FanarTransportException` mid-body. The transport now waits on the asynchronous exchange for the
+  headers and cancels it when the wait expires; the failure still surfaces as a
+  `FanarTransportException` with an `HttpTimeoutException` cause, so the retry policy sees the
+  same type ([ADR-007](docs/adr/007-jdk-httpclient-default-transport.md), definition added in
+  place). A response whose headers land in the same instant the wait expires is closed rather than
+  leaked, and a `RuntimeException` or `Error` the exchange fails with is rethrown raw, as
+  `HttpClient.send` does, instead of becoming a retryable transport failure. Pinned by
+  `FanarClientStreamsIntegrationTest`; the `test-support` fixture gained `Reply.withHeaderDelay` /
+  `withBodyDelay` for it, and `e2e` now depends on the fixture for its offline seam tests.
 
 ## [0.6.0] - 2026-09-16
 

@@ -21,7 +21,8 @@ import qa.fanar.interceptor.logging.WireLoggingInterceptor;
  *                       skips bean creation entirely
  * @param baseUrl        the Fanar API base URL — defaults to {@code https://api.fanar.qa}
  * @param connectTimeout HTTP connect timeout — defaults to 10 seconds
- * @param requestTimeout HTTP request timeout — defaults to 60 seconds
+ * @param requestTimeout bound on the wait for a response's headers (not its body, so streams
+ *                       may run longer) — defaults to 60 seconds
  * @param retry          retry policy knobs (see {@link Retry})
  * @param wireLogging    wire-logging interceptor knobs (see {@link WireLogging})
  *

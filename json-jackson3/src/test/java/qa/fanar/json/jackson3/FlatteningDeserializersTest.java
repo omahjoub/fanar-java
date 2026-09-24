@@ -262,11 +262,14 @@ class FlatteningDeserializersTest {
     }
 
     @Test
-    void progressChunk_explicitNullModelFailsLoudly() {
-        assertThrows(NullPointerException.class, () ->
-                decode(ProgressChunk.class,
-                        "{\"id\":\"c\",\"created\":0,\"model\":null,"
-                                + "\"progress\":{\"message\":{\"en\":\"x\",\"ar\":\"ي\"}}}"));
+    void progressChunk_explicitNullModelDecodesWithoutAModel() throws IOException {
+        // The spec's deep-research example sends the stream's first progress event with
+        // "model": null; the record accepts it (ADR-031) and the deserializer passes it through.
+        ProgressChunk chunk = decode(ProgressChunk.class,
+                "{\"id\":\"c\",\"created\":0,\"model\":null,"
+                        + "\"progress\":{\"message\":{\"en\":\"x\",\"ar\":\"ي\"}}}");
+        assertNull(chunk.model());
+        assertEquals("x", chunk.message().en());
     }
 
     // --- helpers

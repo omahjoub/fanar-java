@@ -50,6 +50,7 @@ qa.fanar.core
 ├── translations.*
 ├── poems.*
 ├── moderations.*
+├── sadiq.*                            // quotation validation / deep research
 ├── tokens.*                           // tokenization request / response
 ├── models.*                           // model listing and metadata
 ├── spi.*                              // extension interfaces
@@ -92,7 +93,10 @@ artifact renames the package with it, never one without the other.
 - Nine top-level subpackages on a single module is more than minimalists prefer. Traded for discoverability and
   scalability as Fanar adds domains.
 - Sealed-interface variants (e.g., `StreamEvent` permits) live in the same subpackage — domain-grouped, not
-  collected in a "union" subpackage. Minor aesthetic call.
+  collected in a "union" subpackage. Minor aesthetic call. One documented exception (ADR-031, 2026-09-24):
+  `qa.fanar.core.sadiq.DeepResearchEvent` permits four `qa.fanar.core.chat` records — `TokenChunk`,
+  `ProgressChunk`, `DoneChunk`, `ErrorChunk`, each implementing both unions — because the deep-research stream
+  shares chat's wire format, and the types say so rather than duplicating four records into `sadiq`.
 - Because module names track artifact ids, `fanar-json-jackson2` and `fanar-json-jackson3` yield
   module names ending in a digit, and javac warns `module name component jackson2 should avoid
   terminal digits` for each. The warning is accepted rather than worked around: renaming the module

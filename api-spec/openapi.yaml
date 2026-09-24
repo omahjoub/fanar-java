@@ -52,6 +52,14 @@ info:
                 <td>50 requests/minute</td>
             </tr>
             <tr>
+                <td><strong>Fanar-Sadiq-2 (validate)</strong></td>
+                <td>200 requests/minute</td>
+            </tr>
+            <tr>
+                <td><strong>Fanar-Sadiq-2 (deep research)</strong></td>
+                <td>20 requests/day</td>
+            </tr>
+            <tr>
                 <td><strong>Fanar-Sadiq-TTS-1</strong></td>
                 <td>20 requests/day</td>
             </tr>
@@ -3156,6 +3164,586 @@ paths:
 
 
             print(response.json())
+  /v1/sadiq/deep-research:
+    post:
+      tags:
+        - Sadiq
+      summary: Create Deep Research
+      description: "Generate a structured research report on an Islamic topic using
+        the **Fanar-Sadiq-2** model.<br/><br/>The endpoint retrieves relevant
+        passages from the Islamic knowledge base, synthesises them across
+        multiple research passes, and returns a hierarchical report with
+        headings, content, and cited sources.<br/><br/>**Depth levels:**<br/>-
+        `quick` — single-pass summary, fastest response<br/>- `standard`
+        *(default)* — multi-pass with balanced depth and speed<br/>-
+        `comprehensive` — exhaustive research with maximum source
+        coverage<br/><br/>**Expected runtime** — a research run takes minutes,
+        not seconds: roughly 3-6 min for `quick`, 7-10 min for `standard`, and
+        longer for `comprehensive`. Give your client a timeout above that, and
+        drive the call from a background worker rather than from a request
+        handler — see the <em>background worker</em> code sample.<br/><br/>Set
+        `stream: true` to receive the report incrementally as Server-Sent Events
+        (same SSE format as `/v1/chat/completions`). Streaming is recommended:
+        progress events arrive as each research pass completes, so a long run is
+        visible rather than silent. The stream ends with a `ReportChunk`
+        carrying the finished `report` — use that, not the concatenated token
+        deltas, as the result. Set `stream: false` to receive a complete
+        `DeepResearchReport` JSON object.<br/><br/>Enable `web_search` to
+        augment Islamic knowledge-base results with live web
+        sources.<br/><br/>This endpoint requires additional authorization and is
+        not allowed by default. Please contact <a
+        href='mailto:support@fanar.qa'>support@fanar.qa</a>."
+      operationId: create_deep_research_v1_sadiq_deep_research_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeepResearchRequest"
+        required: true
+      responses:
+        "200":
+          description: Deep research response — a structured report (non-streaming) or an
+            SSE stream of token chunks (streaming).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeepResearchReport"
+              example:
+                topic: ما أهمية طلب العلم في الإسلام؟
+                language: ar
+                title: أهمية طلب العلم في الإسلام
+                title_ar: أهمية طلب العلم في الإسلام
+                overview: "هذا التقرير يستعرض أهمية طلب العلم في الإسلام من خلال ثلاثة أقسام
+                  رئيسية: ..."
+                sections:
+                  - heading: الأساس الديني لطلب العلم
+                    heading_ar: الأساس الديني لطلب العلم
+                    mode: general
+                    content: |-
+                      ## الأساس الديني لطلب العلم
+
+                      ### الأدلة الأساسية
+
+                      يؤكد القرآن الكريم والسنة النبوية على أهمية طلب العلم ...
+                    cited_sources:
+                      - source: https://islamweb.net/ar/article/228949/
+                        citation_tag: "[إسلام ويب:228949]"
+                        quote: العِلْمُ نورٌ للعُقولِ، وضِياءٌ للمجتمعات ...
+                        was_cited: true
+                sources:
+                  - source: https://fiqh.islamonline.net/طلب-العلم-أهميته-وطرق-تحصيله/
+                    citation_tag: "[إسلام أون لاين:943042]"
+                    quote: "طلب العلم : أهميته وطرق تحصيله ..."
+                    was_cited: true
+                  - source: https://islamweb.net/ar/article/228949/
+                    citation_tag: "[إسلام ويب:228949]"
+                    quote: العِلْمُ نورٌ للعُقولِ ...
+                    was_cited: true
+                markdown: |-
+                  # أهمية طلب العلم في الإسلام
+
+                  ...
+                metadata:
+                  depth: quick
+                  mode: deep_research
+                  language: ar
+                  elapsed_seconds: 267.32
+                  sections_count: 4
+                  total_sources: 28
+                  total_queries: 5
+                  web_search_used: false
+                  web_sources_count: 0
+                  adaptive_planning_used: true
+                  editorial_polish_applied: true
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TokenChunk"
+                  - $ref: "#/components/schemas/ProgressChunk"
+                  - $ref: "#/components/schemas/ReportChunk"
+                  - $ref: "#/components/schemas/DoneChunk"
+                  - $ref: "#/components/schemas/ErrorChunk"
+              example: |+
+                data: {"id":"chatcmpl-a46c47","object":"chat.completion.chunk","created":1789987956,"model":null,"progress":{"message":{"en":"Analyzing topic and planning report structure...","ar":"تحليل الموضوع وتخطيط هيكل التقرير..."}}}
+
+                data: {"id":"chatcmpl-a46c47","object":"chat.completion.chunk","created":1789987961,"model":"Fanar-Sadiq-2","progress":{"message":{"en":"Researching: الأساس الديني لطلب العلم...","ar":"البحث في: الأساس الديني لطلب العلم..."}}}
+
+                data: {"id":"chatcmpl-a46c47","object":"chat.completion.chunk","created":1789988100,"model":"Fanar-Sadiq-2","choices":[{"index":0,"delta":{"content":"يؤكد "},"finish_reason":null}]}
+
+                data: {"id":"chatcmpl-a46c47","object":"chat.completion.chunk","created":1789988223,"model":"Fanar-Sadiq-2","report":{"title":"أهمية طلب العلم في الإسلام","sections":[...],"sources":[...]}}
+
+                data: {"id":"chatcmpl-a46c47","object":"chat.completion.chunk","created":1789988223,"model":"Fanar-Sadiq-2","choices":[{"index":0,"delta":{"references":null},"finish_reason":"stop"}],"metadata":{"depth":"quick","elapsed_seconds":267.32,"total_sources":28,"web_search_used":false}}
+
+                data: [DONE]
+
+        "400":
+          description: The content was filtered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: content_filter
+                  message: The content was filtered
+                  status: 400
+                  param: prompt
+                  type: safety
+        "401":
+          description: Invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: invalid_authentication
+                  message: Invalid authentication
+                  status: 401
+        "403":
+          description: Invalid authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: invalid_authorization
+                  message: Invalid authorization
+                  status: 403
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: Not found
+                  message: Not found
+                  status: 404
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: conflict
+                  message: Conflict
+                  status: 409
+        "410":
+          description: No longer supported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: no_longer_supported
+                  message: No longer supported
+                  status: 410
+        "413":
+          description: Request entity too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: too_large
+                  message: Request entity too large
+                  status: 413
+        "422":
+          description: Unprocessable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: unprocessable
+                  message: Unprocessable
+                  status: 422
+        "429":
+          description: Rate limit reached or Exceeded quota
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: exceeded_quota
+                  message: Exceeded quota
+                  status: 429
+        "499":
+          description: Client closed request before completion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: client_closed_request
+                  message: Client closed request before completion
+                  status: 499
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: internal_server_error
+                  message: Internal server error
+                  status: 500
+        "503":
+          description: Service overloaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: overloaded
+                  message: Service overloaded
+                  status: 503
+        "504":
+          description: Request timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: timeout
+                  message: Request timed out
+                  status: 504
+      security:
+        - Bearer: []
+      x-codeSamples:
+        - lang: Curl
+          label: cURL
+          source: >
+            # Deep research requires the sadiq_deep_research feature flag on
+            your API key.
+
+            # A run takes minutes, so give curl a max-time above the depth you
+            asked for.
+
+            curl -X POST "https://api.fanar.qa/v1/sadiq/deep-research" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer YOUR_API_KEY_HERE" \
+              --max-time 1800 \
+              -d '{
+                "model": "Fanar-Sadiq-2",
+                "input": "Your research topic here",
+                "depth": "standard",
+                "web_search": false,
+                "stream": false
+              }'
+        - lang: Python
+          label: Python - single request
+          source: >
+            # Deep research requires the sadiq_deep_research feature flag on
+            your API key.
+
+            #
+
+            # Simplest shape: one blocking call, one report back. `model` is
+            required.
+
+            # A standard-depth run takes ~7-10 minutes, so the timeout has to be
+            generous --
+
+            # anything under the server's own ceiling just fails on your side
+            instead.
+
+
+            import requests
+
+
+            BASE_URL = "https://api.fanar.qa"
+
+            API_KEY = "YOUR_API_KEY_HERE"
+
+
+
+            def deep_research(topic, depth="standard", web_search=False):
+                response = requests.post(
+                    f"{BASE_URL}/v1/sadiq/deep-research",
+                    headers={
+                        "Authorization": f"Bearer {API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "Fanar-Sadiq-2",
+                        "input": topic,
+                        "depth": depth,
+                        "web_search": web_search,
+                        "stream": False,
+                    },
+                    timeout=1800,
+                )
+                response.raise_for_status()
+                return response.json()
+
+
+            report = deep_research("The importance of seeking knowledge in
+            Islam")
+
+
+            print(report["title"])
+
+            print(report["overview"])
+
+            for section in report.get("sections") or []:
+                print(f"\n## {section['heading']}")
+                print(section["content"])
+            # A source is {source, citation_tag, quote, was_cited} -- a URL and
+            its citation tag,
+
+            # not a numbered reference. `quote` is the passage the report drew
+            on.
+
+            for source in report.get("sources") or []:
+                print(f"{source.get('citation_tag', '')} {source['source']}")
+        - lang: Python - streaming
+          label: Python - streaming
+          source: >
+            # Streaming is the recommended mode: progress events arrive as each
+            research pass
+
+            # finishes, so a ten-minute run is visible instead of silent.
+
+            #
+
+            # The stream carries four kinds of chunk. Take the FINAL RESULT from
+            the `report`
+
+            # chunk, not from the concatenated token deltas -- the deltas are
+            the prose as it was
+
+            # drafted, the report is the structured, cited result.
+
+            #
+
+            #   {"progress": {"message": {"en": ..., "ar": ...}}}   a pass
+            completed
+
+            #   {"choices": [{"delta": {"content": "..."}}]}        prose, token
+            by token
+
+            #   {"report": {...}}                                   the finished
+            report
+
+            #   {"choices": [{"finish_reason": "stop", ...}]}       usage +
+            references
+
+            #   data: [DONE]                                        end of
+            stream
+
+
+            import json
+
+
+            import requests
+
+
+            BASE_URL = "https://api.fanar.qa"
+
+            API_KEY = "YOUR_API_KEY_HERE"
+
+
+
+            def deep_research_stream(topic, depth="standard", web_search=False):
+                """Yield (kind, payload) for each event; kind is progress|delta|report|done."""
+                with requests.post(
+                    f"{BASE_URL}/v1/sadiq/deep-research",
+                    headers={
+                        "Authorization": f"Bearer {API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "Fanar-Sadiq-2",
+                        "input": topic,
+                        "depth": depth,
+                        "web_search": web_search,
+                        "stream": True,
+                    },
+                    stream=True,
+                    timeout=1800,
+                ) as response:
+                    response.raise_for_status()
+
+                    for line in response.iter_lines(decode_unicode=True):
+                        if not line or not line.startswith("data: "):
+                            continue
+                        data = line[len("data: "):].strip()
+                        if data == "[DONE]":
+                            break
+                        chunk = json.loads(data)
+
+                        if "error" in chunk:
+                            raise RuntimeError(chunk["error"].get("message", "stream error"))
+                        if "progress" in chunk:
+                            yield "progress", chunk["progress"]["message"]["en"]
+                            continue
+                        if "report" in chunk:
+                            yield "report", chunk["report"]
+                            continue
+
+                        choice = (chunk.get("choices") or [{}])[0]
+                        if choice.get("finish_reason"):
+                            yield "done", chunk
+                        elif choice.get("delta", {}).get("content"):
+                            yield "delta", choice["delta"]["content"]
+
+
+            report = None
+
+            for kind, payload in deep_research_stream("The importance of seeking
+            knowledge in Islam"):
+                if kind == "progress":
+                    print(f"... {payload}")
+                elif kind == "report":
+                    report = payload
+                elif kind == "done":
+                    # `metadata` carries the run facts (depth, elapsed_seconds, total_sources,
+                    # web_search_used). `usage` is often absent on this endpoint -- do not rely on it.
+                    print(f"\nmetadata: {payload.get('metadata')}")
+
+            if report:
+                print(report["title"])
+                print(report.get("markdown") or report["overview"])
+        - lang: Python - background worker
+          label: Python - background worker
+          source: >
+            # A research run outlives an HTTP request handler, so do not call it
+            from one.
+
+            # There is no job API on this endpoint -- it is a single long-lived
+            HTTP call -- so the
+
+            # job lifecycle is yours: enqueue, hold the stream in a worker, poll
+            your own store.
+
+            # A task queue and a shared store are the usual pieces; here an
+            asyncio task and a dict,
+
+            # so the shape is visible without the infrastructure.
+
+            #
+
+            # Two things worth knowing before you add a retry:
+
+            #   * quota is consumed when the request is ADMITTED, so a retry
+            spends another unit
+
+            #     even if the first attempt produced nothing;
+
+            #   * a 429 carries retry-after, and a 403 means the key lacks
+            sadiq_deep_research --
+
+            #     neither is worth retrying blindly.
+
+
+            import asyncio
+
+            import json
+
+            import uuid
+
+
+            import httpx
+
+
+            BASE_URL = "https://api.fanar.qa"
+
+            API_KEY = "YOUR_API_KEY_HERE"
+
+
+            JOBS = {}  # job_id -> {"status", "progress", "report", "error"}
+
+
+
+            async def _run_job(job_id, topic, depth):
+                job = JOBS[job_id]
+                try:
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(1800.0)) as client:
+                        async with client.stream(
+                            "POST",
+                            f"{BASE_URL}/v1/sadiq/deep-research",
+                            headers={
+                                "Authorization": f"Bearer {API_KEY}",
+                                "Content-Type": "application/json",
+                            },
+                            json={
+                                "model": "Fanar-Sadiq-2",
+                                "input": topic,
+                                "depth": depth,
+                                "stream": True,
+                            },
+                        ) as response:
+                            if response.status_code == 403:
+                                raise RuntimeError("deep research is not enabled for this API key")
+                            if response.status_code == 429:
+                                retry_after = response.headers.get("retry-after")
+                                raise RuntimeError(f"rate limited; retry after {retry_after}s")
+                            response.raise_for_status()
+
+                            async for line in response.aiter_lines():
+                                if not line or not line.startswith("data: "):
+                                    continue
+                                data = line[len("data: "):].strip()
+                                if data == "[DONE]":
+                                    break
+                                chunk = json.loads(data)
+
+                                if "progress" in chunk:
+                                    # Persist progress where your client can read it.
+                                    job["progress"].append(chunk["progress"]["message"]["en"])
+                                elif "report" in chunk:
+                                    job["report"] = chunk["report"]
+                                elif "error" in chunk:
+                                    raise RuntimeError(chunk["error"].get("message", "stream error"))
+
+                    job["status"] = "completed" if job["report"] else "failed"
+                except Exception as exc:                      # noqa: BLE001 - recorded, not swallowed
+                    job["status"] = "failed"
+                    job["error"] = str(exc)
+
+
+            def enqueue(topic, depth="standard"):
+                """Return immediately with a job id; the worker holds the long connection."""
+                job_id = str(uuid.uuid4())
+                JOBS[job_id] = {"status": "running", "progress": [], "report": None, "error": None}
+                asyncio.create_task(_run_job(job_id, topic, depth))
+                return job_id
+
+
+            def get_job(job_id):
+                """What your own GET /jobs/{job_id} would return."""
+                return JOBS[job_id]
+
+
+            async def main():
+                job_id = enqueue("The importance of seeking knowledge in Islam")
+
+                while get_job(job_id)["status"] == "running":
+                    await asyncio.sleep(5)
+                    for step in get_job(job_id)["progress"]:
+                        print(f"... {step}")
+
+                job = get_job(job_id)
+                if job["status"] == "failed":
+                    raise SystemExit(job["error"])
+                print(job["report"]["title"])
+
+
+            asyncio.run(main())
   /v1/tokens:
     post:
       tags:
@@ -5044,6 +5632,50 @@ components:
         - total_tokens
       title: CompletionUsage
       type: object
+    DeepResearchDepth:
+      type: string
+      enum:
+        - quick
+        - standard
+        - comprehensive
+      title: DeepResearchDepth
+    DeepResearchRequest:
+      properties:
+        model:
+          type: string
+          const: Fanar-Sadiq-2
+          title: Model
+          description: The model to use for deep research. Currently only `Fanar-Sadiq-2`
+            is supported.
+        input:
+          type: string
+          title: Input
+          description: The research topic or question to investigate.
+        stream:
+          anyOf:
+            - type: boolean
+            - type: "null"
+          title: Stream
+          description: Whether to stream the response.
+          default: true
+        depth:
+          anyOf:
+            - $ref: "#/components/schemas/DeepResearchDepth"
+            - type: "null"
+          description: "Research depth: quick, standard, or comprehensive."
+          default: standard
+        web_search:
+          anyOf:
+            - type: boolean
+            - type: "null"
+          title: Web Search
+          description: Whether to include web search results.
+          default: false
+      type: object
+      required:
+        - model
+        - input
+      title: DeepResearchRequest
     Error:
       properties:
         code:
@@ -6194,6 +6826,167 @@ components:
         - en
         - ar
       title: ProgressMessage
+      type: object
+    ReportChunk:
+      description: >-
+        Deep research's terminal payload: the finished structured report.
+
+
+        Emitted once, near the end of a /v1/sadiq/deep-research stream, by
+
+        ChunkBuilder.report_chunk. Clients should render THIS rather than the
+        concatenated
+
+        token deltas -- the deltas are the prose as it was drafted, the report
+        is the
+
+        structured, cited result (FNR-763).
+      properties:
+        id:
+          description: A unique identifier for the chat completion
+          title: Id
+          type: string
+        object:
+          default: chat.completion.chunk
+          description: The object type
+          title: Object
+          type: string
+        created:
+          description: The Unix timestamp (in seconds) of when the chat completion was
+            created.
+          title: Created
+          type: integer
+        model:
+          description: The model used for the chat completion.
+          title: Model
+          type: string
+        report:
+          $ref: "#/components/schemas/DeepResearchReport"
+          description: The completed deep research report
+      required:
+        - id
+        - created
+        - model
+        - report
+      title: ReportChunk
+      type: object
+    DeepResearchReport:
+      properties:
+        topic:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Topic
+        language:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Language
+        title:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Title
+        title_ar:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Title Ar
+        overview:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Overview
+        sections:
+          anyOf:
+            - items:
+                $ref: "#/components/schemas/DeepResearchSection"
+              type: array
+            - type: "null"
+          default: null
+          title: Sections
+        sources:
+          anyOf:
+            - items: {}
+              type: array
+            - type: "null"
+          default: null
+          title: Sources
+        metadata:
+          anyOf:
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          default: null
+          title: Metadata
+        markdown:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Markdown
+      title: DeepResearchReport
+      type: object
+    DeepResearchSection:
+      properties:
+        heading:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Heading
+        heading_ar:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Heading Ar
+        content:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Content
+        mode:
+          anyOf:
+            - type: string
+            - type: "null"
+          default: null
+          title: Mode
+        sources:
+          anyOf:
+            - items: {}
+              type: array
+            - type: "null"
+          default: null
+          title: Sources
+        cited_sources:
+          anyOf:
+            - items: {}
+              type: array
+            - type: "null"
+          default: null
+          title: Cited Sources
+        degraded:
+          anyOf:
+            - type: boolean
+            - type: "null"
+          default: null
+          title: Degraded
+        children:
+          anyOf:
+            - items:
+                $ref: "#/components/schemas/DeepResearchSection"
+              type: array
+            - type: "null"
+          default: null
+          title: Children
+      title: DeepResearchSection
       type: object
     DoneChunk:
       properties:

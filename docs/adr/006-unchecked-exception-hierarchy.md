@@ -83,6 +83,11 @@ not a well-formed envelope or carries a code this build does not know. Envelope-
 because two distinct codes share HTTP 429 — throttling and quota exhaustion — and only the code
 tells them apart.
 
+An error envelope that arrives *inside* an SSE stream — the server abandoning a run it had already
+admitted with a 200 — is routed the same way by the SSE decoder: code first, then the status the
+envelope itself names, else an unexpected server failure carrying the raw frame; the typed
+exception reaches the subscriber's `onError` (ADR-031, 2026-09-24).
+
 Mapping happens **inside the interceptor chain**, at the retry boundary, not in each domain facade
 after the chain returns. That is the only arrangement in which the retry policy can act on the typed
 hierarchy this ADR defines: a facade that maps after `chain.proceed` leaves the retry loop matching

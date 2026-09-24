@@ -85,20 +85,48 @@ public final class ExceptionMapper {
 
         ErrorCode code = envelope == null ? null : tryFromWireValue(envelope.code());
         ContentFilterType filterType = filterType(envelope);
+        Duration retryAfter = parseRetryAfter(response);
+        RateLimitInfo rateLimit = rateLimit(response);
         return code != null
-                ? byCode(code, detail, filterType, response)
-                : byStatus(status, detail, filterType, response);
+                ? byCode(code, detail, filterType, retryAfter, rateLimit)
+                : byStatus(status, detail, filterType, retryAfter, rateLimit);
+    }
+
+    /**
+     * Map an error envelope that arrived <em>inside</em> a stream — an SSE frame whose top-level
+     * {@code error} the server sends once a run has failed after the 200 headers went out
+     * (ADR-031). There is no HTTP status and there are no headers: the envelope's {@code code}
+     * routes as on the HTTP path, an unknown or absent code falls back to the status the envelope
+     * itself names, and a frame naming neither is an unexpected server failure carrying the raw
+     * frame as its detail — never a decode failure, so the server's message survives.
+     *
+     * @param frame the raw {@code data:} payload
+     * @return the typed exception for the subscriber's {@code onError}
+     */
+    public static FanarException mapEnvelope(String frame) {
+        ErrorEnvelope envelope = ErrorEnvelope.tryParse(frame);
+        ErrorCode code = envelope == null ? null : tryFromWireValue(envelope.code());
+        Integer status = envelope == null ? null : envelope.status();
+        String detail = detail(envelope, frame, status == null ? 500 : status);
+        ContentFilterType filterType = filterType(envelope);
+        if (code != null) {
+            return byCode(code, detail, filterType, null, null);
+        }
+        if (status != null) {
+            return byStatus(status, detail, filterType, null, null);
+        }
+        return new FanarUnexpectedServerException(detail, 500);
     }
 
     /** One subtype per {@link ErrorCode} (ADR-006); the server's typed code is authoritative. */
     private static FanarException byCode(ErrorCode code, String detail, ContentFilterType filterType,
-                                         HttpResponse<InputStream> response) {
+                                         Duration retryAfter, RateLimitInfo rateLimit) {
         return switch (code) {
             case CONTENT_FILTER         -> new FanarContentFilterException(detail, filterType);
             case INVALID_AUTHENTICATION -> new FanarAuthenticationException(detail);
             case INVALID_AUTHORIZATION  -> new FanarAuthorizationException(detail);
-            case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, parseRetryAfter(response), rateLimit(response));
-            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail, parseRetryAfter(response), rateLimit(response));
+            case RATE_LIMIT_REACHED     -> new FanarRateLimitException(detail, retryAfter, rateLimit);
+            case EXCEEDED_QUOTA         -> new FanarQuotaExceededException(detail, retryAfter, rateLimit);
             case INTERNAL_SERVER_ERROR  -> new FanarInternalServerException(detail);
             case OVERLOADED             -> new FanarOverloadedException(detail);
             case TIMEOUT                -> new FanarTimeoutException(detail);
@@ -112,7 +140,7 @@ public final class ExceptionMapper {
     }
 
     private static FanarException byStatus(int status, String detail, ContentFilterType filterType,
-                                           HttpResponse<InputStream> response) {
+                                           Duration retryAfter, RateLimitInfo rateLimit) {
         return switch (status) {
             case 400 -> new FanarContentFilterException(detail, filterType);
             case 401 -> new FanarAuthenticationException(detail);
@@ -122,7 +150,7 @@ public final class ExceptionMapper {
             case 410 -> new FanarGoneException(detail);
             case 413 -> new FanarTooLargeException(detail);
             case 422 -> new FanarUnprocessableException(detail);
-            case 429 -> new FanarRateLimitException(detail, parseRetryAfter(response), rateLimit(response));
+            case 429 -> new FanarRateLimitException(detail, retryAfter, rateLimit);
             case 499 -> new FanarClientClosedRequestException(detail);
             case 500 -> new FanarInternalServerException(detail);
             case 503 -> new FanarOverloadedException(detail);

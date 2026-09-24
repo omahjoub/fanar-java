@@ -100,8 +100,12 @@ public record RetryPolicy(
 public enum JitterStrategy { NONE, FULL, EQUAL }
 ```
 
-Exposed via `FanarClient.builder().retryPolicy(RetryPolicy policy)` (ADR-016). `RetryPolicy.disabled()` is the
-explicit opt-out.
+Exposed via `FanarClient.builder().retryPolicy(RetryPolicy policy)` (ADR-016) and applied client-wide — every
+operation on every facade shares the one policy — with a single exception: deep research
+(`client.sadiq().deepResearch*`), whose chain `SadiqClientImpl` builds with `RetryPolicy.disabled()` whatever the
+client's policy, because the endpoint's daily quota is consumed on admission, so a repeated attempt spends a unit
+even when the first produced nothing (ADR-031, 2026-09-24). The error boundary stays; the attempts do not.
+`RetryPolicy.disabled()` is the explicit opt-out.
 
 ## Alternatives considered
 

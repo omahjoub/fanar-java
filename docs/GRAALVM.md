@@ -20,7 +20,9 @@ What "works" means concretely:
   benchmark, so treat the shape as the claim and measure your own workload.)
 
 - Every Fanar domain (chat, models, tokens, moderations, translations, poems, Sadiq
-  validation, images, audio) decodes its responses correctly.
+  validation, Sadiq deep research, images, audio) decodes its responses correctly. Deep
+  research is probed offline only: a real run takes minutes and spends a unit of the
+  endpoint's daily quota, so the live walk skips it.
 - Every observability adapter (SLF4J, OTel, Micrometer, the composite that fans them out)
   runs without crashing.
 - The typed `FanarException` hierarchy is reachable from the binary's error path. The
@@ -146,7 +148,8 @@ metadata set nothing validated — and underneath it, the entire streaming decod
 from `core`'s metadata, so `chat().stream()` threw `UnsupportedFeatureError: Record components not
 available for record class qa.fanar.core.chat.TokenChunk` in any native image. The self-test did not
 catch it because it decoded ten domain responses and no stream chunk. Both are fixed; the probe that
-would have caught it is `decodeStreamChunks`, which exercises all six `StreamEvent` leaves.
+would have caught it is `decodeStreamChunks`, which exercises all six chat `StreamEvent` leaves plus
+the deep-research `ReportChunk`, including a progress event that arrives without a model.
 
 ---|:--:|:--:|
 | GraalVM for JDK 21 | resolved | **`ClassNotFoundException`** |
@@ -260,7 +263,7 @@ Expected output:
 [main] ERROR fanar.smoke.op - failed after 0ms attrs={k=v}
 java.lang.IllegalStateException: smoke-error
         …
-self-test OK: 10 decode probes + 10 encode probes, 4 obs plugins exercised, wire interceptor instantiated
+self-test OK: 12 decode probes + 11 encode probes, 4 obs plugins exercised, wire interceptor instantiated
 ```
 
 The `smoke-error` lines are intentional — the self-test deliberately calls
@@ -521,12 +524,15 @@ The self-test runs entirely offline and walks the full reflective surface of the
 the bootstrap pass picks up every metadata gap in one go. Mirrors `Main.selfTest()` (`e2e-graalvm/src/main/java/qa/fanar/e2e/graalvm/Main.java`); the `self-test OK` line prints the live counts, so trust it over this list:
 
 - **Decode probes** for every domain — chat, models, tokens, moderations, translations,
-  poems, Sadiq validation, images, audio voices, audio STT (both `text` and `json` sealed
-  variants).
+  poems, Sadiq validation, Sadiq deep research (`DeepResearchReport` with nested sections,
+  cited sources and run metadata), images, audio voices, audio STT (both `text` and `json`
+  sealed variants), and the streaming leaves — the six chat `StreamEvent` records plus the
+  deep-research `ReportChunk`, including a progress event without a model.
 - **Encode probes** for every request record — `ChatRequest`, `TokenizationRequest`,
   `SafetyFilterRequest`, `TranslationRequest`, `PoemGenerationRequest`,
-  `SadiqValidationRequest`, `ImageGenerationRequest`, `TextToSpeechRequest`,
-  `TranscriptionRequest`,
+  `SadiqValidationRequest`, `DeepResearchRequest` (asserts the `depth` value class flattens to
+  its wire string and `web_search` keeps its snake_case name), `ImageGenerationRequest`,
+  `TextToSpeechRequest`, `TranscriptionRequest`,
   `CreateVoiceRequest`. The encode path uses Jackson 3's serializer factory which
   independently introspects records, so decode coverage alone doesn't cover it.
 - **All four observability plugins** instantiated and dispatched through one full event
@@ -543,12 +549,15 @@ the [Bootstrap loop](#bootstrap-loop--adding-metadata-when-you-add-reflective-co
 ## What live mode exercises
 
 The default-args invocation (`./fanar-graalvm-smoke` with `FANAR_API_KEY` set) walks
-**every** domain over the live HTTP transport with the full observability stack
+**every** domain but deep research over the live HTTP transport with the full observability stack
 (SLF4J + OTel + Micrometer composed) and the wire-logging interceptor at `BODY` level
 attached. Each probe is wrapped so a typed `FanarException` (auth gating, rate limiting,
 timeouts) is logged and the walk continues — failure to authorize on one domain
 shouldn't stop us from exercising the next under native. Includes one async probe to
-exercise the virtual-thread async wrapper.
+exercise the virtual-thread async wrapper. Deep research is the one domain the walk skips:
+a real run takes 3–10 minutes and spends a unit of the endpoint's daily quota, so it has
+offline probes only (`decodeDeepResearch`, `encodeDeepResearchRequest`, and the `ReportChunk`
+leaf in `decodeStreamChunks`).
 
 ## Limits of what this catches
 
