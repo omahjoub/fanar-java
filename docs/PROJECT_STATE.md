@@ -65,7 +65,7 @@ waits on the asynchronous exchange for the headers and cancels it when the wait 
 failure keeps its type (`FanarTransportException`, `HttpTimeoutException` cause) so the retry
 policy is unchanged. Found while planning the deep-research endpoint, whose runs last minutes.
 
-**Also landed for 0.7.0 — deep research** ([ADR-031](adr/031-deep-research-facade.md), Proposed). The
+**Also landed for 0.7.0 — deep research** ([ADR-031](adr/031-deep-research-facade.md), Accepted). The
 2026-09-23 spec drop adds one operation (13 → 14; schemas 100 → 105), `POST /v1/sadiq/deep-research`, and it
 lands on the existing facade: `client.sadiq().deepResearchStream(...)` returns a
 `Flow.Publisher<DeepResearchEvent>` — a bilingual progress event per research pass, the draft as token deltas,
