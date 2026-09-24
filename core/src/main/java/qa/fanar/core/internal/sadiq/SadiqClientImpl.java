@@ -43,7 +43,8 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Deep research POSTs the {@link DeepResearchRequest} to {@code /v1/sadiq/deep-research} with
  * {@code "stream":true} spliced in and reads the reply as an SSE stream — always, even for the
- * blocking variant, which collects the {@link ReportChunk} from the same stream: the server
+ * blocking variant, which collects the {@link ReportChunk} from the same stream and returns its
+ * report once one has arrived, whatever the stream does afterwards: the server
  * admits the run at once and sends its headers, so the request timeout bounds the admission and
  * never the minutes-long run, and one wire path serves all three variants. Its chain is built
  * with {@link RetryPolicy#disabled()} whatever the client's policy, because the server consumes a
@@ -238,16 +239,21 @@ public final class SadiqClientImpl implements SadiqClient {
                 subscription.cancel();
                 throw new FanarTransportException("Deep research interrupted before the report arrived", e);
             }
+            // A received report is the result, whatever came before or after it: the report chunk
+            // is what the spec says to render, and a failure of the stream around it — a dropped
+            // connection, a bad terminal frame, an error event — surfaces only when no report
+            // arrived (ADR-031). The publisher records a transport failure on the observation; an
+            // error event after the report is not recorded anywhere in this variant.
+            if (report != null) {
+                return report;
+            }
             if (failure != null) {
                 throw asUnchecked(failure);
             }
             if (error != null) {
                 throw new FanarTransportException("Deep research stream reported an error: " + describe(error));
             }
-            if (report == null) {
-                throw new FanarTransportException("Deep research stream ended without a report");
-            }
-            return report;
+            throw new FanarTransportException("Deep research stream ended without a report");
         }
 
         private static RuntimeException asUnchecked(Throwable t) {

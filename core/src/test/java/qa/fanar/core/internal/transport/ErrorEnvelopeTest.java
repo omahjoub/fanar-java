@@ -13,7 +13,7 @@ class ErrorEnvelopeTest {
     // --- well-formed envelopes
 
     @Test
-    void parsesCodeMessageAndIgnoresStatus() {
+    void parsesCodeAndMessage() {
         ErrorEnvelope e = ErrorEnvelope.tryParse(
                 "{\"error\":{\"code\":\"conflict\",\"message\":\"duplicate voice\",\"status\":409}}");
         assertEquals("conflict", e.code());
@@ -172,5 +172,23 @@ class ErrorEnvelopeTest {
     })
     void malformedOrForeignShapesYieldNull(String body) {
         assertNull(ErrorEnvelope.tryParse(body));
+    }
+
+    @Test
+    void parsesAnIntegerStatus() {
+        // An error envelope inside an SSE stream has no HTTP status of its own; the member is the
+        // mapper's fallback there (ADR-031). The HTTP path keeps reading the status off the response.
+        assertEquals(503, ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\",\"status\":503}}").status());
+        assertEquals(-1, ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\",\"status\":-1}}").status());
+    }
+
+    @Test
+    void statusIsNullWhenAbsentOrNotAnInteger() {
+        assertNull(ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\"}}").status());
+        assertNull(ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\",\"status\":null}}").status());
+        assertNull(ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\",\"status\":\"503\"}}").status());
+        assertNull(ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\",\"status\":5.03}}").status(),
+                "a non-integer number costs only the member, not the envelope");
+        assertEquals("x", ErrorEnvelope.tryParse("{\"error\":{\"code\":\"x\",\"status\":5.03}}").code());
     }
 }

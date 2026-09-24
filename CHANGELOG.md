@@ -66,11 +66,28 @@ may break public API until 1.0.0 ships.
 
 - **BOM / release** — the published set is now ten library jars plus the BOM (`fanar-adk` added);
   `docs/RELEASING.md` counts and the consumer smoke follow.
-- **`fanar-core`** — `ProgressChunk.model` is now nullable, and `StreamEvent.model()` is documented so:
-  the spec marks it required, but its own deep-research example sends the first progress event with
-  `"model": null`, which the record rejected. A pre-1.0 minor change
-  ([ADR-019](docs/adr/019-pre-10-stability-policy.md)); a chat consumer that dereferences `model()`
-  on a progress event should null-check it.
+- **`fanar-core`** — `model` is now nullable on every streaming chunk record (`TokenChunk`,
+  `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`, `ReportChunk`), and
+  `StreamEvent.model()` / `DeepResearchEvent.model()` are documented so: the spec marks it required,
+  but its own deep-research example sends the first progress event with `"model": null`, which the
+  records rejected, and an informational field must not fail a minutes-long run at decode. A pre-1.0
+  minor change ([ADR-019](docs/adr/019-pre-10-stability-policy.md)); a consumer that dereferences
+  `model()` should null-check it.
+- **`fanar-core`** — an error envelope arriving *inside* an SSE stream (a top-level `error` on a frame,
+  the shape the deep-research samples check for a run the server abandons after admission) now reaches
+  the subscriber's `onError` as the typed `FanarException` its code routes to — falling back to the
+  status the envelope names, then to `FanarUnexpectedServerException` carrying the raw frame — for
+  chat and deep research alike. Before, it decoded as a chunk and surfaced as a
+  `FanarTransportException("Failed to decode …")` that lost the server's message. A codec runtime
+  failure during SSE decoding (a flattening deserializer's own null check) is now wrapped as
+  `FanarTransportException` with the cause instead of escaping raw; a typed exception a codec throws
+  passes through ([ADR-006](docs/adr/006-unchecked-exception-hierarchy.md),
+  [ADR-017](docs/adr/017-sse-parsing-strategy.md), corrected in place).
+- **`fanar-core`** — on the deep-research stream, a terminal frame whose first choice has a
+  `finish_reason` other than `error` is the `DoneChunk` even when it carries neither `usage` nor
+  `metadata`, so the promised terminal event always arrives; and the blocking `deepResearch()` returns
+  a received report whatever the stream does after it — a dropped connection or an error event no
+  longer costs the caller a run whose result is already in hand (ADR-031 clauses 3 and 4).
 - **`fanar-core`** — `DoneChunk.metadata` keeps `null` values instead of rejecting them (the copy is
   null-tolerant): a deep-research run summary may carry them.
 - **`fanar-core`** — `TokenChunk`, `ProgressChunk`, `DoneChunk` and `ErrorChunk` implement
@@ -94,8 +111,11 @@ may break public API until 1.0.0 ships.
   headers and cancels it when the wait expires; the failure still surfaces as a
   `FanarTransportException` with an `HttpTimeoutException` cause, so the retry policy sees the
   same type ([ADR-007](docs/adr/007-jdk-httpclient-default-transport.md), definition added in
-  place). Pinned by `FanarClientStreamsIntegrationTest`; the `test-support` fixture gained
-  `Reply.withHeaderDelay` / `withBodyDelay` for it.
+  place). A response whose headers land in the same instant the wait expires is closed rather than
+  leaked, and a `RuntimeException` or `Error` the exchange fails with is rethrown raw, as
+  `HttpClient.send` does, instead of becoming a retryable transport failure. Pinned by
+  `FanarClientStreamsIntegrationTest`; the `test-support` fixture gained `Reply.withHeaderDelay` /
+  `withBodyDelay` for it, and `e2e` now depends on the fixture for its offline seam tests.
 
 ## [0.6.0] - 2026-09-16
 

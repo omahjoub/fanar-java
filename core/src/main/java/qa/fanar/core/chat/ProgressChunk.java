@@ -19,8 +19,9 @@ import qa.fanar.core.sadiq.DeepResearchEvent;
  *
  * @param id      completion id; must not be {@code null}
  * @param created server-side timestamp
- * @param model   wire-format model id; may be {@code null} — the spec marks it required, but its
- *                own deep-research example sends the first progress event with {@code "model": null}
+ * @param model   wire-format model id; may be {@code null} when the server omits it — the spec
+ *                marks it required, but its own deep-research example sends the first progress
+ *                event with {@code "model": null}
  * @param message bilingual progress description; must not be {@code null}
  *
  * @author Oussama Mahjoub

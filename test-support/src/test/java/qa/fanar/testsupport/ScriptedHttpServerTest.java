@@ -120,10 +120,10 @@ class ScriptedHttpServerTest {
 
     @Test
     void bodyDelayHoldsTheBodyBackButNotTheHeaders() throws Exception {
-        // Headers first, then a pause, then the body. The client clocks the headers a little
-        // after the server starts its pause, so the measured gap can land a few milliseconds
-        // under the scripted delay; half the delay is the bound — a loaded machine stretches the
-        // gap, never shrinks it, and headers held back with the body would give a gap near zero.
+        // Headers first, then a pause, then the body. The gap is measured from send() returning,
+        // which is a little after the headers hit the wire, so client-side lag can only shrink
+        // it: the assertion fails only if that lag exceeds half the delay (150 ms), and headers
+        // held back with the body would give a gap near zero.
         Duration delay = Duration.ofMillis(300);
         try (ScriptedHttpServer server = ScriptedHttpServer.start()) {
             server.enqueue(Reply.sse("data: {\"x\":1}\n\n").withBodyDelay(delay));
@@ -161,13 +161,16 @@ class ScriptedHttpServerTest {
         // A client that gives up before a long header delay leaves the handler mid-pause; closing
         // the fixture interrupts it, the reply is abandoned, and the script still counts as served.
         ScriptedHttpServer server = ScriptedHttpServer.start();
-        server.enqueue(Reply.of(200, "never sent").withHeaderDelay(Duration.ofSeconds(30)));
-        HttpRequest request = HttpRequest.newBuilder(server.baseUri()).timeout(Duration.ofMillis(200)).GET().build();
+        try {
+            server.enqueue(Reply.of(200, "never sent").withHeaderDelay(Duration.ofSeconds(30)));
+            HttpRequest request = HttpRequest.newBuilder(server.baseUri()).timeout(Duration.ofMillis(200)).GET().build();
 
-        assertThrows(IOException.class, () -> http.send(request, HttpResponse.BodyHandlers.ofString()),
-                "the client's own timeout must fire first");
-        assertEquals(1, server.hits());
-        server.close();
+            assertThrows(IOException.class, () -> http.send(request, HttpResponse.BodyHandlers.ofString()),
+                    "the client's own timeout must fire first");
+            assertEquals(1, server.hits());
+        } finally {
+            server.close();
+        }
     }
 
     @Test

@@ -16,7 +16,9 @@ package qa.fanar.core.internal.transport;
  * <p>Members are kept as their raw wire strings — mapping {@code code} to {@code ErrorCode} and
  * {@code type} to {@code ContentFilterType} is {@link ExceptionMapper}'s job, so that an unknown
  * value is a routing decision there rather than a parse failure here (ADR-015). {@code status} is
- * still skipped: HTTP already carries it, and the mapper's fallback reads it from the response.</p>
+ * read when it is an integer: the HTTP path ignores it (the response carries the status), but an
+ * error envelope inside an SSE stream has no HTTP status of its own, and the mapper's fallback
+ * for such a frame is the envelope's (ADR-031).</p>
  *
  * <p>Internal (ADR-018).</p>
  *
@@ -26,9 +28,10 @@ package qa.fanar.core.internal.transport;
  * @param param   the request field the error is attributed to, or {@code null}; spec-nullable and
  *                parsed but not yet surfaced on the public API (ADR-006)
  * @param type    the wire value of the content-filter subtype, or {@code null}; spec-nullable
+ * @param status  the HTTP status the envelope names, or {@code null} when absent or not an integer
  * @author Oussama Mahjoub
  */
-record ErrorEnvelope(String code, String message, String param, String type) {
+record ErrorEnvelope(String code, String message, String param, String type, Integer status) {
 
     /**
      * Parse an error-response body into an envelope.
@@ -69,6 +72,7 @@ record ErrorEnvelope(String code, String message, String param, String type) {
             String message = null;
             String param = null;
             String type = null;
+            Integer status = null;
             ws();
             expect('{');
             ws();
@@ -92,6 +96,7 @@ record ErrorEnvelope(String code, String message, String param, String type) {
                                     case "message" -> message = stringOrNull();
                                     case "param" -> param = stringOrNull();
                                     case "type" -> type = stringOrNull();
+                                    case "status" -> status = intOrNull();
                                     default -> skipValue();
                                 }
                             } while (commaOrEnd('}'));
@@ -105,7 +110,7 @@ record ErrorEnvelope(String code, String message, String param, String type) {
             if (i != s.length()) {
                 throw new MalformedException();
             }
-            return code == null ? null : new ErrorEnvelope(code, message, param, type);
+            return code == null ? null : new ErrorEnvelope(code, message, param, type, status);
         }
 
         private void ws() {
@@ -169,6 +174,21 @@ record ErrorEnvelope(String code, String message, String param, String type) {
             }
             skipValue();
             return null;
+        }
+
+        /** An integer member, or {@code null} when the value is anything else (same rule as {@link #stringOrNull()}). */
+        private Integer intOrNull() {
+            if (!isNumberChar(peek())) {
+                skipValue();
+                return null;
+            }
+            int start = i;
+            number();
+            try {
+                return Integer.parseInt(s.substring(start, i));
+            } catch (NumberFormatException notAnInteger) {
+                return null;
+            }
         }
 
         private String string() {

@@ -15,7 +15,7 @@ import qa.fanar.core.sadiq.DeepResearchEvent;
  *
  * @param id      completion id; must not be {@code null}
  * @param created server-side timestamp
- * @param model   wire-format model id; must not be {@code null}
+ * @param model   wire-format model id; may be {@code null} when the server omits it
  * @param choices per-choice deltas; must not be {@code null}, defensively copied
  *
  * @author Oussama Mahjoub
@@ -29,7 +29,6 @@ public record TokenChunk(
 
     public TokenChunk {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(model, "model");
         Objects.requireNonNull(choices, "choices");
         choices = List.copyOf(choices);
     }

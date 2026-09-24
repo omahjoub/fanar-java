@@ -39,7 +39,13 @@ The parser pipeline:
    The router is built per endpoint with its own classifier (`StreamEventDecoder.forChat` / `forDeepResearch`,
    ADR-031): chat's knows the six shapes above; deep research's knows five — the same `progress`, delta,
    `usage` / `metadata` and error rules, no tool shapes, and a top-level `report` → `ReportChunk`, tested right
-   after `progress`.
+   after `progress`, plus a first choice whose `finish_reason` is set to anything but `error` →
+   `DoneChunk` (the run's terminal frame may carry neither `usage` nor `metadata`). Before either
+   classifier runs, a frame whose top-level `error` is set is not an event: it is routed like an
+   HTTP error envelope (code first, then the status the envelope names) and thrown as the typed
+   `FanarException` for `onError` — chat and deep research alike (ADR-031, 2026-09-24). A codec
+   failure of any kind, checked or runtime, surfaces as `FanarTransportException` with the cause;
+   a typed exception a codec throws passes through.
 4. **Emission** — decoded events are published to the caller's `Flow.Publisher<StreamEvent>` (ADR-005) as they arrive —
    or `Flow.Publisher<DeepResearchEvent>` for deep research: the publisher is generic over the event type
    (`SseStreamPublisher.forChat` / `forDeepResearch`).

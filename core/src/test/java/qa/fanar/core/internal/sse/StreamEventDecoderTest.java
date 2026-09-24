@@ -39,6 +39,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import qa.fanar.core.FanarAuthorizationException;
+import qa.fanar.core.FanarException;
+import qa.fanar.core.FanarInternalServerException;
+import qa.fanar.core.FanarUnexpectedServerException;
 
 class StreamEventDecoderTest {
 
@@ -274,12 +278,26 @@ class StreamEventDecoderTest {
     void deepResearchFallsBackToTokenChunk() {
         TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar-Sadiq-2", List.of(new ChoiceToken(0, null, "draft")));
         assertSame(expected, StreamEventDecoder.forDeepResearch(
-                new FakeCodec(Map.of("choices", List.of(Map.of("finish_reason", "stop"))), expected))
-                .decode(new SseFrame("{}")));
+                new FakeCodec(Map.of("choices", List.of(Map.of("index", 0))), expected))
+                .decode(new SseFrame("{}")), "a choice without a finish reason is a delta");
         assertSame(expected, StreamEventDecoder.forDeepResearch(
                 new FakeCodec(Map.of("choices", List.of()), expected)).decode(new SseFrame("{}")));
         assertSame(expected, StreamEventDecoder.forDeepResearch(
                 new FakeCodec(Map.of(), expected)).decode(new SseFrame("{}")));
+    }
+
+    @Test
+    void deepResearchRoutesAFinishedChoiceToDoneChunkEvenWithoutMetadataOrUsage() {
+        // The run's terminal frame is the terminal event even when the server sends neither
+        // usage (often absent, per the spec) nor metadata — chat's classifier is unchanged.
+        DoneChunk expected = new DoneChunk("c_1", 0L, "Fanar-Sadiq-2", List.of(), null, null);
+        assertSame(expected, StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of("choices", List.of(Map.of("finish_reason", "stop"))), expected))
+                .decode(new SseFrame("{}")));
+        TokenChunk token = new TokenChunk("c_1", 0L, "Fanar", List.of());
+        assertSame(token, StreamEventDecoder.forChat(
+                new FakeCodec(Map.of("choices", List.of(Map.of("finish_reason", "stop"))), token))
+                .decode(new SseFrame("{}")), "chat still treats a stop frame without usage as a token");
     }
 
     @Test
@@ -349,5 +367,61 @@ class StreamEventDecoderTest {
         String arabic = "{\"ar\":\"مرحبا\"}"; // ensures multi-byte UTF-8 flows correctly
         new ByteArrayInputStream(arabic.getBytes(StandardCharsets.UTF_8)).close();
         assertInstanceOf(TokenChunk.class, decoder.decode(new SseFrame(arabic)));
+    }
+
+    // --- in-stream error envelopes and codec failures (ADR-031)
+
+    @Test
+    void aFrameWithATopLevelErrorObjectIsThrownAsTheTypedExceptionOnBothClassifiers() {
+        String frame = "{\"id\":\"c\",\"created\":2,\"model\":\"m\","
+                + "\"error\":{\"code\":\"internal_server_error\",\"message\":\"the run blew up\"}}";
+        Map<String, Object> shape = Map.of("error", Map.of("code", "internal_server_error"));
+        FanarInternalServerException research = assertThrows(FanarInternalServerException.class,
+                () -> StreamEventDecoder.forDeepResearch(new FakeCodec(shape, null)).decode(new SseFrame(frame)));
+        assertEquals("the run blew up", research.getMessage());
+        assertThrows(FanarInternalServerException.class,
+                () -> StreamEventDecoder.forChat(new FakeCodec(shape, null)).decode(new SseFrame(frame)));
+    }
+
+    @Test
+    void aTopLevelErrorOfAnyTypeIsAnError() {
+        // The samples check `"error" in chunk`; a string value must not fall through to TokenChunk.
+        FanarException ex = assertThrows(FanarException.class, () -> StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of("error", "quota exhausted"), null)).decode(new SseFrame("{\"error\":\"quota exhausted\"}")));
+        assertInstanceOf(FanarUnexpectedServerException.class, ex);
+        assertTrue(ex.getMessage().contains("quota exhausted"), ex.getMessage());
+    }
+
+    @Test
+    void aNullErrorMemberIsNotAnError() {
+        TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar", List.of());
+        Map<String, Object> shape = new java.util.HashMap<>();
+        shape.put("error", null);
+        assertSame(expected, StreamEventDecoder.forDeepResearch(new FakeCodec(shape, expected)).decode(new SseFrame("{\"error\":null}")));
+    }
+
+    @Test
+    void aCodecRuntimeFailureSurfacesAsTransportExceptionWithTheCause() {
+        // A flattening deserializer's own requireNonNull escapes Jackson's wrapping as a raw NPE.
+        NullPointerException npe = new NullPointerException("message");
+        FanarJsonCodec codec = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) { throw npe; }
+            public void encode(OutputStream s, Object v) { /* unused */ }
+        };
+        FanarTransportException ex = assertThrows(FanarTransportException.class,
+                () -> StreamEventDecoder.forChat(codec).decode(new SseFrame("{}")));
+        assertSame(npe, ex.getCause());
+        assertTrue(ex.getMessage().startsWith("Failed to parse SSE payload"), ex.getMessage());
+    }
+
+    @Test
+    void aTypedExceptionFromTheCodecPassesThroughUnwrapped() {
+        FanarAuthorizationException typed = new FanarAuthorizationException("nope");
+        FanarJsonCodec codec = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) { throw typed; }
+            public void encode(OutputStream s, Object v) { /* unused */ }
+        };
+        assertSame(typed, assertThrows(FanarAuthorizationException.class,
+                () -> StreamEventDecoder.forDeepResearch(codec).decode(new SseFrame("{}"))));
     }
 }

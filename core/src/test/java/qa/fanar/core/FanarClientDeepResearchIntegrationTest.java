@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import qa.fanar.core.FanarInternalServerException;
 
 /**
  * Deep research through the <em>public</em> API: {@code FanarClient.builder()} →
@@ -82,6 +83,19 @@ class FanarClientDeepResearchIntegrationTest {
 
     private static final String ERROR_RUN = "data: {\"id\":\"c\",\"created\":1,\"model\":null,\"progress\":{\"message\":{\"en\":\"Analyzing\",\"ar\":\"تحليل\"}}}\n\n"
             + "data: {\"id\":\"c\",\"created\":2,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"quota exhausted\"},\"finish_reason\":\"error\"}]}\n\n"
+            + "data: [DONE]\n\n";
+
+    /** The example's report frame, then the run fails: the server's own error envelope. */
+    private static final String FAILED_RUN = "data: {\"id\":\"c\",\"created\":1,\"model\":null,\"progress\":{\"message\":{\"en\":\"Analyzing\",\"ar\":\"تحليل\"}}}\n\n"
+            + "data: {\"id\":\"c\",\"created\":2,\"model\":\"Fanar-Sadiq-2\",\"error\":{\"code\":\"internal_server_error\",\"message\":\"the run blew up\",\"status\":500}}\n\n"
+            + "data: [DONE]\n\n";
+
+    private static final String REPORT_FRAME = "data: {\"id\":\"c\",\"created\":3,\"model\":\"Fanar-Sadiq-2\","
+            + "\"report\":{\"title\":\"أهمية طلب العلم في الإسلام\",\"sections\":[],\"sources\":[]}}\n\n";
+
+    /** A terminal frame the server sends with neither usage nor metadata. */
+    private static final String BARE_TERMINAL_RUN = REPORT_FRAME
+            + "data: {\"id\":\"c\",\"created\":4,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"references\":null},\"finish_reason\":\"stop\"}]}\n\n"
             + "data: [DONE]\n\n";
 
     private static final String REPORTLESS_RUN = "data: {\"id\":\"c\",\"created\":1,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"draft\"},\"finish_reason\":null}]}\n\n"
@@ -336,7 +350,9 @@ class FanarClientDeepResearchIntegrationTest {
                             null, null, field(json, "title"), null, null, null, null, null, null)));
                 }
                 if (type == DoneChunk.class) {
-                    return type.cast(new DoneChunk(id, 0L, model, List.of(), null, Map.of("depth", field(json, "depth"))));
+                    String depth = field(json, "depth");
+                    return type.cast(new DoneChunk(id, 0L, model, List.of(), null,
+                            depth == null ? Map.of() : Map.of("depth", depth)));
                 }
                 if (type == ErrorChunk.class) {
                     return type.cast(new ErrorChunk(id, 0L, model, List.of(new ChoiceError(0, null, field(json, "content")))));
@@ -373,8 +389,14 @@ class FanarClientDeepResearchIntegrationTest {
                 if (json.contains("\"metadata\"")) {
                     return Map.of("metadata", Map.of());
                 }
+                if (json.contains("\"error\":{")) {
+                    return Map.of("error", Map.of());
+                }
                 if (json.contains("\"finish_reason\":\"error\"")) {
                     return Map.of("choices", List.of(Map.of("finish_reason", "error")));
+                }
+                if (json.contains("\"finish_reason\":\"stop\"")) {
+                    return Map.of("choices", List.of(Map.of("finish_reason", "stop")));
                 }
                 return Map.of("choices", List.of(Map.of()));
             }
@@ -390,5 +412,70 @@ class FanarClientDeepResearchIntegrationTest {
                 return json.substring(start, json.indexOf('"', start));
             }
         };
+    }
+
+    // --- the report is the result; in-stream errors are typed (ADR-031, round two)
+
+    @Test
+    void anInStreamErrorEnvelopeFailsTheStreamWithTheTypedException() throws Exception {
+        server.enqueue(Reply.sse(FAILED_RUN));
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+
+        try (FanarClient client = client(RetryPolicy.disabled())) {
+            client.sadiq().deepResearchStream(probe()).subscribe(sub);
+            Throwable failure = sub.awaitError(Duration.ofSeconds(10));
+            FanarInternalServerException typed = assertInstanceOf(FanarInternalServerException.class, failure,
+                    "the server's envelope routes by code, as on the HTTP path");
+            assertEquals("the run blew up", typed.getMessage());
+            assertEquals(1, sub.items().size(), "the progress event before the failure was delivered");
+        }
+        assertEquals(1, server.hits());
+    }
+
+    @Test
+    void anInStreamErrorEnvelopeFailsTheBlockingCallWithTheTypedException() {
+        server.enqueue(Reply.sse(FAILED_RUN));
+        try (FanarClient client = client(RetryPolicy.disabled())) {
+            FanarInternalServerException ex = assertThrows(FanarInternalServerException.class,
+                    () -> client.sadiq().deepResearch(probe()));
+            assertEquals("the run blew up", ex.getMessage());
+        }
+        assertEquals(1, server.hits());
+    }
+
+    @Test
+    void deepResearchReturnsTheReportWhenTheConnectionDropsAfterIt() {
+        // The report is the result: a connection lost between the report and the terminal frame
+        // does not cost the caller the run (the publisher records it on the observation).
+        server.enqueue(Reply.sse(REPORT_FRAME).thenDropConnection());
+        try (FanarClient client = client(RetryPolicy.disabled())) {
+            assertEquals("أهمية طلب العلم في الإسلام", client.sadiq().deepResearch(probe()).title());
+        }
+        assertEquals(1, server.hits());
+    }
+
+    @Test
+    void deepResearchReturnsTheReportWhenAnErrorEventFollowsIt() {
+        server.enqueue(Reply.sse(REPORT_FRAME
+                + "data: {\"id\":\"c\",\"created\":4,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"post-report failure\"},\"finish_reason\":\"error\"}]}\n\n"
+                + "data: [DONE]\n\n"));
+        try (FanarClient client = client(RetryPolicy.disabled())) {
+            assertEquals("أهمية طلب العلم في الإسلام", client.sadiq().deepResearch(probe()).title());
+        }
+        assertEquals(1, server.hits());
+    }
+
+    @Test
+    void aTerminalFrameWithoutMetadataOrUsageIsStillTheDoneChunk() throws Exception {
+        server.enqueue(Reply.sse(BARE_TERMINAL_RUN));
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+
+        try (FanarClient client = client(RetryPolicy.disabled())) {
+            client.sadiq().deepResearchStream(probe()).subscribe(sub);
+            List<DeepResearchEvent> events = sub.awaitCompletion(Duration.ofSeconds(10));
+            assertEquals(List.of(ReportChunk.class, DoneChunk.class), events.stream().map(Object::getClass).toList());
+            assertTrue(((DoneChunk) events.get(1)).metadata().isEmpty());
+        }
+        assertEquals(1, server.hits());
     }
 }

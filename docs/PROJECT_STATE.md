@@ -75,8 +75,9 @@ the stream is what lets the client's `requestTimeout` bound the admission rather
 whatever the client's policy — the endpoint's twenty daily units are consumed on admission, so
 `SadiqClientImpl` builds that chain with `RetryPolicy.disabled()`. `DeepResearchEvent` is its own sealed union
 over four of the chat records plus `ReportChunk`, so `StreamEvent` and every chat `switch` — the Spring AI and
-ADK adapters included — are untouched; the one visible change to chat is `ProgressChunk.model` becoming
-nullable, which the spec's own example requires. The endpoint is gated for our key (the `sadiq_deep_research`
+ADK adapters included — are untouched; the visible changes to chat are `model` becoming nullable on every
+chunk record (the spec's own example requires it), an error envelope inside a stream surfacing as its
+typed exception instead of a decode failure, and codec failures during decoding always typed. The endpoint is gated for our key (the `sadiq_deep_research`
 flag): the gate was observed 2026-09-24 — 403 `invalid_authorization`, rejected before admission, as the spec
 declares — and nothing about a run has been, so every wire claim about the run is the spec's, marked as such in
 the [ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and

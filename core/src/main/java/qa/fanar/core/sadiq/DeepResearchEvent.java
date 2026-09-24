@@ -36,6 +36,9 @@ public sealed interface DeepResearchEvent
     /** Server-side creation timestamp, Unix seconds. */
     long created();
 
-    /** Wire-format model id the server used; {@code null} on events the server sends without one. */
+    /**
+     * Wire-format model id the server used, or {@code null} when the server omitted it — on any
+     * of the five event kinds; an informational field never fails a minutes-long run at decode.
+     */
     String model();
 }

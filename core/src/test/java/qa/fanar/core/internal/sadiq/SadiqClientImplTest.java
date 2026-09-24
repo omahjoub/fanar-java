@@ -20,6 +20,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -59,10 +60,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import qa.fanar.core.FanarInternalServerException;
 
 class SadiqClientImplTest {
 
     private static final URI BASE = URI.create("https://api.example.com");
+
+    /** Set by the worker of {@link #interruptingDeepResearchCancelsTheRunAndClosesTheBody}. */
+    private final AtomicBoolean interrupted = new AtomicBoolean();
 
     @Test
     void validateHappyPathReturnsDecodedResponse() {
@@ -330,7 +335,7 @@ class SadiqClientImplTest {
     @Test
     void deepResearchFailsOnAnErrorChunkWithItsDetail() {
         HttpTransport transport = req -> httpResponse(200,
-                "data: {\"progress\":1}\n\ndata: {\"error\":1}\n\ndata: [DONE]\n\n", Map.of());
+                "data: {\"progress\":1}\n\ndata: {\"errchunk\":1}\n\ndata: [DONE]\n\n", Map.of());
         SadiqClientImpl client = build(transport, researchCodec(), List.of());
         FanarTransportException ex = assertThrows(FanarTransportException.class,
                 () -> client.deepResearch(researchRequest()));
@@ -340,7 +345,7 @@ class SadiqClientImplTest {
     @Test
     void deepResearchFailsOnAnErrorChunkWithoutDetail() {
         HttpTransport transport = req -> httpResponse(200,
-                "data: {\"error\":1,\"nodetail\":1}\n\ndata: [DONE]\n\n", Map.of());
+                "data: {\"errchunk\":1,\"nodetail\":1}\n\ndata: [DONE]\n\n", Map.of());
         SadiqClientImpl client = build(transport, researchCodec(), List.of());
         FanarTransportException ex = assertThrows(FanarTransportException.class,
                 () -> client.deepResearch(researchRequest()));
@@ -413,8 +418,6 @@ class SadiqClientImplTest {
         assertTrue(interrupted.get(), "the interrupt flag is preserved");
         assertTrue(body.closed.await(5, TimeUnit.SECONDS), "cancelling the subscription closes the body");
     }
-
-    private final java.util.concurrent.atomic.AtomicBoolean interrupted = new java.util.concurrent.atomic.AtomicBoolean();
 
     @Test
     void deepResearchAsyncCompletesWithTheReport() throws Exception {
@@ -634,8 +637,11 @@ class SadiqClientImplTest {
         if (json.contains("\"metadata\"")) {
             return Map.of("metadata", Map.of());
         }
-        if (json.contains("\"error\"")) {
+        if (json.contains("\"errchunk\"")) {
             return Map.of("choices", List.of(Map.of("finish_reason", "error")));
+        }
+        if (json.contains("\"error\"")) {
+            return Map.of("error", Map.of());
         }
         return Map.of("choices", List.of(Map.of()));
     }
@@ -724,5 +730,68 @@ class SadiqClientImplTest {
         });
         assertTrue(done.await(1, TimeUnit.SECONDS), "request body publisher must complete");
         return new String(buf.get(), StandardCharsets.UTF_8);
+    }
+
+    // --- the report is the result (ADR-031): report first, failures only without one
+
+    @Test
+    void deepResearchReturnsTheReportWhenTheStreamFailsAfterIt() {
+        InputStream reportThenReset = new java.io.SequenceInputStream(
+                new ByteArrayInputStream("data: {\"report\":1}\n\n".getBytes(StandardCharsets.UTF_8)),
+                new InputStream() {
+                    public int read() throws IOException { throw new IOException("connection reset"); }
+                });
+        HttpTransport transport = req -> httpResponse(200, reportThenReset, Map.of());
+        assertEquals("Title", build(transport, researchCodec(), List.of()).deepResearch(researchRequest()).title());
+    }
+
+    @Test
+    void deepResearchReturnsTheReportWhenAnErrorEventFollowsIt() {
+        HttpTransport transport = req -> httpResponse(200,
+                "data: {\"report\":1}\n\ndata: {\"errchunk\":1}\n\ndata: [DONE]\n\n", Map.of());
+        assertEquals("Title", build(transport, researchCodec(), List.of()).deepResearch(researchRequest()).title());
+    }
+
+    @Test
+    void deepResearchReturnsTheReportWhenAnErrorEventPrecedesIt() {
+        HttpTransport transport = req -> httpResponse(200,
+                "data: {\"errchunk\":1}\n\ndata: {\"report\":1}\n\ndata: [DONE]\n\n", Map.of());
+        assertEquals("Title", build(transport, researchCodec(), List.of()).deepResearch(researchRequest()).title());
+    }
+
+    @Test
+    void anInStreamErrorEnvelopeFailsTheBlockingCallWithTheTypedException() {
+        HttpTransport transport = req -> httpResponse(200,
+                "data: {\"progress\":1}\n\n"
+                + "data: {\"id\":\"c\",\"error\":{\"code\":\"internal_server_error\",\"message\":\"the run blew up\"}}\n\n"
+                + "data: [DONE]\n\n", Map.of());
+        SadiqClientImpl client = build(transport, researchCodec(), List.of());
+        FanarInternalServerException ex = assertThrows(FanarInternalServerException.class,
+                () -> client.deepResearch(researchRequest()));
+        assertEquals("the run blew up", ex.getMessage());
+    }
+
+    @Test
+    void anInStreamErrorEnvelopeReachesTheStreamSubscriberAsOnErrorWithTheTypedException() throws Exception {
+        HttpTransport transport = req -> httpResponse(200,
+                "data: {\"id\":\"c\",\"error\":{\"code\":\"overloaded\",\"message\":\"busy\"}}\n\n", Map.of());
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+        build(transport, researchCodec(), List.of()).deepResearchStream(researchRequest()).subscribe(sub);
+        assertInstanceOf(FanarOverloadedException.class, sub.awaitError(Duration.ofSeconds(5)));
+    }
+
+    @Test
+    void deepResearchInvokesUserInterceptorsInOrderOnItsOwnChain() {
+        AtomicInteger counter = new AtomicInteger();
+        AtomicInteger firstSeenAt = new AtomicInteger(-1);
+        AtomicInteger secondSeenAt = new AtomicInteger(-1);
+        Interceptor first = (req, ch) -> { firstSeenAt.set(counter.incrementAndGet()); return ch.proceed(req); };
+        Interceptor second = (req, ch) -> { secondSeenAt.set(counter.incrementAndGet()); return ch.proceed(req); };
+        HttpTransport transport = req -> httpResponse(200, RUN, Map.of());
+
+        build(transport, researchCodec(), List.of(first, second)).deepResearch(researchRequest());
+
+        assertEquals(1, firstSeenAt.get());
+        assertEquals(2, secondSeenAt.get());
     }
 }

@@ -38,6 +38,10 @@ public sealed interface StreamEvent
     /** Server-side creation timestamp, Unix seconds. */
     long created();
 
-    /** Wire-format model id the server used; {@code null} only on a {@link ProgressChunk} the server sends without one. */
+    /**
+     * Wire-format model id the server used, or {@code null} when the server omitted it — an
+     * informational field never fails decoding (the spec's own deep-research example sends its
+     * first progress event with {@code "model": null}).
+     */
     String model();
 }

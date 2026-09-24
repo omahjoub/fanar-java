@@ -72,9 +72,22 @@ test, never the implementation.
    `metadata` rule, and knows no tool shapes. This is the one place a sealed union's variants live in
    two packages — ADR-011's "same subpackage" convention is corrected in place to say so — because the
    wire really is shared and the types should say so rather than duplicate four records.
-   `ProgressChunk.model` becomes nullable (the spec's example), `StreamEvent.model()` and
-   `DeepResearchEvent.model()` document it, and `DoneChunk.metadata` — like the report's — is copied
-   with a null-tolerant copy, since a run summary may carry null values.
+   `model` becomes nullable on every chunk record — the spec's example sends the first progress event
+   without one, and an informational field must not fail a minutes-long run at decode — with
+   `StreamEvent.model()` and `DeepResearchEvent.model()` documenting it, and `DoneChunk.metadata` —
+   like the report's — is copied with a null-tolerant copy, since a run summary may carry null
+   values. Two more rules of the research classifier: a first choice whose `finish_reason` is set to
+   anything but `error` is the terminal `DoneChunk`, so the run's terminal frame is the terminal
+   event even when it carries neither `usage` (often absent there, per the spec) nor `metadata` —
+   chat keeps its rule, since its stop frames carry content and its terminal chunk carries `usage`
+   — and, before any classifier runs, a frame whose top-level `error` is set is not an event but the
+   server reporting a run it abandoned after admission (the shape the endpoint's own samples check,
+   `"error" in chunk`): the decoder routes it like an HTTP error envelope, by code, then by the
+   status the envelope names, else as an unexpected server failure carrying the raw frame, and
+   throws the typed `FanarException` for the subscriber's `onError` (ADR-006). Chat's stream gets the
+   same routing; before it, such a frame surfaced as a decode failure that lost the message. A
+   codec's runtime failure during decoding is wrapped as `FanarTransportException`; a typed
+   exception a codec throws passes through.
 
 4. **One wire path: always the stream. The blocking variants collect from it.** Every variant sends
    `"stream":true` and `Accept: text/event-stream`; `deepResearch()` subscribes a collector that keeps
@@ -86,13 +99,20 @@ test, never the implementation.
    (ADR-027's worst case becomes `3 × 30 min`). And one path means one decoder, one seam test, one
    observation shape. The JSON mode (`stream:false`) is therefore not exposed; it is the same report
    with worse failure semantics, and exposing it is additive if a consumer ever asks.
-   Failure semantics of the blocking variants: an in-band `ErrorChunk` and a stream that ends without
-   a report both fail with a `FanarTransportException` naming the cause — the precedent `Streams` set
-   for stream-level failures — a transport or decode failure is rethrown as the exception the stream
-   produced, and a checked failure is wrapped. Interrupting the waiting thread cancels the subscription,
-   which closes the response body and so the connection; cancelling the future from `deepResearchAsync`
-   interrupts its worker and does the same. Whether the server refunds an abandoned admission is a
-   ledger question.
+   Failure semantics of the blocking variants — a received report is the result. Once the
+   `ReportChunk` has arrived, `deepResearch()` returns its report whatever the stream does before or
+   after it: a dropped connection, a bad terminal frame, an error event. The report is what the spec
+   says to render and the terminal chunk carries only run metadata, so failing the call there would
+   discard a unit of the day's quota the caller already has in hand. A transport failure after the
+   report is recorded on the call's observation by the publisher; an error event after it is not
+   recorded anywhere in this variant (the stream variant delivers both). Failures surface only when
+   no report arrived: an in-stream error envelope as its typed exception, and an `ErrorChunk`, a
+   stream that ends without a report, a transport or decode failure or an interrupt as
+   `FanarTransportException` — the precedent `Streams` set — a runtime failure the stream produced
+   is rethrown as it is and a checked one is wrapped. Interrupting the waiting thread cancels the
+   subscription, which closes the response body and so the connection; cancelling the future from
+   `deepResearchAsync` interrupts its worker and does the same. Whether the server refunds an
+   abandoned admission is a ledger question.
 
 5. **Never retried, whatever the client's policy.** `SadiqClientImpl` builds the research chain with
    `RetryPolicy.disabled()`: the retry interceptor still sits in the chain as the error boundary
@@ -176,6 +196,10 @@ test, never the implementation.
 - Four shared records carry two `implements` clauses, and a sealed union's variants live in two
   packages, which ADR-011 must now explain.
 - `DeepResearchSource` may be wrong: nobody has seen a live report. The failure is loud, and pre-1.0.
+- On the research stream a terminal frame that also carried a last `delta.content` loses that delta
+  to the `DoneChunk` routing; the report is the result, so nothing a caller should render is lost.
+- The blocking variant's report-first rule means an error event that follows the report goes
+  unrecorded there; a caller who needs it subscribes to the stream.
 - The known-failing live set grows to 14 cases per run (`LiveDeepResearchTest`: 2 methods × 2 codecs),
   occasionally 15 with the Diwan verse-miss case, and a granted key would add 12–24 minutes to a full
   live run at `quick` depth — the ledger's budget table carries the derivation.
@@ -210,13 +234,30 @@ test, never the implementation.
   `.deepResearchReportWithNothingSetDecodesToEmptyCollections`, `.reportChunkDecodesIdenticallyAcrossAdapters`,
   `.progressChunkWithoutAModelDecodesIdenticallyAcrossAdapters` — Jackson 2 and Jackson 3 agree,
   including the recursive sections, the typed sources and a null metadata value.
+- `FanarClientDeepResearchIntegrationTest.anInStreamErrorEnvelopeFailsTheStreamWithTheTypedException`,
+  `.anInStreamErrorEnvelopeFailsTheBlockingCallWithTheTypedException`,
+  `.deepResearchReturnsTheReportWhenTheConnectionDropsAfterIt`, `.deepResearchReturnsTheReportWhenAnErrorEventFollowsIt`,
+  `.aTerminalFrameWithoutMetadataOrUsageIsStillTheDoneChunk` — the in-stream error shape, the
+  report-first rule and the terminal rule, through the public API.
+- `DeepResearchWireIntegrationTest` (`e2e`, `@Tag("integration")`, offline) — the spec's SSE example,
+  the in-stream error envelope and a bare terminal frame decoded end to end by the shipped Jackson 2
+  and Jackson 3 adapters through `FanarClient.builder()` against the scripted server:
+  `.theSpecExampleDecodesEndToEnd`, `.theBlockingVariantReturnsTheReport`, `.anInStreamErrorEnvelopeIsTyped`,
+  `.aBareTerminalFrameIsTheDoneChunk`. Core's seam test decodes with a hand-rolled codec (core has no
+  Jackson on its test classpath); this is where the classifier meets the real deserializers.
 - `LiveDeepResearchTest.deepResearchStream_deliversProgressThenTheReport`, `.deepResearch_returnsTheReport`
   — against Fanar; gated, failing loudly until the key carries the flag.
 - `Main.selfTest()` in `e2e-graalvm` — decode and encode probes for every new record under native image.
-- Units: `SadiqClientImplTest` (the collector's every exit: report, no report, error chunk with and
-  without detail, rethrown runtime failure, rethrown `Error`, wrapped checked failure, interrupt,
-  async cancellation, the never-retried chain, observation names), `StreamEventDecoderTest` (the
-  research classifier and the chat classifier's unchanged fall-through), `SseStreamPublisherTest`,
+- Units: `SadiqClientImplTest` (the collector's every exit: report, report then a failure or an
+  error event, no report, error chunk with and without detail, the typed in-stream error, rethrown
+  runtime failure, rethrown `Error`, wrapped checked failure, interrupt, async cancellation, the
+  never-retried chain, user interceptors on the research chain, observation names),
+  `StreamEventDecoderTest` (the research classifier including the terminal rule, the in-stream
+  error on both classifiers, codec failures wrapped and typed exceptions passed through, the chat
+  classifier's unchanged fall-through), `ExceptionMapperTest` and `ErrorEnvelopeTest` (the
+  header-less envelope routing and the envelope's `status`), `DefaultHttpTransportTest` (a response
+  that lands as the wait expires is closed; runtime and `Error` causes rethrown raw),
+  `SseStreamPublisherTest`,
   `DeepResearchEventTest`, `StreamEventTest` (nullable progress model, null-tolerant metadata), and
   the record tests in `qa.fanar.core.sadiq`.
 

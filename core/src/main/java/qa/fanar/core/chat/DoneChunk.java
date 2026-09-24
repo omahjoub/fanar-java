@@ -20,7 +20,7 @@ import qa.fanar.core.sadiq.DeepResearchEvent;
  *
  * @param id       completion id; must not be {@code null}
  * @param created  server-side timestamp
- * @param model    wire-format model id; must not be {@code null}
+ * @param model    wire-format model id; may be {@code null} when the server omits it
  * @param choices  final choice records carrying accumulated references; defensively copied
  * @param usage    token-usage summary; may be {@code null}
  * @param metadata opaque Fanar-specific metadata; never {@code null}, may be empty, and its
@@ -39,7 +39,6 @@ public record DoneChunk(
 
     public DoneChunk {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(model, "model");
         Objects.requireNonNull(choices, "choices");
         choices = List.copyOf(choices);
         // Not Map.copyOf: the server's summary may carry null values, which that copy rejects.

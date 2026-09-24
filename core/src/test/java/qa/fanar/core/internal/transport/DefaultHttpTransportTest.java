@@ -30,6 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 class DefaultHttpTransportTest {
 
@@ -169,7 +173,10 @@ class DefaultHttpTransportTest {
     @Test
     void rejectsNullHttpClient() {
         assertThrows(NullPointerException.class,
-                () -> new DefaultHttpTransport(null, Duration.ofSeconds(1)));
+                () -> new DefaultHttpTransport((HttpClient) null, Duration.ofSeconds(1)));
+        assertThrows(NullPointerException.class,
+                () -> new DefaultHttpTransport((Function<HttpRequest, CompletableFuture<HttpResponse<InputStream>>>) null,
+                        Duration.ofSeconds(1)));
     }
 
     @Test
@@ -199,5 +206,109 @@ class DefaultHttpTransportTest {
         try (ServerSocket s = new ServerSocket(0, 0, InetAddress.getLoopbackAddress())) {
             return s.getLocalPort();
         }
+    }
+
+    // --- the exchange seam: outcomes and timing scripted without a server
+
+    @Test
+    void aResponseThatLandsAsTheWaitExpiresIsClosedNotLeaked() throws Exception {
+        // The race: get(timeout) has thrown, and the headers arrive before cancel(true) runs — the
+        // future is complete, cancel returns false, and the response nobody will return must
+        // release its connection.
+        CountDownLatch closed = new CountDownLatch(1);
+        InputStream body = new InputStream() {
+            public int read() { return -1; }
+            public void close() { closed.countDown(); }
+        };
+        CompletableFuture<HttpResponse<InputStream>> raced = new CompletableFuture<>() {
+            @Override
+            public HttpResponse<InputStream> get(long timeout, TimeUnit unit) throws TimeoutException {
+                complete(response(body));   // headers land while the caller is timing out
+                throw new TimeoutException();
+            }
+        };
+        DefaultHttpTransport transport = new DefaultHttpTransport(request -> raced, Duration.ofMillis(10));
+
+        FanarTransportException ex = assertThrows(FanarTransportException.class,
+                () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build()));
+        assertTrue(ex.getMessage().startsWith("HTTP request timed out"), ex.getMessage());
+        assertTrue(closed.await(1, TimeUnit.SECONDS), "the completed response's body must be closed");
+    }
+
+    @Test
+    void aCloseFailureWhileAbandoningIsSwallowed() {
+        InputStream body = new InputStream() {
+            public int read() { return -1; }
+            public void close() throws IOException { throw new IOException("already gone"); }
+        };
+        CompletableFuture<HttpResponse<InputStream>> raced = new CompletableFuture<>() {
+            @Override
+            public HttpResponse<InputStream> get(long timeout, TimeUnit unit) throws TimeoutException {
+                complete(response(body));
+                throw new TimeoutException();
+            }
+        };
+        DefaultHttpTransport transport = new DefaultHttpTransport(request -> raced, Duration.ofMillis(10));
+        assertThrows(FanarTransportException.class,
+                () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build()));
+    }
+
+    @Test
+    void anExchangeThatFailedAsTheWaitExpiresHasNothingToClose() {
+        CompletableFuture<HttpResponse<InputStream>> raced = new CompletableFuture<>() {
+            @Override
+            public HttpResponse<InputStream> get(long timeout, TimeUnit unit) throws TimeoutException {
+                completeExceptionally(new IOException("reset"));
+                throw new TimeoutException();
+            }
+        };
+        DefaultHttpTransport transport = new DefaultHttpTransport(request -> raced, Duration.ofMillis(10));
+        FanarTransportException ex = assertThrows(FanarTransportException.class,
+                () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build()));
+        assertTrue(ex.getMessage().startsWith("HTTP request timed out"), ex.getMessage());
+    }
+
+    @Test
+    void aRuntimeFailureOfTheExchangeIsRethrownRawLikeHttpClientSendDoes() {
+        // An IllegalArgumentException or SecurityException is a programming error, never a
+        // retryable transport failure; the JDK's blocking send rethrows them too.
+        IllegalArgumentException bad = new IllegalArgumentException("bad request shape");
+        DefaultHttpTransport transport = new DefaultHttpTransport(
+                request -> CompletableFuture.failedFuture(bad), null);
+        assertSame(bad, assertThrows(IllegalArgumentException.class,
+                () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build())));
+    }
+
+    @Test
+    void anErrorFailingTheExchangeIsRethrownRaw() {
+        AssertionError error = new AssertionError("boom");
+        DefaultHttpTransport transport = new DefaultHttpTransport(
+                request -> CompletableFuture.failedFuture(error), Duration.ofSeconds(1));
+        assertSame(error, assertThrows(AssertionError.class,
+                () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build())));
+    }
+
+    @Test
+    void aCheckedNonIoFailureOfTheExchangeIsWrapped() {
+        Exception checked = new Exception("odd");
+        DefaultHttpTransport transport = new DefaultHttpTransport(
+                request -> CompletableFuture.failedFuture(checked), Duration.ofSeconds(1));
+        FanarTransportException ex = assertThrows(FanarTransportException.class,
+                () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build()));
+        assertSame(checked, ex.getCause());
+        assertEquals("HTTP request failed: odd", ex.getMessage());
+    }
+
+    private static HttpResponse<InputStream> response(InputStream body) {
+        return new HttpResponse<>() {
+            public int statusCode() { return 200; }
+            public HttpRequest request() { return null; }
+            public java.util.Optional<HttpResponse<InputStream>> previousResponse() { return java.util.Optional.empty(); }
+            public java.net.http.HttpHeaders headers() { return java.net.http.HttpHeaders.of(java.util.Map.of(), (a, b) -> true); }
+            public InputStream body() { return body; }
+            public java.util.Optional<javax.net.ssl.SSLSession> sslSession() { return java.util.Optional.empty(); }
+            public URI uri() { return URI.create("http://t/"); }
+            public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
+        };
     }
 }

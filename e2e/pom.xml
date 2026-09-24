@@ -34,6 +34,15 @@
     <dependencies>
         <!-- The SDK and both codec adapters under live test. Test scope: this module has no
              src/main, so compile-vs-test scope is academic; declaring `test` documents intent. -->
+        <!-- The reactor's test fixture (ScriptedHttpServer, CollectingSubscriber): the offline
+             seam tests here are where both JSON adapters meet a real wire, which no other module
+             can host. JDK-only, never published. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-java-test-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>qa.fanar</groupId>
             <artifactId>fanar-core</artifactId>

@@ -29,8 +29,17 @@ class StreamEventTest {
     @Test
     void tokenChunkRejectsNulls() {
         assertThrows(NullPointerException.class, () -> new TokenChunk(null, 0, "m", List.of()));
-        assertThrows(NullPointerException.class, () -> new TokenChunk("id", 0, null, List.of()));
         assertThrows(NullPointerException.class, () -> new TokenChunk("id", 0, "m", null));
+    }
+
+    @Test
+    void everyChunkAcceptsANullModel() {
+        // Informational; a server that omits it must not fail a stream at decode (ADR-031).
+        assertNull(new TokenChunk("id", 0, null, List.of()).model());
+        assertNull(new DoneChunk("id", 0, null, List.of(), null, null).model());
+        assertNull(new ErrorChunk("id", 0, null, List.of()).model());
+        assertNull(new ToolCallChunk("id", 0, null, List.of()).model());
+        assertNull(new ToolResultChunk("id", 0, null, List.of()).model());
     }
 
     @Test
@@ -62,8 +71,6 @@ class StreamEventTest {
         assertThrows(NullPointerException.class, () ->
                 new ToolCallChunk(null, 0, "m", List.of()));
         assertThrows(NullPointerException.class, () ->
-                new ToolCallChunk("id", 0, null, List.of()));
-        assertThrows(NullPointerException.class, () ->
                 new ToolCallChunk("id", 0, "m", null));
     }
 
@@ -83,8 +90,6 @@ class StreamEventTest {
     void toolResultChunkRejectsNulls() {
         assertThrows(NullPointerException.class, () ->
                 new ToolResultChunk(null, 0, "m", List.of()));
-        assertThrows(NullPointerException.class, () ->
-                new ToolResultChunk("id", 0, null, List.of()));
         assertThrows(NullPointerException.class, () ->
                 new ToolResultChunk("id", 0, "m", null));
     }
@@ -137,7 +142,6 @@ class StreamEventTest {
     @Test
     void doneChunkRejectsNulls() {
         assertThrows(NullPointerException.class, () -> new DoneChunk(null, 0, "m", List.of(), null, null));
-        assertThrows(NullPointerException.class, () -> new DoneChunk("id", 0, null, List.of(), null, null));
         assertThrows(NullPointerException.class, () -> new DoneChunk("id", 0, "m", null, null, null));
     }
 
@@ -175,7 +179,6 @@ class StreamEventTest {
     @Test
     void errorChunkRejectsNulls() {
         assertThrows(NullPointerException.class, () -> new ErrorChunk(null, 0, "m", List.of()));
-        assertThrows(NullPointerException.class, () -> new ErrorChunk("id", 0, null, List.of()));
         assertThrows(NullPointerException.class, () -> new ErrorChunk("id", 0, "m", null));
     }
 

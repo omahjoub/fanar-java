@@ -59,10 +59,14 @@ public interface SadiqClient {
      * {@link ReportChunk}.
      *
      * <p>The client's request timeout bounds only the wait for the server to admit the run (its
-     * response headers); the run itself is not bounded. Interrupting the calling thread cancels
-     * the run and fails the call with a {@code FanarTransportException}, as does a stream that
-     * reports an error or ends without a report. Never retried, whatever the client's retry
-     * policy.</p>
+     * response headers); the run itself is not bounded. A received report is the result: once the
+     * server has sent it, a later failure of the stream — a dropped connection, an error event —
+     * does not fail the call (a transport failure is recorded on the call's observation; an error
+     * event after the report is not). Only when no report arrived does the call fail: with the
+     * typed {@code FanarException} of an in-stream error envelope, or with a
+     * {@code FanarTransportException} for an error event, a transport failure, a stream that ends
+     * without a report, or an interrupt of the calling thread (which also cancels the run). Never
+     * retried, whatever the client's retry policy.</p>
      *
      * @param request the topic, the model, and optionally the depth and web-search switch; must
      *                not be {@code null}
@@ -80,9 +84,11 @@ public interface SadiqClient {
     /**
      * Research a topic as a stream: a {@code ProgressChunk} as each research pass completes, the
      * draft as {@code TokenChunk}s, the finished report as a {@link ReportChunk}, then the
-     * terminal {@code DoneChunk} whose {@code metadata} summarises the run. Render the report,
-     * not the concatenated deltas. Errors mid-run arrive as an {@code ErrorChunk}; transport
-     * failures as {@code onError}.
+     * terminal {@code DoneChunk} — the frame that ends the run, whose {@code metadata} summarises
+     * it when the server sends any. Render the report, not the concatenated deltas. Errors mid-run
+     * arrive as an {@code ErrorChunk}, or — for a run the server abandons after admitting it — as
+     * {@code onError} with the typed {@code FanarException} of the error envelope it streams;
+     * transport failures as {@code onError} too.
      *
      * <p>The request is sent when this method returns — subscribe exactly once, and cancel the
      * subscription to abandon the run. Never retried, whatever the client's retry policy.</p>

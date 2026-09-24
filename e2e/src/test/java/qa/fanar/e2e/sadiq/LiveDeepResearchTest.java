@@ -69,9 +69,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>Each case carries {@code @Timeout(15 min)}: the module's JUnit backstop is 5 minutes
  * ({@code e2e/pom.xml}) and a QUICK run alone takes 3–6. The client's 60 s request timeout is no
  * obstacle — it bounds only the wait for the server to admit the run (its response headers), never
- * the run itself. The stream case drains the publisher with an inline subscriber and a latch
- * rather than {@code CollectingSubscriber}, because this module does not depend on the
- * {@code test-support} fixture.</p>
+ * the run itself. The stream case drains the publisher with an inline subscriber and a latch so
+ * that a mid-run failure fails the case with the real exception attached; the offline twin,
+ * {@code DeepResearchWireIntegrationTest}, is where the same events are proved with both codecs
+ * against a scripted server.</p>
  *
  * <p>Skipped when {@code FANAR_API_KEY} is not set.</p>
  */
