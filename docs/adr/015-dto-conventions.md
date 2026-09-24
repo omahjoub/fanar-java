@@ -33,6 +33,12 @@ Callers who want `Optional` semantics convert at the call site:
 Optional.ofNullable(response.someField())
 ```
 
+A response schema that declares no field required — the deep-research report and its recursive sections — is
+modelled the same way: nullable scalars, and collections that are never `null` (an absent list decodes to an empty
+one), so `{}` decodes to a usable record. A free-form object the spec marks `additionalProperties: true` is a
+`Map<String, Object>` — `DoneChunk.metadata` and `DeepResearchReport.metadata` — the only untyped values on a
+public DTO, because the spec itself declines to type them (ADR-031).
+
 ### Sealed interfaces + record variants for polymorphic unions
 
 Closed-set polymorphic types (Fanar has several: message roles, content parts, the SSE stream-event union) are modeled
@@ -81,8 +87,8 @@ Response DTOs do not need builders — they are returned fully constructed from 
   SDK release event.
 - **A domain owns a model value class only when its models are not chat models.** Where a domain's
   model enum names something `ChatModel` already covers, it reuses `ChatModel` rather than minting
-  a parallel type that would compare unequal to the identical constant. `TokenizationRequest` and
-  `SadiqValidationRequest` both take a `ChatModel` for that reason. The test is the wire value, not
+  a parallel type that would compare unequal to the identical constant. `TokenizationRequest`,
+  `SadiqValidationRequest` and `DeepResearchRequest` all take a `ChatModel` for that reason. The test is the wire value, not
   the spec's schema names: two schemas naming the same model id are one type here.
 - Semantic validation (model-specific constraints, Islamic-RAG rules, feature-gated flags) is Fanar's server's
   responsibility. We surface the server's rejection via the typed exception hierarchy (ADR-006).

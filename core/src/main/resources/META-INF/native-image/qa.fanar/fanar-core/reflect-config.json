@@ -738,6 +738,116 @@
     ]
   },
   {
+    "name": "qa.fanar.core.sadiq.DeepResearchEvent",
+    "queryAllDeclaredMethods": true
+  },
+  {
+    "name": "qa.fanar.core.sadiq.DeepResearchReport",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "java.util.List",
+          "java.util.List",
+          "java.util.Map",
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "qa.fanar.core.sadiq.DeepResearchRequest",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "depth",
+        "parameterTypes": []
+      },
+      {
+        "name": "input",
+        "parameterTypes": []
+      },
+      {
+        "name": "model",
+        "parameterTypes": []
+      },
+      {
+        "name": "webSearch",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "qa.fanar.core.sadiq.DeepResearchSection",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "java.util.List",
+          "java.util.List",
+          "java.lang.Boolean",
+          "java.util.List"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "qa.fanar.core.sadiq.DeepResearchSource",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.Boolean"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "qa.fanar.core.sadiq.ReportChunk",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "long",
+          "java.lang.String",
+          "qa.fanar.core.sadiq.DeepResearchReport"
+        ]
+      }
+    ]
+  },
+  {
     "name": "qa.fanar.core.sadiq.SadiqValidationRequest",
     "allDeclaredFields": true,
     "allRecordComponents": true,

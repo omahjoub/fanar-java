@@ -3,13 +3,14 @@
 Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI platform.
 
 > **Status:** pre-1.0. The core SDK and all nine Fanar domains (chat, audio, images, translations,
-> moderations, sadiq, tokens, models, poems) are implemented against the 2026-09 Fanar spec —
-> madhab-aware `Fanar-Sadiq-2`, Qur'an + hadith quotation validation, custom personas, streamed and
-> emotional TTS, the voice catalogue, culturally-aligned image prompt revision — with 100 % JaCoCo
-> coverage and a live test suite run against the real API. Every domain but `sadiq` is exercised
-> live; the validation endpoint is gated for our key, so its behaviour follows the spec rather than
-> an observation ([wire observations](docs/WIRE_OBSERVATIONS.md)). Spring Boot 4 and Spring AI 2.0
-> starters ship with a sample app each.
+> moderations, sadiq, tokens, models, poems) are implemented against the 2026-09-23 Fanar spec —
+> madhab-aware `Fanar-Sadiq-2`, Qur'an + hadith quotation validation, minutes-long deep research
+> streamed as a cited report, custom personas, streamed and emotional TTS, the voice catalogue,
+> culturally-aligned image prompt revision — with 100 % JaCoCo coverage and a live test suite run
+> against the real API. Every domain but `sadiq` is exercised live; both of its operations — the
+> validation endpoint and, since the 2026-09-23 spec, deep research — are gated for our key, so their
+> behaviour follows the spec rather than an observation ([wire observations](docs/WIRE_OBSERVATIONS.md)).
+> Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
 > Requires **Java 21+**. Not yet on Maven Central — install via `./mvnw install` for now.
 
 ## Why this SDK?

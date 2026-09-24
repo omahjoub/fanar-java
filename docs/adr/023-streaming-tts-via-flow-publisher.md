@@ -19,7 +19,9 @@ Constraints already in place:
   it eagerly. Streaming is therefore a new consumption surface, not transport work.
 - Chat deliberately does not model the wire field `stream` on `ChatRequest` — the call-site
   method (`send` vs `stream`) decides, and the transport splices `"stream":true` into the
-  serialized body. `TextToSpeechRequest` mirrors that posture.
+  serialized body. `TextToSpeechRequest` mirrors that posture, and so does `DeepResearchRequest`,
+  which goes one step further: every deep-research variant splices `"stream":true`, because the
+  blocking one collects its report from the same stream (ADR-031).
 - Spring AI's `TextToSpeechModel` extends `StreamingTextToSpeechModel`; before this ADR our
   adapter faked `stream(...)` by wrapping the one-shot result in a single-element `Flux`.
 

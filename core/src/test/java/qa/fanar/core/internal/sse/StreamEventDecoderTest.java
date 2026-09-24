@@ -28,6 +28,9 @@ import qa.fanar.core.chat.ToolCallChunk;
 import qa.fanar.core.chat.ToolCallData;
 import qa.fanar.core.chat.ToolResultChunk;
 import qa.fanar.core.chat.ToolResultData;
+import qa.fanar.core.sadiq.DeepResearchEvent;
+import qa.fanar.core.sadiq.DeepResearchReport;
+import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.spi.FanarJsonCodec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,14 +44,14 @@ class StreamEventDecoderTest {
 
     @Test
     void blankDataReturnsNull() {
-        StreamEventDecoder decoder = new StreamEventDecoder(neverCalled());
+        StreamEventDecoder<StreamEvent> decoder = StreamEventDecoder.forChat(neverCalled());
         assertNull(decoder.decode(new SseFrame("")));
         assertNull(decoder.decode(new SseFrame("   \n  ")));
     }
 
     @Test
     void doneSentinelReturnsNull() {
-        StreamEventDecoder decoder = new StreamEventDecoder(neverCalled());
+        StreamEventDecoder<StreamEvent> decoder = StreamEventDecoder.forChat(neverCalled());
         assertNull(decoder.decode(new SseFrame("[DONE]")));
         assertNull(decoder.decode(new SseFrame("  [DONE]  ")));
     }
@@ -61,7 +64,7 @@ class StreamEventDecoderTest {
                 Map.of("id", "c_1", "progress", Map.of("message", Map.of("en", "searching", "ar", "البحث"))),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"progress\":{}}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"progress\":{}}"));
         assertSame(expected, event);
         assertInstanceOf(ProgressChunk.class, event);
     }
@@ -75,7 +78,7 @@ class StreamEventDecoderTest {
                 Map.of("usage", Map.of("total_tokens", 10), "choices", List.of()),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"usage\":{}}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"usage\":{}}"));
         assertInstanceOf(DoneChunk.class, event);
     }
 
@@ -88,7 +91,7 @@ class StreamEventDecoderTest {
                 Map.of("metadata", Map.of("trace", "abc"), "choices", List.of()),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"metadata\":{}}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"metadata\":{}}"));
         assertInstanceOf(DoneChunk.class, event);
     }
 
@@ -102,7 +105,7 @@ class StreamEventDecoderTest {
                                 "delta", Map.of("content", "something went wrong")))),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[...]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[...]}"));
         assertInstanceOf(ErrorChunk.class, event);
     }
 
@@ -116,7 +119,7 @@ class StreamEventDecoderTest {
                         Map.of("delta", Map.of("tool_calls", List.of(Map.of("id", "t_1")))))),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[...]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[...]}"));
         assertInstanceOf(ToolCallChunk.class, event);
     }
 
@@ -130,7 +133,7 @@ class StreamEventDecoderTest {
                         Map.of("delta", Map.of("tool_result", Map.of("id", "t_1"))))),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[...]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[...]}"));
         assertInstanceOf(ToolResultChunk.class, event);
     }
 
@@ -142,7 +145,7 @@ class StreamEventDecoderTest {
                 Map.of("choices", List.of(Map.of("delta", Map.of("content", "hello")))),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[...]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[...]}"));
         assertInstanceOf(TokenChunk.class, event);
     }
 
@@ -151,7 +154,7 @@ class StreamEventDecoderTest {
         TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar", List.of());
         FakeCodec codec = new FakeCodec(Map.of("choices", List.of()), expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[]}"));
         assertInstanceOf(TokenChunk.class, event);
     }
 
@@ -160,7 +163,7 @@ class StreamEventDecoderTest {
         TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar", List.of());
         FakeCodec codec = new FakeCodec(Map.of("id", "c_1"), expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"id\":\"c_1\"}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"id\":\"c_1\"}"));
         assertInstanceOf(TokenChunk.class, event);
     }
 
@@ -169,7 +172,7 @@ class StreamEventDecoderTest {
         TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar", List.of());
         FakeCodec codec = new FakeCodec(Map.of("choices", List.of("not-an-object")), expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[\"x\"]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[\"x\"]}"));
         assertInstanceOf(TokenChunk.class, event);
     }
 
@@ -182,7 +185,7 @@ class StreamEventDecoderTest {
                 Map.of("choices", List.of(Map.of("delta", "not-an-object"))),
                 expected);
 
-        StreamEvent event = new StreamEventDecoder(codec).decode(new SseFrame("{\"choices\":[...]}"));
+        StreamEvent event = StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"choices\":[...]}"));
         assertInstanceOf(TokenChunk.class, event);
     }
 
@@ -193,7 +196,7 @@ class StreamEventDecoderTest {
             public void encode(OutputStream s, Object v) { /* unused */ }
         };
         FanarTransportException ex = assertThrows(FanarTransportException.class,
-                () -> new StreamEventDecoder(throwing).decode(new SseFrame("garbage")));
+                () -> StreamEventDecoder.forChat(throwing).decode(new SseFrame("garbage")));
         assertTrue(ex.getMessage().contains("parse SSE payload"));
     }
 
@@ -209,18 +212,94 @@ class StreamEventDecoderTest {
             public void encode(OutputStream s, Object v) { /* unused */ }
         };
         FanarTransportException ex = assertThrows(FanarTransportException.class,
-                () -> new StreamEventDecoder(twoPhase).decode(new SseFrame("{}")));
+                () -> StreamEventDecoder.forChat(twoPhase).decode(new SseFrame("{}")));
         assertTrue(ex.getMessage().contains("decode TokenChunk"));
     }
 
     @Test
     void rejectsNullCodec() {
-        assertThrows(NullPointerException.class, () -> new StreamEventDecoder(null));
+        assertThrows(NullPointerException.class, () -> StreamEventDecoder.forChat(null));
     }
 
     @Test
     void doneSentinelConstantMatchesLiteral() {
         assertEquals("[DONE]", StreamEventDecoder.DONE_SENTINEL);
+    }
+
+    // --- the deep-research classifier (ADR-031)
+
+    private static final DeepResearchReport REPORT =
+            new DeepResearchReport(null, null, "Title", null, null, null, null, null, null);
+
+    @Test
+    void deepResearchRoutesReportShapeToReportChunk() {
+        ReportChunk expected = new ReportChunk("c_1", 0L, "Fanar-Sadiq-2", REPORT);
+        FakeCodec codec = new FakeCodec(Map.of("report", Map.of("title", "Title")), expected);
+        DeepResearchEvent event = StreamEventDecoder.forDeepResearch(codec).decode(new SseFrame("{\"report\":{}}"));
+        assertSame(expected, event);
+    }
+
+    @Test
+    void deepResearchRoutesReportBeforeMetadata() {
+        // A report frame that also carried run metadata is still the report, not the terminal chunk.
+        ReportChunk expected = new ReportChunk("c_1", 0L, "Fanar-Sadiq-2", REPORT);
+        FakeCodec codec = new FakeCodec(Map.of("report", Map.of(), "metadata", Map.of()), expected);
+        assertSame(expected, StreamEventDecoder.forDeepResearch(codec).decode(new SseFrame("{}")));
+    }
+
+    @Test
+    void deepResearchRoutesProgressShapeToProgressChunkEvenWithoutAModel() {
+        ProgressChunk expected = new ProgressChunk("c_1", 0L, null, new ProgressMessage("planning", "تخطيط"));
+        FakeCodec codec = new FakeCodec(Map.of("progress", Map.of()), expected);
+        assertSame(expected, StreamEventDecoder.forDeepResearch(codec).decode(new SseFrame("{\"progress\":{}}")));
+    }
+
+    @Test
+    void deepResearchRoutesMetadataAndUsageShapesToDoneChunk() {
+        DoneChunk expected = new DoneChunk("c_1", 0L, "Fanar-Sadiq-2", List.of(), null, Map.of("depth", "quick"));
+        assertSame(expected, StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of("metadata", Map.of()), expected)).decode(new SseFrame("{}")));
+        assertSame(expected, StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of("usage", Map.of()), expected)).decode(new SseFrame("{}")));
+    }
+
+    @Test
+    void deepResearchRoutesFinishReasonErrorToErrorChunk() {
+        ErrorChunk expected = new ErrorChunk("c_1", 0L, "Fanar-Sadiq-2", List.of(new ChoiceError(0, null, "boom")));
+        FakeCodec codec = new FakeCodec(Map.of("choices", List.of(Map.of("finish_reason", "error"))), expected);
+        assertSame(expected, StreamEventDecoder.forDeepResearch(codec).decode(new SseFrame("{}")));
+    }
+
+    @Test
+    void deepResearchFallsBackToTokenChunk() {
+        TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar-Sadiq-2", List.of(new ChoiceToken(0, null, "draft")));
+        assertSame(expected, StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of("choices", List.of(Map.of("finish_reason", "stop"))), expected))
+                .decode(new SseFrame("{}")));
+        assertSame(expected, StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of("choices", List.of()), expected)).decode(new SseFrame("{}")));
+        assertSame(expected, StreamEventDecoder.forDeepResearch(
+                new FakeCodec(Map.of(), expected)).decode(new SseFrame("{}")));
+    }
+
+    @Test
+    void deepResearchSkipsBlankAndSentinelFrames() {
+        StreamEventDecoder<DeepResearchEvent> decoder = StreamEventDecoder.forDeepResearch(neverCalled());
+        assertNull(decoder.decode(new SseFrame("")));
+        assertNull(decoder.decode(new SseFrame("[DONE]")));
+    }
+
+    @Test
+    void chatDecoderStillTreatsAReportFrameAsAToken() {
+        // Chat never emits a report; its classifier is unchanged, so the frame falls through.
+        TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar", List.of());
+        FakeCodec codec = new FakeCodec(Map.of("report", Map.of()), expected);
+        assertSame(expected, StreamEventDecoder.forChat(codec).decode(new SseFrame("{\"report\":{}}")));
+    }
+
+    @Test
+    void deepResearchDecoderRejectsNullCodec() {
+        assertThrows(NullPointerException.class, () -> StreamEventDecoder.forDeepResearch(null));
     }
 
     // --- Fakes
@@ -235,10 +314,10 @@ class StreamEventDecoderTest {
     /** Returns the shape map on the first call, then the typed event on subsequent calls. */
     private static final class FakeCodec implements FanarJsonCodec {
         private final Map<?, ?> shape;
-        private final StreamEvent typed;
+        private final Object typed;
         private int call;
 
-        FakeCodec(Map<?, ?> shape, StreamEvent typed) {
+        FakeCodec(Map<?, ?> shape, Object typed) {
             this.shape = shape;
             this.typed = typed;
         }
@@ -265,7 +344,7 @@ class StreamEventDecoderTest {
     @Test
     void decoderAlwaysReadsFromByteArrayInputStream() throws IOException {
         TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar", List.of());
-        StreamEventDecoder decoder = new StreamEventDecoder(new FakeCodec(Map.of("choices", List.of()), expected));
+        StreamEventDecoder<StreamEvent> decoder = StreamEventDecoder.forChat(new FakeCodec(Map.of("choices", List.of()), expected));
         // The frame data should be UTF-8 encoded once and fed as bytes.
         String arabic = "{\"ar\":\"مرحبا\"}"; // ensures multi-byte UTF-8 flows correctly
         new ByteArrayInputStream(arabic.getBytes(StandardCharsets.UTF_8)).close();

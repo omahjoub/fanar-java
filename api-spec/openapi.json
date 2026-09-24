@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Fanar API",
-    "description": "You can interact with FanarAPI for seamless chat completion and text processing using Fanar.<br/><strong>Base URL:</strong> https://api.fanar.qa<br/><strong>Request API Access:</strong> <a href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2>Rate Limits</h2>\n<p>To ensure fair usage and optimal performance for all users, our API has rate limits in place. When you exceed a rate limit, your request will typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>\n<details class=\"fnr-section\" open>\n<summary class=\"fnr-summary\">Limits by model</summary>\n<p>These are our default settings for all models. We understand that your needs may vary. If your application requires higher throughput or more tailored rate limits for specific models, please contact us:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Model</th>\n            <th>Rate Limit</th>\n        </tr>\n    </thead>\n    <tbody><tr>\n            <td><strong>Fanar</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-S-1-7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-1-8.7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-2-27B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-TTS-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IVU-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-TTS-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-LF-1</strong></td>\n            <td>10 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IG-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Guard-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Diwan</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        </tbody>\n</table>\n</details>\n<details class=\"fnr-section fnr-section-headers\">\n<summary class=\"fnr-summary\">Response headers</summary>\n<p>Every rate-limited response reports your current quota, so you can back off before being throttled:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Header</th>\n            <th>Description</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr><td><code>x-ratelimit-limit</code></td><td>Requests allowed per window.</td></tr>\n        <tr><td><code>x-ratelimit-remaining</code></td><td>Requests still available in the current window.</td></tr>\n        <tr><td><code>x-ratelimit-reset</code></td><td>Seconds until a request slot frees up.</td></tr>\n        <tr><td><code>ratelimit-policy</code></td><td>The quota and its window in seconds, as <code>limit;w=seconds</code> &mdash; so <code>100;w=86400</code> means 100 requests per day.</td></tr>\n        <tr><td><code>retry-after</code></td><td>Seconds to wait before retrying, sent only on a <code>429</code>. When your own quota ran out it counts down to a free slot; when an upstream service throttled the request it carries that service's own hint instead.</td></tr>\n    </tbody>\n</table>\n<p class=\"fnr-note\">Because <code>x-ratelimit-limit</code> alone cannot tell <code>3</code> per minute from <code>3</code> per day, read <code>ratelimit-policy</code> when you need the window. These headers are omitted for API keys with unlimited quota.</p>\n</details>\n",
+    "description": "You can interact with FanarAPI for seamless chat completion and text processing using Fanar.<br/><strong>Base URL:</strong> https://api.fanar.qa<br/><strong>Request API Access:</strong> <a href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2>Rate Limits</h2>\n<p>To ensure fair usage and optimal performance for all users, our API has rate limits in place. When you exceed a rate limit, your request will typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>\n<details class=\"fnr-section\" open>\n<summary class=\"fnr-summary\">Limits by model</summary>\n<p>These are our default settings for all models. We understand that your needs may vary. If your application requires higher throughput or more tailored rate limits for specific models, please contact us:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Model</th>\n            <th>Rate Limit</th>\n        </tr>\n    </thead>\n    <tbody><tr>\n            <td><strong>Fanar</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-S-1-7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-1-8.7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-2-27B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2 (validate)</strong></td>\n            <td>200 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2 (deep research)</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-TTS-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IVU-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-TTS-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-LF-1</strong></td>\n            <td>10 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IG-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Guard-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Diwan</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        </tbody>\n</table>\n</details>\n<details class=\"fnr-section fnr-section-headers\">\n<summary class=\"fnr-summary\">Response headers</summary>\n<p>Every rate-limited response reports your current quota, so you can back off before being throttled:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Header</th>\n            <th>Description</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr><td><code>x-ratelimit-limit</code></td><td>Requests allowed per window.</td></tr>\n        <tr><td><code>x-ratelimit-remaining</code></td><td>Requests still available in the current window.</td></tr>\n        <tr><td><code>x-ratelimit-reset</code></td><td>Seconds until a request slot frees up.</td></tr>\n        <tr><td><code>ratelimit-policy</code></td><td>The quota and its window in seconds, as <code>limit;w=seconds</code> &mdash; so <code>100;w=86400</code> means 100 requests per day.</td></tr>\n        <tr><td><code>retry-after</code></td><td>Seconds to wait before retrying, sent only on a <code>429</code>. When your own quota ran out it counts down to a free slot; when an upstream service throttled the request it carries that service's own hint instead.</td></tr>\n    </tbody>\n</table>\n<p class=\"fnr-note\">Because <code>x-ratelimit-limit</code> alone cannot tell <code>3</code> per minute from <code>3</code> per day, read <code>ratelimit-policy</code> when you need the window. These headers are omitted for API keys with unlimited quota.</p>\n</details>\n",
     "termsOfService": "https://api.fanar.qa/terms-of-service",
     "contact": {
       "name": "Fanar Support",
@@ -3122,6 +3122,361 @@
         ]
       }
     },
+    "/v1/sadiq/deep-research": {
+      "post": {
+        "tags": [
+          "Sadiq"
+        ],
+        "summary": "Create Deep Research",
+        "description": "Generate a structured research report on an Islamic topic using the **Fanar-Sadiq-2** model.<br/><br/>The endpoint retrieves relevant passages from the Islamic knowledge base, synthesises them across multiple research passes, and returns a hierarchical report with headings, content, and cited sources.<br/><br/>**Depth levels:**<br/>- `quick` — single-pass summary, fastest response<br/>- `standard` *(default)* — multi-pass with balanced depth and speed<br/>- `comprehensive` — exhaustive research with maximum source coverage<br/><br/>**Expected runtime** — a research run takes minutes, not seconds: roughly 3-6 min for `quick`, 7-10 min for `standard`, and longer for `comprehensive`. Give your client a timeout above that, and drive the call from a background worker rather than from a request handler — see the <em>background worker</em> code sample.<br/><br/>Set `stream: true` to receive the report incrementally as Server-Sent Events (same SSE format as `/v1/chat/completions`). Streaming is recommended: progress events arrive as each research pass completes, so a long run is visible rather than silent. The stream ends with a `ReportChunk` carrying the finished `report` — use that, not the concatenated token deltas, as the result. Set `stream: false` to receive a complete `DeepResearchReport` JSON object.<br/><br/>Enable `web_search` to augment Islamic knowledge-base results with live web sources.<br/><br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "operationId": "create_deep_research_v1_sadiq_deep_research_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepResearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Deep research response — a structured report (non-streaming) or an SSE stream of token chunks (streaming).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepResearchReport"
+                },
+                "example": {
+                  "topic": "ما أهمية طلب العلم في الإسلام؟",
+                  "language": "ar",
+                  "title": "أهمية طلب العلم في الإسلام",
+                  "title_ar": "أهمية طلب العلم في الإسلام",
+                  "overview": "هذا التقرير يستعرض أهمية طلب العلم في الإسلام من خلال ثلاثة أقسام رئيسية: ...",
+                  "sections": [
+                    {
+                      "heading": "الأساس الديني لطلب العلم",
+                      "heading_ar": "الأساس الديني لطلب العلم",
+                      "mode": "general",
+                      "content": "## الأساس الديني لطلب العلم\n\n### الأدلة الأساسية\n\nيؤكد القرآن الكريم والسنة النبوية على أهمية طلب العلم ...",
+                      "cited_sources": [
+                        {
+                          "source": "https://islamweb.net/ar/article/228949/",
+                          "citation_tag": "[إسلام ويب:228949]",
+                          "quote": "العِلْمُ نورٌ للعُقولِ، وضِياءٌ للمجتمعات ...",
+                          "was_cited": true
+                        }
+                      ]
+                    }
+                  ],
+                  "sources": [
+                    {
+                      "source": "https://fiqh.islamonline.net/طلب-العلم-أهميته-وطرق-تحصيله/",
+                      "citation_tag": "[إسلام أون لاين:943042]",
+                      "quote": "طلب العلم : أهميته وطرق تحصيله ...",
+                      "was_cited": true
+                    },
+                    {
+                      "source": "https://islamweb.net/ar/article/228949/",
+                      "citation_tag": "[إسلام ويب:228949]",
+                      "quote": "العِلْمُ نورٌ للعُقولِ ...",
+                      "was_cited": true
+                    }
+                  ],
+                  "markdown": "# أهمية طلب العلم في الإسلام\n\n...",
+                  "metadata": {
+                    "depth": "quick",
+                    "mode": "deep_research",
+                    "language": "ar",
+                    "elapsed_seconds": 267.32,
+                    "sections_count": 4,
+                    "total_sources": 28,
+                    "total_queries": 5,
+                    "web_search_used": false,
+                    "web_sources_count": 0,
+                    "adaptive_planning_used": true,
+                    "editorial_polish_applied": true
+                  }
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ProgressChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ReportChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DoneChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorChunk"
+                    }
+                  ]
+                },
+                "example": "data: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789987956,\"model\":null,\"progress\":{\"message\":{\"en\":\"Analyzing topic and planning report structure...\",\"ar\":\"تحليل الموضوع وتخطيط هيكل التقرير...\"}}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789987961,\"model\":\"Fanar-Sadiq-2\",\"progress\":{\"message\":{\"en\":\"Researching: الأساس الديني لطلب العلم...\",\"ar\":\"البحث في: الأساس الديني لطلب العلم...\"}}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988100,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"يؤكد \"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988223,\"model\":\"Fanar-Sadiq-2\",\"report\":{\"title\":\"أهمية طلب العلم في الإسلام\",\"sections\":[...],\"sources\":[...]}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988223,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"references\":null},\"finish_reason\":\"stop\"}],\"metadata\":{\"depth\":\"quick\",\"elapsed_seconds\":267.32,\"total_sources\":28,\"web_search_used\":false}}\n\ndata: [DONE]\n\n"
+              }
+            }
+          },
+          "400": {
+            "description": "The content was filtered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "content_filter",
+                    "message": "The content was filtered",
+                    "status": 400,
+                    "param": "prompt",
+                    "type": "safety"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "invalid_authentication",
+                    "message": "Invalid authentication",
+                    "status": 401
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "invalid_authorization",
+                    "message": "Invalid authorization",
+                    "status": 403
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "Not found",
+                    "message": "Not found",
+                    "status": 404
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "Conflict",
+                    "status": 409
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "No longer supported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "no_longer_supported",
+                    "message": "No longer supported",
+                    "status": 410
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request entity too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "too_large",
+                    "message": "Request entity too large",
+                    "status": 413
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "unprocessable",
+                    "message": "Unprocessable",
+                    "status": 422
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached or Exceeded quota",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "exceeded_quota",
+                    "message": "Exceeded quota",
+                    "status": 429
+                  }
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "internal_server_error",
+                    "message": "Internal server error",
+                    "status": 500
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service overloaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "overloaded",
+                    "message": "Service overloaded",
+                    "status": 503
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Request timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "timeout",
+                    "message": "Request timed out",
+                    "status": 504
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "label": "cURL",
+            "source": "# Deep research requires the sadiq_deep_research feature flag on your API key.\n# A run takes minutes, so give curl a max-time above the depth you asked for.\ncurl -X POST \"https://api.fanar.qa/v1/sadiq/deep-research\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\" \\\n  --max-time 1800 \\\n  -d '{\n    \"model\": \"Fanar-Sadiq-2\",\n    \"input\": \"Your research topic here\",\n    \"depth\": \"standard\",\n    \"web_search\": false,\n    \"stream\": false\n  }'\n"
+          },
+          {
+            "lang": "Python",
+            "label": "Python - single request",
+            "source": "# Deep research requires the sadiq_deep_research feature flag on your API key.\n#\n# Simplest shape: one blocking call, one report back. `model` is required.\n# A standard-depth run takes ~7-10 minutes, so the timeout has to be generous --\n# anything under the server's own ceiling just fails on your side instead.\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\n\ndef deep_research(topic, depth=\"standard\", web_search=False):\n    response = requests.post(\n        f\"{BASE_URL}/v1/sadiq/deep-research\",\n        headers={\n            \"Authorization\": f\"Bearer {API_KEY}\",\n            \"Content-Type\": \"application/json\",\n        },\n        json={\n            \"model\": \"Fanar-Sadiq-2\",\n            \"input\": topic,\n            \"depth\": depth,\n            \"web_search\": web_search,\n            \"stream\": False,\n        },\n        timeout=1800,\n    )\n    response.raise_for_status()\n    return response.json()\n\n\nreport = deep_research(\"The importance of seeking knowledge in Islam\")\n\nprint(report[\"title\"])\nprint(report[\"overview\"])\nfor section in report.get(\"sections\") or []:\n    print(f\"\\n## {section['heading']}\")\n    print(section[\"content\"])\n# A source is {source, citation_tag, quote, was_cited} -- a URL and its citation tag,\n# not a numbered reference. `quote` is the passage the report drew on.\nfor source in report.get(\"sources\") or []:\n    print(f\"{source.get('citation_tag', '')} {source['source']}\")\n"
+          },
+          {
+            "lang": "Python - streaming",
+            "label": "Python - streaming",
+            "source": "# Streaming is the recommended mode: progress events arrive as each research pass\n# finishes, so a ten-minute run is visible instead of silent.\n#\n# The stream carries four kinds of chunk. Take the FINAL RESULT from the `report`\n# chunk, not from the concatenated token deltas -- the deltas are the prose as it was\n# drafted, the report is the structured, cited result.\n#\n#   {\"progress\": {\"message\": {\"en\": ..., \"ar\": ...}}}   a pass completed\n#   {\"choices\": [{\"delta\": {\"content\": \"...\"}}]}        prose, token by token\n#   {\"report\": {...}}                                   the finished report\n#   {\"choices\": [{\"finish_reason\": \"stop\", ...}]}       usage + references\n#   data: [DONE]                                        end of stream\n\nimport json\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\n\ndef deep_research_stream(topic, depth=\"standard\", web_search=False):\n    \"\"\"Yield (kind, payload) for each event; kind is progress|delta|report|done.\"\"\"\n    with requests.post(\n        f\"{BASE_URL}/v1/sadiq/deep-research\",\n        headers={\n            \"Authorization\": f\"Bearer {API_KEY}\",\n            \"Content-Type\": \"application/json\",\n        },\n        json={\n            \"model\": \"Fanar-Sadiq-2\",\n            \"input\": topic,\n            \"depth\": depth,\n            \"web_search\": web_search,\n            \"stream\": True,\n        },\n        stream=True,\n        timeout=1800,\n    ) as response:\n        response.raise_for_status()\n\n        for line in response.iter_lines(decode_unicode=True):\n            if not line or not line.startswith(\"data: \"):\n                continue\n            data = line[len(\"data: \"):].strip()\n            if data == \"[DONE]\":\n                break\n            chunk = json.loads(data)\n\n            if \"error\" in chunk:\n                raise RuntimeError(chunk[\"error\"].get(\"message\", \"stream error\"))\n            if \"progress\" in chunk:\n                yield \"progress\", chunk[\"progress\"][\"message\"][\"en\"]\n                continue\n            if \"report\" in chunk:\n                yield \"report\", chunk[\"report\"]\n                continue\n\n            choice = (chunk.get(\"choices\") or [{}])[0]\n            if choice.get(\"finish_reason\"):\n                yield \"done\", chunk\n            elif choice.get(\"delta\", {}).get(\"content\"):\n                yield \"delta\", choice[\"delta\"][\"content\"]\n\n\nreport = None\nfor kind, payload in deep_research_stream(\"The importance of seeking knowledge in Islam\"):\n    if kind == \"progress\":\n        print(f\"... {payload}\")\n    elif kind == \"report\":\n        report = payload\n    elif kind == \"done\":\n        # `metadata` carries the run facts (depth, elapsed_seconds, total_sources,\n        # web_search_used). `usage` is often absent on this endpoint -- do not rely on it.\n        print(f\"\\nmetadata: {payload.get('metadata')}\")\n\nif report:\n    print(report[\"title\"])\n    print(report.get(\"markdown\") or report[\"overview\"])\n"
+          },
+          {
+            "lang": "Python - background worker",
+            "label": "Python - background worker",
+            "source": "# A research run outlives an HTTP request handler, so do not call it from one.\n# There is no job API on this endpoint -- it is a single long-lived HTTP call -- so the\n# job lifecycle is yours: enqueue, hold the stream in a worker, poll your own store.\n# A task queue and a shared store are the usual pieces; here an asyncio task and a dict,\n# so the shape is visible without the infrastructure.\n#\n# Two things worth knowing before you add a retry:\n#   * quota is consumed when the request is ADMITTED, so a retry spends another unit\n#     even if the first attempt produced nothing;\n#   * a 429 carries retry-after, and a 403 means the key lacks sadiq_deep_research --\n#     neither is worth retrying blindly.\n\nimport asyncio\nimport json\nimport uuid\n\nimport httpx\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\nJOBS = {}  # job_id -> {\"status\", \"progress\", \"report\", \"error\"}\n\n\nasync def _run_job(job_id, topic, depth):\n    job = JOBS[job_id]\n    try:\n        async with httpx.AsyncClient(timeout=httpx.Timeout(1800.0)) as client:\n            async with client.stream(\n                \"POST\",\n                f\"{BASE_URL}/v1/sadiq/deep-research\",\n                headers={\n                    \"Authorization\": f\"Bearer {API_KEY}\",\n                    \"Content-Type\": \"application/json\",\n                },\n                json={\n                    \"model\": \"Fanar-Sadiq-2\",\n                    \"input\": topic,\n                    \"depth\": depth,\n                    \"stream\": True,\n                },\n            ) as response:\n                if response.status_code == 403:\n                    raise RuntimeError(\"deep research is not enabled for this API key\")\n                if response.status_code == 429:\n                    retry_after = response.headers.get(\"retry-after\")\n                    raise RuntimeError(f\"rate limited; retry after {retry_after}s\")\n                response.raise_for_status()\n\n                async for line in response.aiter_lines():\n                    if not line or not line.startswith(\"data: \"):\n                        continue\n                    data = line[len(\"data: \"):].strip()\n                    if data == \"[DONE]\":\n                        break\n                    chunk = json.loads(data)\n\n                    if \"progress\" in chunk:\n                        # Persist progress where your client can read it.\n                        job[\"progress\"].append(chunk[\"progress\"][\"message\"][\"en\"])\n                    elif \"report\" in chunk:\n                        job[\"report\"] = chunk[\"report\"]\n                    elif \"error\" in chunk:\n                        raise RuntimeError(chunk[\"error\"].get(\"message\", \"stream error\"))\n\n        job[\"status\"] = \"completed\" if job[\"report\"] else \"failed\"\n    except Exception as exc:                      # noqa: BLE001 - recorded, not swallowed\n        job[\"status\"] = \"failed\"\n        job[\"error\"] = str(exc)\n\n\ndef enqueue(topic, depth=\"standard\"):\n    \"\"\"Return immediately with a job id; the worker holds the long connection.\"\"\"\n    job_id = str(uuid.uuid4())\n    JOBS[job_id] = {\"status\": \"running\", \"progress\": [], \"report\": None, \"error\": None}\n    asyncio.create_task(_run_job(job_id, topic, depth))\n    return job_id\n\n\ndef get_job(job_id):\n    \"\"\"What your own GET /jobs/{job_id} would return.\"\"\"\n    return JOBS[job_id]\n\n\nasync def main():\n    job_id = enqueue(\"The importance of seeking knowledge in Islam\")\n\n    while get_job(job_id)[\"status\"] == \"running\":\n        await asyncio.sleep(5)\n        for step in get_job(job_id)[\"progress\"]:\n            print(f\"... {step}\")\n\n    job = get_job(job_id)\n    if job[\"status\"] == \"failed\":\n        raise SystemExit(job[\"error\"])\n    print(job[\"report\"][\"title\"])\n\n\nasyncio.run(main())\n"
+          }
+        ]
+      }
+    },
     "/v1/tokens": {
       "post": {
         "tags": [
@@ -5712,6 +6067,74 @@
         "title": "CompletionUsage",
         "type": "object"
       },
+      "DeepResearchDepth": {
+        "type": "string",
+        "enum": [
+          "quick",
+          "standard",
+          "comprehensive"
+        ],
+        "title": "DeepResearchDepth"
+      },
+      "DeepResearchRequest": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "const": "Fanar-Sadiq-2",
+            "title": "Model",
+            "description": "The model to use for deep research. Currently only `Fanar-Sadiq-2` is supported."
+          },
+          "input": {
+            "type": "string",
+            "title": "Input",
+            "description": "The research topic or question to investigate."
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream",
+            "description": "Whether to stream the response.",
+            "default": true
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeepResearchDepth"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Research depth: quick, standard, or comprehensive.",
+            "default": "standard"
+          },
+          "web_search": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Search",
+            "description": "Whether to include web search results.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "input"
+        ],
+        "title": "DeepResearchRequest"
+      },
       "Error": {
         "properties": {
           "code": {
@@ -7232,6 +7655,270 @@
           "ar"
         ],
         "title": "ProgressMessage",
+        "type": "object"
+      },
+      "ReportChunk": {
+        "description": "Deep research's terminal payload: the finished structured report.\n\nEmitted once, near the end of a /v1/sadiq/deep-research stream, by\nChunkBuilder.report_chunk. Clients should render THIS rather than the concatenated\ntoken deltas -- the deltas are the prose as it was drafted, the report is the\nstructured, cited result (FNR-763).",
+        "properties": {
+          "id": {
+            "description": "A unique identifier for the chat completion",
+            "title": "Id",
+            "type": "string"
+          },
+          "object": {
+            "default": "chat.completion.chunk",
+            "description": "The object type",
+            "title": "Object",
+            "type": "string"
+          },
+          "created": {
+            "description": "The Unix timestamp (in seconds) of when the chat completion was created.",
+            "title": "Created",
+            "type": "integer"
+          },
+          "model": {
+            "description": "The model used for the chat completion.",
+            "title": "Model",
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/DeepResearchReport",
+            "description": "The completed deep research report"
+          }
+        },
+        "required": [
+          "id",
+          "created",
+          "model",
+          "report"
+        ],
+        "title": "ReportChunk",
+        "type": "object"
+      },
+      "DeepResearchReport": {
+        "properties": {
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Topic"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          },
+          "title_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title Ar"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Overview"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DeepResearchSection"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sections"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sources"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata"
+          },
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Markdown"
+          }
+        },
+        "title": "DeepResearchReport",
+        "type": "object"
+      },
+      "DeepResearchSection": {
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Heading"
+          },
+          "heading_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Heading Ar"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mode"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sources"
+          },
+          "cited_sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cited Sources"
+          },
+          "degraded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Degraded"
+          },
+          "children": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DeepResearchSection"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Children"
+          }
+        },
+        "title": "DeepResearchSection",
         "type": "object"
       },
       "DoneChunk": {

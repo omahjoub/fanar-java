@@ -30,11 +30,59 @@ may break public API until 1.0.0 ships.
 - **`e2e`** — `LiveAgenticGateTest` pins the `Fanar-Agentic` model gate (422 "Model not
   authorized" for the standard key) and goes red the day it lifts, the signal to probe user tools
   ([ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)).
+- **`fanar-core`** — deep research, on the existing `sadiq` facade, over the new
+  `POST /v1/sadiq/deep-research` endpoint ([ADR-031](docs/adr/031-deep-research-facade.md)):
+  `SadiqClient.deepResearchStream(...)` returns a `Flow.Publisher<DeepResearchEvent>` — a bilingual
+  `ProgressChunk` per research pass, the draft as `TokenChunk`s, the finished report as a new
+  `ReportChunk`, then a `DoneChunk` whose `metadata` summarises the run — and `deepResearch(...)` /
+  `deepResearchAsync(...)` collect the `DeepResearchReport` from that same stream. Records in
+  `qa.fanar.core.sadiq`: `DeepResearchRequest` (`model` as a `ChatModel`, following
+  `SadiqValidationRequest`; `input`; an optional `DeepResearchDepth` — an open value class, `QUICK` /
+  `STANDARD` / `COMPREHENSIVE`, registered in both codecs' `WireValueModule` — and `webSearch`),
+  `DeepResearchReport` with recursive `DeepResearchSection`s and typed `DeepResearchSource`s, and
+  `ReportChunk`. `DeepResearchEvent` is its own sealed union over four of the chat records plus
+  `ReportChunk`, so `StreamEvent` is unchanged and no chat `switch` learns a case chat never sends.
+  Stream-first by design: a run takes minutes (`quick` 3–6, `standard` 7–10) and every variant sends
+  `stream:true`, so the client's `requestTimeout` bounds the admission and never the run. **Never
+  retried, whatever the client's `RetryPolicy`** — the endpoint's twenty daily units are consumed on
+  admission, so a repeated attempt would spend one for nothing; the retry boundary still maps errors,
+  and an exhausted window surfaces at once as `FanarRateLimitException` with its hint. The endpoint
+  requires additional authorization (the `sadiq_deep_research` key flag; expected 403
+  `invalid_authorization`) and no call has been admitted for the SDK's key, so the report shape is
+  the spec's claim, marked as such in the ledger; the endpoint gate, the model gate's 422 and the
+  daily-window 429 are proved routed by envelope code against a scripted server
+  (`FanarClientDeepResearchIntegrationTest`). Observations `fanar.sadiq.deep_research` and
+  `fanar.sadiq.deep_research.stream`; six reachability-metadata entries and `e2e-graalvm` probes for
+  the new records.
+- **Spec** — `api-spec/openapi.json` and its YAML twin refreshed to the 2026-09-23 Fanar spec:
+  **13 → 14 operations, 100 → 105 schemas** (paths 12 → 13), `info.version` still 1.0.0. Additive
+  only. The rate-limit table is now keyed per endpoint rather than per model: `Fanar-Sadiq-2` is
+  50/min on chat, 200/min on validation and 20/day on deep research.
+- **`e2e`** — `LiveDeepResearchTest` (2 methods × 2 codecs, `quick` depth under a 15-minute timeout),
+  gated for the standard key and failing loudly until it carries the flag: four more known-failing
+  cases, **10 → 14** per run ([ledger](docs/WIRE_OBSERVATIONS.md#live-suite-budget)).
 
 ### Changed
 
 - **BOM / release** — the published set is now ten library jars plus the BOM (`fanar-adk` added);
   `docs/RELEASING.md` counts and the consumer smoke follow.
+- **`fanar-core`** — `ProgressChunk.model` is now nullable, and `StreamEvent.model()` is documented so:
+  the spec marks it required, but its own deep-research example sends the first progress event with
+  `"model": null`, which the record rejected. A pre-1.0 minor change
+  ([ADR-019](docs/adr/019-pre-10-stability-policy.md)); a chat consumer that dereferences `model()`
+  on a progress event should null-check it.
+- **`fanar-core`** — `DoneChunk.metadata` keeps `null` values instead of rejecting them (the copy is
+  null-tolerant): a deep-research run summary may carry them.
+- **`fanar-core`** — `TokenChunk`, `ProgressChunk`, `DoneChunk` and `ErrorChunk` implement
+  `qa.fanar.core.sadiq.DeepResearchEvent` as well as `StreamEvent`; nothing changes for a consumer of
+  either union. Internally the SSE decoder carries one classifier per endpoint
+  (`StreamEventDecoder.forChat` / `forDeepResearch`) and the publisher is generic over the event type.
+- **`fanar-spring-boot-4-starter` / `fanar-spring-ai-starter` / `fanar-adk`** — no change required, by
+  design. The SB4 starter contributes a single `FanarClient` bean, so `sadiq().deepResearch*` is
+  reachable through it as it is; Spring AI has no model interface for a research run and ADR-024
+  forbids inventing one; an ADK `BaseTool` over the facade is a separate record
+  ([ADR-021](docs/adr/021-spring-ai-2-adapter.md), [ADR-024](docs/adr/024-spring-ai-vendor-options.md),
+  [ADR-030](docs/adr/030-google-adk-adapter.md)) — recorded in `COMPATIBILITY.md` §3.
 
 ### Fixed
 

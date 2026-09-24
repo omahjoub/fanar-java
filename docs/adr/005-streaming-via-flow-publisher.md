@@ -73,6 +73,10 @@ No callback-builder API (`onToken`, `onProgress`, …) is provided.
   Kotlin's `flow { publisher.collect(...) }`.
 - Sealed-interface pattern matching is exhaustive and compiler-verified — if Fanar adds a chunk type, our sealed
   hierarchy grows and every consumer's `switch` breaks at compile time until they handle the new variant.
+  That is the rule for a chunk the chat stream itself gains. An endpoint that streams the same wire format but a
+  different set of events gets its own sealed union over the shared records instead — `DeepResearchEvent` permits
+  four of these records plus its own `ReportChunk` (ADR-031, 2026-09-24) — so `StreamEvent` keeps listing exactly
+  what a chat stream emits, and no chat `switch` learns a case chat never sends.
 - `.toStream()` helper gives virtual-thread consumers an iterator-style API without subscribing to a publisher.
 
 ### Negative / Trade-offs

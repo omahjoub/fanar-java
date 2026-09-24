@@ -36,11 +36,18 @@ The parser pipeline:
    appropriate `StreamEvent` subtype (discriminated by shape: `progress` field → `ProgressChunk`, `choices[*].delta`
    shape → `TokenChunk` / `ToolCallChunk` / `ToolResultChunk`, presence of `usage` → `DoneChunk`, presence of error →
    `ErrorChunk`).
-4. **Emission** — decoded events are published to the caller's `Flow.Publisher<StreamEvent>` (ADR-005) as they arrive.
+   The router is built per endpoint with its own classifier (`StreamEventDecoder.forChat` / `forDeepResearch`,
+   ADR-031): chat's knows the six shapes above; deep research's knows five — the same `progress`, delta,
+   `usage` / `metadata` and error rules, no tool shapes, and a top-level `report` → `ReportChunk`, tested right
+   after `progress`.
+4. **Emission** — decoded events are published to the caller's `Flow.Publisher<StreamEvent>` (ADR-005) as they arrive —
+   or `Flow.Publisher<DeepResearchEvent>` for deep research: the publisher is generic over the event type
+   (`SseStreamPublisher.forChat` / `forDeepResearch`).
 
 All parsing logic, all state machines, all error handling live under `qa.fanar.core.internal.sse`. The public surface
-exposes only `Flow.Publisher<StreamEvent>`. If a future release changes strategy — to byte-level reactive, to a
-library, to a third-party parser — no downstream module notices, guaranteed by ADR-018.
+exposes only `Flow.Publisher<StreamEvent>` — and `Flow.Publisher<DeepResearchEvent>` for deep research (ADR-031).
+If a future release changes strategy — to byte-level reactive, to a library, to a third-party parser — no
+downstream module notices, guaranteed by ADR-018.
 
 ## Alternatives considered
 

@@ -13,18 +13,20 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.chat.StreamEvent;
+import qa.fanar.core.sadiq.DeepResearchEvent;
 import qa.fanar.core.spi.FanarJsonCodec;
 import qa.fanar.core.spi.FanarObservationAttributes;
 import qa.fanar.core.spi.ObservationHandle;
 
 /**
  * {@link Flow.Publisher} that reads an SSE response body on a virtual thread and emits one
- * {@link StreamEvent} per parsed frame.
+ * event per parsed frame — a {@link StreamEvent} for a chat stream ({@link #forChat}), a
+ * {@link DeepResearchEvent} for a deep-research stream ({@link #forDeepResearch}).
  *
  * <p>Single-subscriber by construction: subscribing twice triggers {@code onError} on the
  * second subscriber. The first subscription launches a virtual thread that pulls lines from
  * the underlying {@link InputStream}, feeds them through {@link SseFrameAssembler}, decodes
- * each frame via {@link StreamEventDecoder}, and honours the subscriber's
+ * each frame via the endpoint's {@link StreamEventDecoder}, and honours the subscriber's
  * {@code request(long)} demand before every {@code onNext}. Cancellation closes the stream
  * and interrupts the reader.</p>
  *
@@ -37,17 +39,29 @@ import qa.fanar.core.spi.ObservationHandle;
  *
  * <p>Internal (ADR-018).</p>
  *
+ * @param <E> the endpoint's event union
+ *
  * @author Oussama Mahjoub
  */
-public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
+public final class SseStreamPublisher<E> implements Flow.Publisher<E> {
 
     private final InputStream body;
-    private final StreamEventDecoder decoder;
+    private final StreamEventDecoder<E> decoder;
     private final ObservationHandle observation;
     private final long startNanos;
     private final AtomicBoolean subscribed = new AtomicBoolean();
 
+    private SseStreamPublisher(InputStream body, StreamEventDecoder<E> decoder,
+                               ObservationHandle observation, long startNanos) {
+        this.body = Objects.requireNonNull(body, "body");
+        this.decoder = decoder;
+        this.observation = Objects.requireNonNull(observation, "observation");
+        this.startNanos = startNanos;
+    }
+
     /**
+     * A publisher over a {@code POST /v1/chat/completions} stream.
+     *
      * @param body        the SSE response body; must not be {@code null}
      * @param codec       codec used to decode each frame; must not be {@code null}
      * @param observation the caller's observation, which this publisher owns from here: it is
@@ -55,17 +69,31 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
      *                    Must not be {@code null} — pass the no-op handle when unobserved.
      * @param startNanos  {@code System.nanoTime()} taken before the request was sent, used to
      *                    derive {@code fanar.stream.first_chunk_ms}
+     * @return the publisher
      */
-    public SseStreamPublisher(InputStream body, FanarJsonCodec codec,
-                              ObservationHandle observation, long startNanos) {
-        this.body = Objects.requireNonNull(body, "body");
-        this.decoder = new StreamEventDecoder(Objects.requireNonNull(codec, "codec"));
-        this.observation = Objects.requireNonNull(observation, "observation");
-        this.startNanos = startNanos;
+    public static SseStreamPublisher<StreamEvent> forChat(InputStream body, FanarJsonCodec codec,
+                                                          ObservationHandle observation, long startNanos) {
+        return new SseStreamPublisher<>(body, StreamEventDecoder.forChat(codec), observation, startNanos);
+    }
+
+    /**
+     * A publisher over a {@code POST /v1/sadiq/deep-research} stream. Same contract as
+     * {@link #forChat}.
+     *
+     * @param body        the SSE response body; must not be {@code null}
+     * @param codec       codec used to decode each frame; must not be {@code null}
+     * @param observation the caller's observation, owned by the publisher from here; must not be
+     *                    {@code null}
+     * @param startNanos  {@code System.nanoTime()} taken before the request was sent
+     * @return the publisher
+     */
+    public static SseStreamPublisher<DeepResearchEvent> forDeepResearch(InputStream body, FanarJsonCodec codec,
+                                                                        ObservationHandle observation, long startNanos) {
+        return new SseStreamPublisher<>(body, StreamEventDecoder.forDeepResearch(codec), observation, startNanos);
     }
 
     @Override
-    public void subscribe(Flow.Subscriber<? super StreamEvent> subscriber) {
+    public void subscribe(Flow.Subscriber<? super E> subscriber) {
         Objects.requireNonNull(subscriber, "subscriber");
         if (!subscribed.compareAndSet(false, true)) {
             subscriber.onSubscribe(NoopSubscription.INSTANCE);
@@ -78,12 +106,12 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
 
     private final class Session implements Flow.Subscription {
 
-        private final Flow.Subscriber<? super StreamEvent> subscriber;
+        private final Flow.Subscriber<? super E> subscriber;
         private final AtomicLong demand = new AtomicLong();
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final Object demandLock = new Object();
 
-        Session(Flow.Subscriber<? super StreamEvent> subscriber) {
+        Session(Flow.Subscriber<? super E> subscriber) {
             this.subscriber = subscriber;
         }
 
@@ -143,7 +171,7 @@ public final class SseStreamPublisher implements Flow.Publisher<StreamEvent> {
                     if (frame == null) {
                         continue;
                     }
-                    StreamEvent event = decoder.decode(frame);
+                    E event = decoder.decode(frame);
                     if (event == null) {
                         continue;
                     }

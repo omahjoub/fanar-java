@@ -96,7 +96,7 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
 - **Naming the facade `validation()` or `quotations()`.** *Rejected*: ADR-011 says facades mirror
   the API's domains, and the domain — tag and path both — is Sadiq. Noted as the first facade named
   for a model family rather than a capability; revisit before 1.0 if Fanar's `/v1/sadiq/*` family
-  grows beyond validation.
+  grows beyond validation (it did: ADR-031 keeps `sadiq()` for deep research).
 - **Parsing the tags into a sealed `Segment` union on the response.** *Rejected*: clause 3.
 - **Surfacing `X-Revised-Input` in the same change.** *Rejected*: the spec's expanded description of
   that header is doc-only, and the SDK never exposed it — a pre-existing gap. Exposing it changes
@@ -125,13 +125,15 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
   rather than a compile error — the same trade `tokens` already makes.
 - Callers who want structured citations must strip the markup themselves until a parser ships.
 - The known-failing live set grows from 6 to **10** cases per run (`LiveSadiqValidateTest`:
-  2 methods × 2 codecs), which the parked nightly job must exclude or be red every night.
+  2 methods × 2 codecs; 14 since ADR-031), which the parked nightly job must exclude or be red every night.
 
 ### Neutral
 - `SadiqValidationRequest` / `SadiqValidationResponse` are plain records, so they need two ordinary
-  reachability-metadata entries (34 domain records now) and two `e2e-graalvm` probes.
-- The endpoint is not rate-limit scarce: `Fanar-Sadiq-2` is 50/min, so the live cases cost nothing
-  against the trailing-24 h audio windows.
+  reachability-metadata entries (34 domain records now; 45 since ADR-031, counted from `reflect-config.json` — the 34 had already grown to 40 by 0.6.0 with the streaming leaves) and two `e2e-graalvm` probes.
+- The endpoint is not rate-limit scarce: the 2026-09-23 rate table keys the limit by endpoint, and
+  validation is 200/min (`Fanar-Sadiq-2` is 50/min on chat and 20/day on deep research — ADR-031),
+  so the live cases, rejected at the gate before admission, still cost nothing against the
+  trailing-24 h audio windows.
 
 ## Proved by
 

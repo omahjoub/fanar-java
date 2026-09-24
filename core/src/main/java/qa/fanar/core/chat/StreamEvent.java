@@ -22,6 +22,11 @@ package qa.fanar.core.chat;
  * field {@code object} (always {@code "chat.completion.chunk"}) is not modelled — the JSON
  * codec sets it on serialize.</p>
  *
+ * <p>Four of these records — token, progress, done and error — are also the events of a streamed
+ * deep-research run, which uses the same SSE format; that endpoint has its own sealed union,
+ * {@code qa.fanar.core.sadiq.DeepResearchEvent}, so this one still lists exactly what a chat
+ * stream can emit (ADR-031).</p>
+ *
  * @author Oussama Mahjoub
  */
 public sealed interface StreamEvent
@@ -33,6 +38,6 @@ public sealed interface StreamEvent
     /** Server-side creation timestamp, Unix seconds. */
     long created();
 
-    /** Wire-format model id the server used. */
+    /** Wire-format model id the server used; {@code null} only on a {@link ProgressChunk} the server sends without one. */
     String model();
 }

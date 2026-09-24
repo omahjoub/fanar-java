@@ -47,6 +47,10 @@ import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.poems.PoemGenerationRequest;
 import qa.fanar.core.poems.PoemGenerationResponse;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.DeepResearchDepth;
+import qa.fanar.core.sadiq.DeepResearchReport;
+import qa.fanar.core.sadiq.DeepResearchRequest;
+import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.sadiq.SadiqValidationRequest;
 import qa.fanar.core.sadiq.SadiqValidationResponse;
 import qa.fanar.core.spi.FanarJsonCodec;
@@ -115,6 +119,7 @@ public final class Main {
         decodeTranslations(codec);
         decodePoems(codec);
         decodeSadiqValidation(codec);
+        decodeDeepResearch(codec);
         decodeImages(codec);
         decodeAudioVoices(codec);
         decodeAudioStt(codec);
@@ -128,6 +133,7 @@ public final class Main {
         encodeTranslationRequest(codec);
         encodePoemGenerationRequest(codec);
         encodeSadiqValidationRequest(codec);
+        encodeDeepResearchRequest(codec);
         encodeImageGenerationRequest(codec);
         encodeTextToSpeechRequest(codec);
         encodeTranscriptionRequest(codec);
@@ -136,7 +142,7 @@ public final class Main {
         exerciseObservabilityPlugins();
         exerciseInterceptors();
 
-        System.out.println("self-test OK: 11 decode probes + 10 encode probes, "
+        System.out.println("self-test OK: 12 decode probes + 11 encode probes, "
                 + "4 obs plugins exercised, wire interceptor instantiated");
     }
 
@@ -164,9 +170,10 @@ public final class Main {
         DoneChunk d = codec.decode(bytes(done), DoneChunk.class);
         require(d.usage() != null, "stream done usage");
 
-        // The remaining StreamEvent leaves. Every one of them is a plain record that Jackson
-        // introspects, so each needs its own record-component metadata; probing only the two
-        // common shapes is how the gap below them stayed invisible.
+        // The remaining StreamEvent leaves, then the deep-research stream's own leaf. Every one
+        // of them is a plain record that Jackson introspects, so each needs its own
+        // record-component metadata; probing only the two common shapes is how the gap below
+        // them stayed invisible.
         String head = "{\"id\":\"c_1\",\"created\":1700000000,\"model\":\"Fanar-S-1-7B\",";
 
         ToolCallChunk tc = codec.decode(bytes(head
@@ -188,6 +195,19 @@ public final class Main {
         ProgressChunk pc = codec.decode(bytes(head
                 + "\"progress\":{\"message\":{\"en\":\"searching\",\"ar\":\"search\"}}}"), ProgressChunk.class);
         require(pc.message() != null, "stream progress message");
+
+        // The deep-research stream reuses four of the records above and adds one of its own:
+        // ReportChunk, the DeepResearchEvent (not a StreamEvent) that carries the finished report.
+        ReportChunk rc = codec.decode(bytes(head
+                + "\"report\":{\"title\":\"t\",\"sections\":[],\"sources\":[]}}"), ReportChunk.class);
+        require("t".equals(rc.report().title()), "stream report title");
+
+        // That stream's first progress event arrives with "model": null (the spec's own example);
+        // the ProgressChunk deserializer must map it to null rather than reject it.
+        ProgressChunk first = codec.decode(bytes(
+                "{\"id\":\"c_1\",\"created\":1700000000,\"model\":null,"
+                + "\"progress\":{\"message\":{\"en\":\"planning\",\"ar\":\"plan\"}}}"), ProgressChunk.class);
+        require(first.model() == null, "stream progress without model");
     }
 
     private static void decodeChat(FanarJsonCodec codec) throws IOException {
@@ -248,6 +268,32 @@ public final class Main {
                 SadiqValidationResponse.class);
         require("req_1".equals(r.id()), "sadiq validation id");
         require(r.text().contains("<quran_start>"), "sadiq validation text");
+    }
+
+    /**
+     * Deep-research report decode — the deepest record graph in the SDK: sections nest
+     * recursively, each carrying its cited sources, and {@code metadata} is a free-form map.
+     */
+    private static void decodeDeepResearch(FanarJsonCodec codec) throws IOException {
+        String source = "{\"source\":\"https://islamweb.net/228949\",\"citation_tag\":\"[iw:228949]\","
+                + "\"quote\":\"q\",\"was_cited\":true}";
+        String wire = "{\"topic\":\"zakat\",\"language\":\"en\",\"title\":\"Zakat\","
+                + "\"title_ar\":\"\\u0632\\u0643\\u0627\\u0629\",\"overview\":\"o\","
+                + "\"sections\":[{\"heading\":\"Basis\",\"heading_ar\":\"h\",\"content\":\"c\","
+                + "\"mode\":\"general\",\"sources\":[],\"cited_sources\":[" + source + "],"
+                + "\"degraded\":false,\"children\":[{\"heading\":\"Nisab\",\"content\":\"n\"}]}],"
+                + "\"sources\":[" + source + ",{\"source\":\"https://b\",\"citation_tag\":\"[b:2]\","
+                + "\"quote\":\"q2\",\"was_cited\":false}],"
+                + "\"metadata\":{\"depth\":\"quick\",\"elapsed_seconds\":267.32},"
+                + "\"markdown\":\"# Zakat\"}";
+        DeepResearchReport r = codec.decode(bytes(wire), DeepResearchReport.class);
+        require("Zakat".equals(r.title()), "deep research title");
+        require("Nisab".equals(r.sections().getFirst().children().getFirst().heading()),
+                "deep research nested section");
+        require("[iw:228949]".equals(r.sections().getFirst().citedSources().getFirst().citationTag()),
+                "deep research cited source");
+        require(r.sources().size() == 2, "deep research sources");
+        require("quick".equals(r.metadata().get("depth")), "deep research metadata depth");
     }
 
     private static void decodeImages(FanarJsonCodec codec) throws IOException {
@@ -330,6 +376,16 @@ public final class Main {
         byte[] body = encode(codec, SadiqValidationRequest.of(
                 ChatModel.FANAR_SADIQ_2, "a verse"));
         require(body.length > 0, "sadiq validation encode");
+    }
+
+    private static void encodeDeepResearchRequest(FanarJsonCodec codec) throws IOException {
+        // Asserts the wire shape, not just non-emptiness: `depth` is a value class the codec must
+        // flatten to its wire string, and `webSearch` must go out under its snake_case name.
+        String body = new String(encode(codec, new DeepResearchRequest(
+                ChatModel.FANAR_SADIQ_2, "a topic", DeepResearchDepth.QUICK, false)),
+                StandardCharsets.UTF_8);
+        require(body.contains("\"depth\":\"quick\""), "deep research encode depth");
+        require(body.contains("\"web_search\":false"), "deep research encode web_search");
     }
 
     private static void encodeImageGenerationRequest(FanarJsonCodec codec) throws IOException {
@@ -450,6 +506,8 @@ public final class Main {
             runProbe("translations",  () -> liveTranslations(client));
             runProbe("poems",         () -> livePoems(client));
             runProbe("sadiq.validate", () -> liveSadiqValidate(client));
+            // No sadiq.deep-research probe on purpose: a real run takes 3–10 minutes and spends
+            // one unit of the endpoint's daily quota. Deep research is covered offline in selfTest().
             runProbe("images",        () -> liveImages(client));
             runProbe("audio.voices",  () -> liveAudioVoices(client));
             byte[] wav = runWithResult("audio.speech", () -> liveAudioSpeech(client));

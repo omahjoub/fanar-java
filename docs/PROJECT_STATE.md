@@ -65,14 +65,31 @@ waits on the asynchronous exchange for the headers and cancels it when the wait 
 failure keeps its type (`FanarTransportException`, `HttpTimeoutException` cause) so the retry
 policy is unchanged. Found while planning the deep-research endpoint, whose runs last minutes.
 
+**Also landed for 0.7.0 — deep research** ([ADR-031](adr/031-deep-research-facade.md), Proposed). The
+2026-09-23 spec drop adds one operation (13 → 14; schemas 100 → 105), `POST /v1/sadiq/deep-research`, and it
+lands on the existing facade: `client.sadiq().deepResearchStream(...)` returns a
+`Flow.Publisher<DeepResearchEvent>` — a bilingual progress event per research pass, the draft as token deltas,
+the finished report as a `ReportChunk`, then the run summary — and `deepResearch()` / `deepResearchAsync()`
+collect the report from that same stream, because every variant sends `stream:true`: a run takes minutes, and
+the stream is what lets the client's `requestTimeout` bound the admission rather than the run. Never retried,
+whatever the client's policy — the endpoint's twenty daily units are consumed on admission, so
+`SadiqClientImpl` builds that chain with `RetryPolicy.disabled()`. `DeepResearchEvent` is its own sealed union
+over four of the chat records plus `ReportChunk`, so `StreamEvent` and every chat `switch` — the Spring AI and
+ADK adapters included — are untouched; the one visible change to chat is `ProgressChunk.model` becoming
+nullable, which the spec's own example requires. The endpoint is gated for our key (the `sadiq_deep_research`
+flag), so nothing about it has been observed: every wire claim is the spec's, marked as such in the
+[ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and
+`LiveDeepResearchTest` fails loudly until the flag is granted — the known-failing live set grows from 10 to 14.
+
 **Open on `main` (0.7.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
-verse-match tolerance on the 2026-09-15 run, so a full live run produces **10 failures, or 11 when
-a run's Diwan misses concentrate on one case** — the ten gated by design, plus that one. Miss rate
+verse-match tolerance on the 2026-09-15 run, so a full live run produces **14 failures, or 15 when
+a run's Diwan misses concentrate on one case** — the fourteen gated by design, plus that one. Miss rate
 by date: 2/4, 2/6, 0/4, 4/7, 4/8 — high, but not trending; 2026-09-15 and 2026-09-16 both saw four
 misses and only the first failed, because three landed on one case. Either the retry budget rises or
 `LivePoemsTest` joins the known-failing list; deferred 2026-09-16 until the upgraded
-API key lands, which turns the ten gated failures green and rewrites the list in the same pass. The
-[ledger](WIRE_OBSERVATIONS.md#live-suite-budget) records 11 until then. Also carried: the live-suite nightly and the
+API key lands, which turns the fourteen gated failures green (the four deep-research cases only if the upgrade
+carries the `sadiq_deep_research` flag) and rewrites the list in the same pass. The
+[ledger](WIRE_OBSERVATIONS.md#live-suite-budget) records 15 until then. Also carried: the live-suite nightly and the
 publication decision ([ADR-029](adr/029-publication-target.md)), both waiting on the Fanar team.
 **Confirmed outstanding 2026-09-16**: the API-key enhancement was requested and has had no reply.
 Nothing in this repository records the state of that conversation, so re-date this line rather than
@@ -113,18 +130,25 @@ trusting it — what the key can *do* is checkable without asking anyone; see th
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`. Ordered after the Google ADK adapter, whose integration cost was measured first ([ADR-030](adr/030-google-adk-adapter.md)).
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
-- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the ten known-gated cases (six, plus four for the gated validation endpoint since 2026-09-15) or stay red every night.
+- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the fourteen known-gated cases (six, plus four for the gated validation endpoint since 2026-09-15, plus four for the gated deep-research endpoint since 2026-09-24) or stay red every night.
   **How to tell whether the key has since been upgraded, without asking:** the gated cases are the
   test. With `FANAR_API_KEY` set, run
   ```
-  ./mvnw -pl e2e -am test -Dtest='LiveSadiqValidateTest,LiveAudioVoicesTest' -Dsurefire.failIfNoSpecifiedTests=false
+  ./mvnw -pl e2e -am test -Dtest='LiveSadiqValidateTest,LiveDeepResearchTest,LiveAudioVoicesTest' -Dsurefire.failIfNoSpecifiedTests=false
   ```
   Those failures are 403s rejected *before admission*, so they consume no quota and the run is safe
-  at any time. **Check the count, not the exit code**: you want `Tests run: 5`. Separate the classes
-  with a comma — Surefire does not treat `+` as a separator, so a `+` selects nothing and still
-  reports `BUILD SUCCESS`. `Skipped: 5` means the key was not visible to the JVM. Green means the
-  permissions were granted. For the quota, read `x-ratelimit-limit` on a TTS call in the
-  `fanar.wire` log: `20` is the standard key. Whatever this file says, that run is the current
+  at any time — until the day it goes green: an admitted `LiveDeepResearchTest` case runs for minutes
+  and spends one of the day's twenty deep-research units, four per probe. **Check the count, not the
+  exit code**: you want `Tests run: 14` — every parameterized case, both codecs. (Until 2026-09-24 this
+  line said `5`, which is the number of test *methods* a key-disabled class reports, not the cases a
+  key-enabled run expands them into.) Separate the classes with a comma — Surefire does not treat `+`
+  as a separator, so a `+` selects nothing and still reports `BUILD SUCCESS`. `Skipped: 7` means the
+  key was not visible to the JVM. Green means the permissions were granted: `LiveSadiqValidateTest`
+  and `LiveAudioVoicesTest` for the validation and voice-personalization gates,
+  `LiveDeepResearchTest` for the `sadiq_deep_research` flag — and that first admitted run is the one
+  that converts the ledger's `—` rows (headers at admission, the stream order, the source item shape,
+  quota on cancel, runtime) into observations. For the quota, read `x-ratelimit-limit` on a TTS call
+  in the `fanar.wire` log: `20` is the standard key. Whatever this file says, that run is the current
   answer.
 
 ## Deferred (won't fit cleanly)

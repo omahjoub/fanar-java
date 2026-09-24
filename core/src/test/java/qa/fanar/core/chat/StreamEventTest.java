@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -102,8 +103,14 @@ class StreamEventTest {
     void progressChunkRejectsNulls() {
         ProgressMessage m = new ProgressMessage("a", "b");
         assertThrows(NullPointerException.class, () -> new ProgressChunk(null, 0, "m", m));
-        assertThrows(NullPointerException.class, () -> new ProgressChunk("id", 0, null, m));
         assertThrows(NullPointerException.class, () -> new ProgressChunk("id", 0, "m", null));
+    }
+
+    @Test
+    void progressChunkAcceptsANullModel() {
+        // The spec's deep-research example sends its first progress event with "model": null.
+        ProgressChunk p = new ProgressChunk("id", 0, null, new ProgressMessage("planning", "تخطيط"));
+        assertNull(p.model());
     }
 
     // --- DoneChunk
@@ -142,6 +149,16 @@ class StreamEventTest {
         src.put("b", 2);
         assertEquals(1, d.metadata().size());
         assertThrows(UnsupportedOperationException.class, () -> d.metadata().put("c", 3));
+    }
+
+    @Test
+    void doneChunkMetadataKeepsNullValues() {
+        // A run summary such as deep research's may carry null values; they are values, not absences.
+        java.util.Map<String, Object> src = new java.util.HashMap<>();
+        src.put("web_sources_count", null);
+        DoneChunk d = new DoneChunk("id", 0, "m", List.of(), null, src);
+        assertTrue(d.metadata().containsKey("web_sources_count"));
+        assertNull(d.metadata().get("web_sources_count"));
     }
 
     // --- ErrorChunk

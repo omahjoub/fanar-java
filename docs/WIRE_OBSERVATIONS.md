@@ -36,6 +36,7 @@ Pinning test classes, all under [`e2e/src/test/java/qa/fanar/e2e/`](../e2e/src/t
 [`LiveModerationsTest`](../e2e/src/test/java/qa/fanar/e2e/moderations/LiveModerationsTest.java),
 [`LiveTokensTest`](../e2e/src/test/java/qa/fanar/e2e/tokens/LiveTokensTest.java),
 [`LiveSadiqValidateTest`](../e2e/src/test/java/qa/fanar/e2e/sadiq/LiveSadiqValidateTest.java),
+[`LiveDeepResearchTest`](../e2e/src/test/java/qa/fanar/e2e/sadiq/LiveDeepResearchTest.java),
 [`LiveRateLimitHeadersTest`](../e2e/src/test/java/qa/fanar/e2e/transport/LiveRateLimitHeadersTest.java).
 
 ## Chat completions — `POST /v1/chat/completions`
@@ -126,6 +127,23 @@ the endpoint is gated and answers 403, so the request path is observed but the s
 | — | Verified Qur'anic verses are returned as the full authenticated ayah wrapped in `<quran_start>` / `<quran_end>` with a `[surah:ayah](quran.com)` reference; verified hadith wrapped in `<hadith_start>` / `<hadith_end>` with a `[collection:number](sunnah.com)` reference; **unverifiable quotations return plain and untagged**. | Endpoint description + `SadiqValidationResponse.text`. | **Spec claim, unverified.** The SDK returns `text` verbatim and never parses the markup (ADR-028 clause 3), so a change in tag vocabulary cannot break decoding — but it will silently change what callers see. |
 | — | Whether the response `id` correlates with the `x-id` header, and whether rate-limit headers are present (the request names a model, so they should be — unlike `/v1/tokens`). | Not stated. | **Unverified** — capture on the first authorized call. |
 
+## Deep research — `POST /v1/sadiq/deep-research` (`Fanar-Sadiq-2`)
+
+New in the 2026-09-23 spec drop (operations 13 → 14, schemas 100 → 105). **Never called live**: the endpoint is
+gated behind a `sadiq_deep_research` feature flag the standard key lacks, so every row below is the spec's claim,
+marked `—`, until the first run rewrites it. The claims are load-bearing — the SDK's design leans on three of them
+(ADR-031) — which is why they are listed rather than assumed.
+
+| Date | Observed | Spec says | Consequence / pinned by |
+|---|---|---|---|
+| — | **The endpoint gate: expected HTTP 403 `invalid_authorization`**, the shape validation answers on the same model ([above](#sadiq-validation--post-v1sadiqvalidate-fanar-sadiq-2), 2026-09-15), rejected before admission with no rate-limit headers. | "This endpoint requires additional authorization and is not allowed by default"; the curl sample names the `sadiq_deep_research` feature flag. | **Spec claim, unverified.** `LiveDeepResearchTest` (4 cases) fails loudly until the key carries the flag. `FanarClientDeepResearchIntegrationTest` scripts the 403, the model gate's 422 and a daily-window 429 and asserts each routes by envelope code. Capture the real shape and date here on the first run. |
+| — | **Headers arrive at admission**: the stream's first event, a `progress` ("Analyzing topic and planning report structure…"), is sent before the first research pass, minutes before the report. | The SSE example; "Streaming is recommended: progress events arrive as each research pass completes, so a long run is visible rather than silent." | **Load-bearing, unverified.** `requestTimeout` (60 s by default) bounds only the wait for response headers (ADR-007, 2026-09-24), so the blocking `deepResearch()` — which reads the same stream — works at the default only if the server answers promptly. If the first run shows headers held back, the fix is on the caller's side (`requestTimeout`) and this row says by how much. |
+| — | **Quota: 20 requests per day, consumed on admission**; a retry re-spends a unit; a 429 carries `retry-after`. Whether an abandoned run (client abort → the spec's 499 `client_closed_request`) refunds its unit, and whether the window slides like the TTS one ([transport table](#transport-level-rate-limit-headers-and-x-id)). | `info` rate-limit table: "Fanar-Sadiq-2 (deep research) 20 requests/day" — keyed by endpoint (the same model is 50/min on chat, 200/min on validation); the background-worker sample: "quota is consumed when the request is ADMITTED". | The SDK never retries a deep-research call, whatever the client's policy (ADR-031 clause 5). Capture `ratelimit-policy` and `x-ratelimit-*` on the first admitted call and on a cancelled one. |
+| — | **Stream order**: `progress` (with `"model": null` on the first), `progress`, token deltas, one `report` chunk "near the end", a terminal chunk with `finish_reason: stop` and `metadata` `{depth, elapsed_seconds, total_sources, web_search_used}`, then `[DONE]`; `usage` "is often absent on this endpoint". | The endpoint's `text/event-stream` example and its Python samples; `ProgressChunk.model` is `required` in the schema yet `null` in the example. | Decoded end to end from that example by `FanarClientDeepResearchIntegrationTest`; `ProgressChunk.model` was made nullable for it. Which of the two the server follows — schema or example — is what the first run tells. |
+| — | **Source items are `{source, citation_tag, quote, was_cited}`** in `sources` and `cited_sources`, at the report and section level. | Schema: `items: {}` (untyped). Every example and the Python sample: that shape ("a URL and its citation tag, not a numbered reference"). | `DeepResearchSource` types it (ADR-031 clause 6). An item of another shape fails decoding loudly as a `FanarTransportException` — correct the record on first sight, pre-1.0. |
+| — | **Runtime per depth**: `quick` 3–6 min, `standard` 7–10 min, `comprehensive` longer; the curl sample allows 30. | Endpoint description. | `LiveDeepResearchTest` runs `quick` under a 15-minute `@Timeout` (the e2e backstop is 5). Record the measured `elapsed_seconds` here. |
+| — | The report's every field is nullable and `metadata` is free-form; the example carries `depth`, `mode`, `language`, `elapsed_seconds`, `sections_count`, `total_sources`, `total_queries`, `web_search_used`, `web_sources_count`, `adaptive_planning_used`, `editorial_polish_applied`. | Schema (no `required`; `additionalProperties: true`). | `{}` decodes to an empty report; nothing to verify but which keys and which nulls actually appear. |
+
 ## Transport level: rate-limit headers and `x-id`
 
 Documented by the 2026-08-27 spec refresh (`info.description`); verified 2026-08-27 (curl), 2026-08-28
@@ -141,7 +159,8 @@ lowercase.
 | `retry-after` | absent | absent | absent | absent | `28606`, equal to `x-ratelimit-reset` |
 | `x-id` | present, equal to the body `id` | present | absent | absent | absent |
 
-The windows are **sliding**, per requested model id: `remaining` is the limit minus the requests made in the last
+The windows are **sliding**, per requested model id — and, since the 2026-09-23 spec, per endpoint where the table
+says so (`Fanar-Sadiq-2`: 50/min on chat, 200/min on validation, 20/day on deep research): `remaining` is the limit minus the requests made in the last
 `w` seconds, and `reset` is how long until the oldest of them drops out — so a 429's `retry-after` is the wait for
 *one* slot, and a "20/day" model is really "20 in any trailing 24 h" (2026-08-29: the first TTS call of the run read
 `remaining: 10` with `reset: 39128`, nine calls from the previous evening still inside the window). Rejections before
@@ -183,7 +202,8 @@ is synthesised once per JVM). The earlier "14 TTS calls per run" figure (2026-08
 | `Fanar-Shaheen-MT-1` | 20/day | 4 | `LiveTranslationsTest` 2 cases × 2 codecs | 5 |
 | `Fanar-Oryx-IVU-2`, `Fanar-Sadiq-TTS-1` | 20/day | 0 | no live case | — |
 | chat models, `Fanar-Guard-2`, `Fanar-Diwan` | 50/min | **49 chat** (measured 2026-09-15; the earlier ≈ 60 was an estimate); `LiveAgenticGateTest` adds 2 calls since 2026-09-17 that are rejected at the model gate before admission and, like every gate 4xx (2026-08-29), carry no window headers; 4 per other model, Diwan up to 3× on verse misses (**7 on 2026-09-15**) | 48 from `LiveChatCompletionsTest` (24 calls × 2 codecs) + 1 from `LiveRateLimitHeadersTest` (a plain `@Test`, single codec) = 49; plus `LiveModerationsTest`, `LivePoemsTest`. `LiveTokensTest` and `LiveModelsTest` call these endpoints too but consume no window — neither reports rate-limit headers (see their rows above) | not a constraint for a sequential run |
-| `Fanar-Sadiq-2` (validation) | 50/min | 4 | `LiveSadiqValidateTest` 2 cases × 2 codecs — all 4 rejected at the endpoint gate (403), confirmed 2026-09-15 to carry no rate-limit headers, so they consume **0** of the budget | not a constraint |
+| `Fanar-Sadiq-2` (validation) | 200/min (2026-09-23 table; 50/min before) | 4 | `LiveSadiqValidateTest` 2 cases × 2 codecs — all 4 rejected at the endpoint gate (403), confirmed 2026-09-15 to carry no rate-limit headers, so they consume **0** of the budget | not a constraint |
+| `Fanar-Sadiq-2` (deep research) | **20/day** | 4 (**0** while gated) | `LiveDeepResearchTest` 2 cases × 2 codecs at `quick` depth — while the endpoint gate holds all 4 are rejected before admission; once granted, 4 admissions of 3–6 min each, adding 12–24 min to a full run | 5 once granted; a second run the same day leaves 12 |
 
 Rules that follow:
 
@@ -195,17 +215,19 @@ Rules that follow:
   touches, TTS and STT included.
 - Budget-free runs are what a planned `live-audio` tag is for (`-Dgroups=live -DexcludedGroups=live-audio`);
   until it lands, run individual classes.
-- Known-failing cases for the standard key — **10 per run, occasionally 11**. Ten are gated by
-  design and fail on every run. The eleventh is a `LivePoemsTest` case and depends on how that
+- Known-failing cases for the standard key — **14 per run, occasionally 15**. Fourteen are gated by
+  design and fail on every run. The fifteenth is a `LivePoemsTest` case and depends on how that
   run's Diwan verse misses happen to distribute: it overran the 3× tolerance on 2026-09-15 and did
   not on 2026-09-16, with four misses on both days (see Poems above; whether the budget rises or
-  the case joins this list is parked until the upgraded key lands, `PROJECT_STATE.md`). Expect 10,
-  and treat an eleventh in `LivePoemsTest` as the documented nondeterminism rather than a
-  regression. The 10 gated ones, counted from the code:
+  the case joins this list is parked until the upgraded key lands, `PROJECT_STATE.md`). Expect 14,
+  and treat a fifteenth in `LivePoemsTest` as the documented nondeterminism rather than a
+  regression. The 14 gated ones, counted from the code:
   `LiveAudioVoicesTest.createVoice` + `.deleteVoice` (2 methods × 2 codecs = 4 — the `POST` 403),
-  `LiveChatCompletionsTest.conversation_sadiq2WithMadhab` (1 × 2 = 2 — the 422 model gate), and
+  `LiveChatCompletionsTest.conversation_sadiq2WithMadhab` (1 × 2 = 2 — the 422 model gate),
   `LiveSadiqValidateTest.validate_tagsVerifiedQuotations` + `.validate_asyncCompletesAgainstLiveInfra`
-  (2 × 2 = 4 — the endpoint gate, **403** `invalid_authorization`, observed 2026-09-15).
+  (2 × 2 = 4 — the endpoint gate, **403** `invalid_authorization`, observed 2026-09-15), and
+  `LiveDeepResearchTest.deepResearchStream_deliversProgressThenTheReport` + `.deepResearch_returnsTheReport`
+  (2 × 2 = 4 — the endpoint gate, expected **403** `invalid_authorization`, a spec claim until the first run).
   `LiveAgenticGateTest` is the inverse case: it *passes* while `Fanar-Agentic` stays gated and fails when the
   gate opens, so a red run there is the signal, not a regression.
   Anything else failing means something changed — and belongs in this ledger.
