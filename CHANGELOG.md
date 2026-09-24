@@ -47,9 +47,9 @@ may break public API until 1.0.0 ships.
   retried, whatever the client's `RetryPolicy`** — the endpoint's twenty daily units are consumed on
   admission, so a repeated attempt would spend one for nothing; the retry boundary still maps errors,
   and an exhausted window surfaces at once as `FanarRateLimitException` with its hint. The endpoint
-  requires additional authorization (the `sadiq_deep_research` key flag; expected 403
-  `invalid_authorization`) and no call has been admitted for the SDK's key, so the report shape is
-  the spec's claim, marked as such in the ledger; the endpoint gate, the model gate's 422 and the
+  requires additional authorization (the `sadiq_deep_research` key flag; observed 2026-09-24 as 403
+  `invalid_authorization`, rejected before admission with no window headers) and no call has been
+  admitted for the SDK's key, so the report shape is the spec's claim, marked as such in the ledger; the endpoint gate, the model gate's 422 and the
   daily-window 429 are proved routed by envelope code against a scripted server
   (`FanarClientDeepResearchIntegrationTest`). Observations `fanar.sadiq.deep_research` and
   `fanar.sadiq.deep_research.stream`; six reachability-metadata entries and `e2e-graalvm` probes for

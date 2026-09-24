@@ -1,6 +1,6 @@
 # ADR-031 — Deep research: a minutes-long, quota-scarce, stream-first operation on `client.sadiq()`
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-09-24
 - **Deciders**: @omahjoub
 
@@ -38,8 +38,10 @@ Three properties of the endpoint have no precedent in the SDK and shape this rec
    with `"model": null`, which every chunk record rejected.
 
 The endpoint is gated ("requires additional authorization and is not allowed by default" — a
-`sadiq_deep_research` flag on the key), so nothing about it has been observed live; every wire claim
-below is the spec's and is recorded as such in the [ledger](../WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2).
+`sadiq_deep_research` flag on the key). The gate itself was observed on 2026-09-24 — 403
+`invalid_authorization`, as the spec declares, rejected before admission with no window headers —
+but no run has been admitted, so every wire claim about the run below is the spec's and is recorded
+as such in the [ledger](../WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2).
 ADR-002 settles that it is implemented anyway, and ADR-028 clause 4 settles how: gating shapes the live
 test, never the implementation.
 
@@ -120,8 +122,8 @@ test, never the implementation.
    `fanar.stream.first_chunk_ms` / `fanar.stream.chunks`; `fanar.model` is the request's model. The seam
    test scripts the endpoint gate (403 `invalid_authorization`), the model gate (422 `unprocessable`)
    and the exhausted window (429), and asserts each routes by envelope code (ADR-006).
-   `LiveDeepResearchTest` fails loudly until the key carries the flag, with a caveat written as a spec
-   claim until the first live run rewrites it as an observation.
+   `LiveDeepResearchTest` fails loudly until the key carries the flag; its caveat is written from the
+   2026-09-24 observation, not a prediction.
 
 8. **No framework-adapter work.** The Spring Boot 4 starter contributes one `FanarClient` bean, so the
    operation is reachable through it by construction (ADR-020). Spring AI has no model interface for
@@ -160,6 +162,9 @@ test, never the implementation.
 - Chat consumers are untouched: `StreamEvent` is unchanged and the Spring AI and ADK adapters compile
   as they are.
 - The quota clause is enforced in code and proved through the public API, not left as advice.
+- Routing was proved for three codes *before* the first live call, so the 2026-09-24 observation
+  confirmed rather than surprised: the 403 arrived and surfaced as `FanarAuthorizationException`
+  with `fanar.retry_count=0`, exactly as scripted.
 - The one transport change the endpoint needed — `requestTimeout` as time-to-headers on every JDK —
   landed first as its own fix and also repaired chat and TTS streaming on JDK 26.
 

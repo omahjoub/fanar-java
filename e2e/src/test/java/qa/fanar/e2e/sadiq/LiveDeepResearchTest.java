@@ -44,15 +44,17 @@ import static org.junit.jupiter.api.Assertions.fail;
  * the stream ({@code deepResearchStream}) and the blocking collector ({@code deepResearch}) —
  * parameterized over both codec adapters.
  *
- * <p><strong>Gated — spec claim, not yet observed.</strong> The endpoint requires the
+ * <p><strong>Gated — observed 2026-09-24.</strong> The endpoint requires the
  * {@code sadiq_deep_research} feature flag on the API key ("requires additional authorization and
- * is not allowed by default"), which the standard key does not carry; the expected answer is
- * <strong>HTTP 403</strong>, envelope {@code code: "invalid_authorization"} — the shape the
- * endpoint gate of {@code POST /v1/sadiq/validate} was observed to answer with on 2026-09-15 — so
- * these cases fail with {@link qa.fanar.core.FanarAuthorizationException} until the key is
- * upgraded. That failure is the desired diagnostic signal, not a flake. Nobody has called this
- * endpoint live yet: the first run rewrites this caveat with the observed shape and date. The gate
- * throws from the call itself, before anything is subscribed, and the request body is accepted up
+ * is not allowed by default"), which the standard key does not carry: all four cases answered
+ * <strong>HTTP 403</strong>, envelope verbatim {@code {"error": {"code": "invalid_authorization",
+ * "message": "Invalid authorization", "status": 403, "param": null, "type": null}}} — the same
+ * shape the endpoint gate of {@code POST /v1/sadiq/validate} answers with (2026-09-15) — in
+ * 605–928 ms, with no rate-limit headers and no {@code x-id}, {@code fanar.retry_count=0}. So these
+ * cases fail with {@link qa.fanar.core.FanarAuthorizationException} until the key is upgraded; that
+ * failure is the desired diagnostic signal, not a flake. The gate throws from the call itself,
+ * before anything is subscribed, for the stream and the blocking variant alike; the request body
+ * ({@code stream}, {@code model}, {@code input}, {@code depth}, {@code web_search}) is accepted up
  * to the authorization check, so a 403 here is not a wire-format problem. Both routings — the
  * endpoint gate and the 422 model gate {@code Fanar-Sadiq-2} answers with on chat — are proved
  * against a scripted server by {@code FanarClientDeepResearchIntegrationTest}, which also pins that
@@ -61,7 +63,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>Budget: 20 requests per day for {@code Fanar-Sadiq-2 (deep research)}, consumed on
  * admission; 4 calls per full run once granted (2 methods × 2 codecs), each 3–6 minutes at
  * {@link DeepResearchDepth#QUICK} — start full runs ≥ 24 h apart. While the gate holds they are
- * rejected before admission and consume nothing.</p>
+ * rejected before admission and carry no rate-limit headers, so they consume nothing (observed
+ * 2026-09-24).</p>
  *
  * <p>Each case carries {@code @Timeout(15 min)}: the module's JUnit backstop is 5 minutes
  * ({@code e2e/pom.xml}) and a QUICK run alone takes 3–6. The client's 60 s request timeout is no

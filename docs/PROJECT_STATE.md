@@ -77,8 +77,9 @@ whatever the client's policy — the endpoint's twenty daily units are consumed 
 over four of the chat records plus `ReportChunk`, so `StreamEvent` and every chat `switch` — the Spring AI and
 ADK adapters included — are untouched; the one visible change to chat is `ProgressChunk.model` becoming
 nullable, which the spec's own example requires. The endpoint is gated for our key (the `sadiq_deep_research`
-flag), so nothing about it has been observed: every wire claim is the spec's, marked as such in the
-[ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and
+flag): the gate was observed 2026-09-24 — 403 `invalid_authorization`, rejected before admission, as the spec
+declares — and nothing about a run has been, so every wire claim about the run is the spec's, marked as such in
+the [ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and
 `LiveDeepResearchTest` fails loudly until the flag is granted — the known-failing live set grows from 10 to 14.
 
 **Open on `main` (0.7.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
