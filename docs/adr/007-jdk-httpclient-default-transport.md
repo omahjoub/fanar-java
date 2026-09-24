@@ -62,6 +62,16 @@ directly as the configuration point.
 ### Neutral
 - Per-request timeouts are a per-client setting for v1 (ADR-016). Per-request overrides may be added later as a
   non-breaking addition.
+- **`requestTimeout` bounds the wait for response headers, and nothing after them** (defined 2026-09-24). Once the
+  status line and headers are in, the body — a JSON document or a stream that may run for minutes — is read with no
+  deadline; a stream is abandoned by cancelling its publisher. The transport applies the bound as a timed wait on
+  `HttpClient.sendAsync` and cancels the exchange when it expires, instead of setting `HttpRequest.Builder.timeout`:
+  through JDK 25 the JDK's request timer stops when the headers arrive, from JDK 26 it runs "to the instant the
+  response body is consumed" (its `@implNote`), which ended every stream longer than the timeout. A timeout an
+  interceptor sets on the request itself is passed through with the JDK's semantics. Proved by
+  `FanarClientStreamsIntegrationTest.aBodySlowerThanTheRequestTimeoutIsStillDeliveredInFull` and
+  `headersSlowerThanTheRequestTimeoutFailTheCall`, and at the unit level by
+  `DefaultHttpTransportTest.requestTimeoutIsAppliedWhenSet`.
 
 ## References
 

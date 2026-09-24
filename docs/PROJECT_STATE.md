@@ -1,6 +1,6 @@
 # Project state
 
-> **Snapshot — 2026-09-17.** Last release 0.6.0 (2026-09-16); `main` is on 0.7.0-SNAPSHOT. Updated on every
+> **Snapshot — 2026-09-24.** Last release 0.6.0 (2026-09-16); `main` is on 0.7.0-SNAPSHOT. Updated on every
 > milestone. If this looks wrong or stale, that is the signal — update it in the same PR as whatever moved.
 
 ## Phase
@@ -51,9 +51,19 @@ tool declarations (including the transfer tool ADK injects for multi-agent trees
 unmapped parts — are refused before the wire by default rather than dropped silently, the opposite
 of the Spring AI choice, because in ADK the runner's loop is function calling; workflow steps and
 leaf specialists need no opt-in. Sadiq references become ADK grounding metadata. The published set
-grows to ten library jars plus the BOM. Untouched: core. The `Fanar-Agentic` model gate is now
-pinned by `LiveAgenticGateTest`, which passes while the gate holds and goes red the day the key is
-granted — the trigger to probe user tools by hand and reopen ADR-021, ADR-024 and ADR-030.
+grows to ten library jars plus the BOM. The adapter touched nothing in core. The `Fanar-Agentic`
+model gate is now pinned by `LiveAgenticGateTest`, which passes while the gate holds and goes red the
+day the key is granted — the trigger to probe user tools by hand and reopen ADR-021, ADR-024 and
+ADR-030.
+
+**Also landed for 0.7.0 — `requestTimeout` bounds the wait for response headers, on every JDK**
+([ADR-007](adr/007-jdk-httpclient-default-transport.md), definition added in place 2026-09-24). The
+transport used `HttpRequest.Builder.timeout`, whose built-in timer stops at the headers through
+JDK 25 but runs until the body is consumed from JDK 26 — so on JDK 26 every stream longer than the
+timeout (60 s by default) died mid-body, while CI on 21 and 25 stayed green. The transport now
+waits on the asynchronous exchange for the headers and cancels it when the wait expires; the
+failure keeps its type (`FanarTransportException`, `HttpTimeoutException` cause) so the retry
+policy is unchanged. Found while planning the deep-research endpoint, whose runs last minutes.
 
 **Open on `main` (0.7.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
 verse-match tolerance on the 2026-09-15 run, so a full live run produces **10 failures, or 11 when

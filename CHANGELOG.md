@@ -36,6 +36,19 @@ may break public API until 1.0.0 ships.
 - **BOM / release** — the published set is now ten library jars plus the BOM (`fanar-adk` added);
   `docs/RELEASING.md` counts and the consumer smoke follow.
 
+### Fixed
+
+- **`fanar-core`** — `requestTimeout` now bounds the wait for response headers on every JDK,
+  and nothing after them. The transport used `HttpRequest.Builder.timeout`, whose built-in timer
+  stops at the headers through JDK 25 but runs until the body is consumed from JDK 26, so on
+  JDK 26 every stream longer than the timeout (60 s by default) died with a
+  `FanarTransportException` mid-body. The transport now waits on the asynchronous exchange for the
+  headers and cancels it when the wait expires; the failure still surfaces as a
+  `FanarTransportException` with an `HttpTimeoutException` cause, so the retry policy sees the
+  same type ([ADR-007](docs/adr/007-jdk-httpclient-default-transport.md), definition added in
+  place). Pinned by `FanarClientStreamsIntegrationTest`; the `test-support` fixture gained
+  `Reply.withHeaderDelay` / `withBodyDelay` for it.
+
 ## [0.6.0] - 2026-09-16
 
 A reconciliation release. Every document in this repository was checked against the code rather

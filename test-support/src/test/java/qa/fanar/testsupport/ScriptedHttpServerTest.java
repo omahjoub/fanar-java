@@ -1,10 +1,12 @@
 package qa.fanar.testsupport;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -104,6 +106,68 @@ class ScriptedHttpServerTest {
         assertEquals("text/plain", reply.headers().get("content-type"), "later header wins, case-insensitively");
         assertEquals(1, reply.headers().keySet().stream().filter(k -> k.equalsIgnoreCase("content-type")).count());
         assertTrue(Reply.of(200, "x").thenDropConnection().dropAfterBody());
+
+        Reply delayed = Reply.sse("data: {}\n\n")
+                .withHeaderDelay(Duration.ofMillis(5))
+                .withBodyDelay(Duration.ofMillis(7));
+        assertEquals(Duration.ofMillis(5), delayed.headerDelay());
+        assertEquals(Duration.ofMillis(7), delayed.bodyDelay());
+        assertEquals(Duration.ofMillis(5), delayed.withHeader("X", "y").headerDelay(), "withHeader keeps the delays");
+        assertEquals(Duration.ofMillis(7), delayed.thenDropConnection().bodyDelay(), "thenDropConnection keeps the delays");
+        assertEquals(Duration.ZERO, Reply.of(200, "x").headerDelay(), "no delay unless asked");
+        assertEquals(Duration.ZERO, Reply.of(200, "x").bodyDelay(), "no delay unless asked");
+    }
+
+    @Test
+    void bodyDelayHoldsTheBodyBackButNotTheHeaders() throws Exception {
+        // Headers first, then a pause, then the body. The client clocks the headers a little
+        // after the server starts its pause, so the measured gap can land a few milliseconds
+        // under the scripted delay; half the delay is the bound — a loaded machine stretches the
+        // gap, never shrinks it, and headers held back with the body would give a gap near zero.
+        Duration delay = Duration.ofMillis(300);
+        try (ScriptedHttpServer server = ScriptedHttpServer.start()) {
+            server.enqueue(Reply.sse("data: {\"x\":1}\n\n").withBodyDelay(delay));
+
+            HttpResponse<InputStream> response = http.send(get(server.baseUri()), HttpResponse.BodyHandlers.ofInputStream());
+            long headersAt = System.nanoTime();
+            String body = new String(response.body().readAllBytes());
+            long bodyAt = System.nanoTime();
+
+            assertEquals(200, response.statusCode());
+            assertEquals("data: {\"x\":1}\n\n", body);
+            assertTrue(Duration.ofNanos(bodyAt - headersAt).compareTo(delay.dividedBy(2)) >= 0,
+                    "the body must arrive well after the headers, not with them");
+        }
+    }
+
+    @Test
+    void headerDelayHoldsTheWholeReplyBack() throws Exception {
+        Duration delay = Duration.ofMillis(300);
+        try (ScriptedHttpServer server = ScriptedHttpServer.start()) {
+            server.enqueue(Reply.of(200, "late").withHeaderDelay(delay));
+
+            long started = System.nanoTime();
+            HttpResponse<String> response = http.send(get(server.baseUri()), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals("late", response.body());
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(delay) >= 0,
+                    "the headers must arrive no sooner than the scripted delay");
+            assertEquals(1, server.hits());
+        }
+    }
+
+    @Test
+    void closingTheServerAbandonsAReplyStillBeingHeldBack() throws Exception {
+        // A client that gives up before a long header delay leaves the handler mid-pause; closing
+        // the fixture interrupts it, the reply is abandoned, and the script still counts as served.
+        ScriptedHttpServer server = ScriptedHttpServer.start();
+        server.enqueue(Reply.of(200, "never sent").withHeaderDelay(Duration.ofSeconds(30)));
+        HttpRequest request = HttpRequest.newBuilder(server.baseUri()).timeout(Duration.ofMillis(200)).GET().build();
+
+        assertThrows(IOException.class, () -> http.send(request, HttpResponse.BodyHandlers.ofString()),
+                "the client's own timeout must fire first");
+        assertEquals(1, server.hits());
+        server.close();
     }
 
     @Test

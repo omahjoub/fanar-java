@@ -164,10 +164,12 @@ Rules for every test:
   future with a timeout and assert the result (`assertTrue(latch.await(…))`). To assert that something did *not*
   happen, latch on a signal that proves the producer finished and assert the absence after it: a streaming
   publisher closes its observation in a `finally`, so `obs.closed.await(…)` is that signal
-  (`SseStreamPublisherTest`, `AudioStreamPublisherTest`). Exactly three sleeps survive, each commented with this
-  rule: two server-side stalls in `DefaultHttpTransportTest` where the behaviour under test *is* elapsed time, and
-  one in `LiveChatCompletionsTest` where the producer is Fanar across a socket and no local signal exists. A new
-  one needs the same justification in a comment. A 60 s JUnit timeout (root `pom.xml`, `disabled_on_debug`; 5 min
+  (`SseStreamPublisherTest`, `AudioStreamPublisherTest`). Exactly four sleeps survive, each commented with this
+  rule: two server-side stalls in `DefaultHttpTransportTest` where the behaviour under test *is* elapsed time, the
+  scripted stall behind `Reply.withHeaderDelay` / `withBodyDelay` in `ScriptedHttpServer` (same reason — a reply
+  that outlasts a client timeout is elapsed time on the wire), and one in `LiveChatCompletionsTest` where the
+  producer is Fanar across a socket and no local signal exists. A new one needs the same justification in a
+  comment. A 60 s JUnit timeout (root `pom.xml`, `disabled_on_debug`; 5 min
   in `e2e`) turns a hang into a failure with a stack trace — add `@Timeout` only where tighter matters.
 - **Assertions**: JUnit `Assertions` (with messages) outside the Spring modules, AssertJ inside them;
   `assertDoesNotThrow` says "must not throw" explicitly.

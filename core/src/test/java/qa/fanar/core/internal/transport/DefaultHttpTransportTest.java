@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
@@ -84,8 +85,6 @@ class DefaultHttpTransportTest {
         try {
             DefaultHttpTransport transport = new DefaultHttpTransport(
                     HttpClient.newHttpClient(), Duration.ofMillis(150));
-            // Request carries an explicit header so the newBuilder(req, headerFilter) rebuild on
-            // the timeout path actually invokes the filter lambda.
             URI uri = URI.create("http://" + server.getAddress().getHostString()
                     + ":" + server.getAddress().getPort() + "/");
             HttpRequest request = HttpRequest.newBuilder(uri)
@@ -94,9 +93,12 @@ class DefaultHttpTransportTest {
                     .build();
             FanarTransportException ex = assertThrows(
                     FanarTransportException.class, () -> transport.send(request));
-            // The JDK HttpClient raises HttpTimeoutException (an IOException) when the per-request
-            // timeout fires — we should see that wrapped as FanarTransportException.
-            assertInstanceOf(IOException.class, ex.getCause());
+            // The transport's own timed wait expires (the JDK request timer is not used, see the
+            // class Javadoc) and surfaces as HttpTimeoutException — an IOException, so the
+            // retry policy's transport-failure rule (ADR-014) sees the same type as before.
+            assertInstanceOf(HttpTimeoutException.class, ex.getCause());
+            assertTrue(ex.getMessage().startsWith("HTTP request timed out"),
+                    "Expected the timeout message, got: " + ex.getMessage());
         } finally {
             server.stop(0);
         }

@@ -8,6 +8,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -201,20 +202,56 @@ public final class ScriptedHttpServer implements AutoCloseable {
         }
         reply.headers().forEach((name, value) -> exchange.getResponseHeaders().add(name, value));
         byte[] body = reply.body();
+        if (!pause(reply.headerDelay())) {
+            exchange.close();
+            return;
+        }
         if (reply.dropAfterBody()) {
             // Promise one byte more than is sent: closing the exchange short of the declared length
             // makes the JDK server close the socket, so the client observes a truncated response
             // rather than a clean end of stream.
             exchange.sendResponseHeaders(reply.status(), body.length + 1L);
             OutputStream out = exchange.getResponseBody();
-            out.write(body);
             out.flush();
+            if (pause(reply.bodyDelay())) {
+                out.write(body);
+                out.flush();
+            }
             exchange.close();
             return;
         }
         exchange.sendResponseHeaders(reply.status(), body.length == 0 ? -1 : body.length);
         try (OutputStream out = exchange.getResponseBody()) {
-            out.write(body);
+            // Put the status line and headers on the wire before any body pause. Through JDK 25
+            // sendResponseHeaders flushes them itself; from JDK 26 the server holds them back until
+            // the body stream is first written or flushed, which would turn a body delay into a
+            // header delay. The explicit flush gives every JDK the same wire order.
+            out.flush();
+            if (pause(reply.bodyDelay())) {
+                out.write(body);
+            }
+        }
+    }
+
+    /**
+     * Stall the handler for a scripted delay — the one place this fixture sleeps. The behaviour
+     * the delaying tests observe <em>is</em> elapsed time on the wire (a reply whose headers or
+     * body arrive later than a client timeout), which no latch can stand in for; the sleep lives
+     * on the server side and is never a synchronisation point for the test.
+     *
+     * @return {@code true} to carry on, {@code false} if the server is shutting down and the
+     *         handler should abandon the reply
+     */
+    private static boolean pause(Duration delay) {
+        if (delay.isZero()) {
+            return true;
+        }
+        try {
+            Thread.sleep(delay);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 
@@ -232,13 +269,20 @@ public final class ScriptedHttpServer implements AutoCloseable {
      * @param body          the response body; empty means "no body"
      * @param dropAfterBody whether to close the connection short of the declared length after
      *                      writing the body, so the client sees a truncated response
+     * @param headerDelay   how long to hold the whole reply back before the status line and
+     *                      headers are sent; {@link Duration#ZERO} answers at once
+     * @param bodyDelay     how long to hold the body back after the headers have been sent;
+     *                      {@link Duration#ZERO} writes it at once
      */
-    public record Reply(int status, Map<String, String> headers, byte[] body, boolean dropAfterBody) {
+    public record Reply(int status, Map<String, String> headers, byte[] body, boolean dropAfterBody,
+                        Duration headerDelay, Duration bodyDelay) {
 
-        /** Defensive copies; {@code headers} and {@code body} must not be null. */
+        /** Defensive copies; no component may be null. */
         public Reply {
             headers = Map.copyOf(headers);
             body = body.clone();
+            Objects.requireNonNull(headerDelay, "headerDelay");
+            Objects.requireNonNull(bodyDelay, "bodyDelay");
         }
 
         /**
@@ -261,7 +305,8 @@ public final class ScriptedHttpServer implements AutoCloseable {
          * @return the reply
          */
         public static Reply of(int status, String body, Map<String, String> headers) {
-            return new Reply(status, headers, body.getBytes(StandardCharsets.UTF_8), false);
+            return new Reply(status, headers, body.getBytes(StandardCharsets.UTF_8), false,
+                    Duration.ZERO, Duration.ZERO);
         }
 
         /**
@@ -273,7 +318,7 @@ public final class ScriptedHttpServer implements AutoCloseable {
          * @return the reply
          */
         public static Reply of(int status, byte[] body, Map<String, String> headers) {
-            return new Reply(status, headers, body, false);
+            return new Reply(status, headers, body, false, Duration.ZERO, Duration.ZERO);
         }
 
         /**
@@ -312,7 +357,7 @@ public final class ScriptedHttpServer implements AutoCloseable {
                 }
             });
             merged.put(name, value);
-            return new Reply(status, merged, body, dropAfterBody);
+            return new Reply(status, merged, body, dropAfterBody, headerDelay, bodyDelay);
         }
 
         /**
@@ -322,7 +367,31 @@ public final class ScriptedHttpServer implements AutoCloseable {
          * @return a new reply
          */
         public Reply thenDropConnection() {
-            return new Reply(status, headers, body, true);
+            return new Reply(status, headers, body, true, headerDelay, bodyDelay);
+        }
+
+        /**
+         * This reply, held back in full for {@code delay} before the status line and headers are
+         * sent — what a server that accepts the connection and takes its time to answer looks
+         * like from the client's side.
+         *
+         * @param delay the pause before the headers
+         * @return a new reply
+         */
+        public Reply withHeaderDelay(Duration delay) {
+            return new Reply(status, headers, body, dropAfterBody, delay, bodyDelay);
+        }
+
+        /**
+         * This reply with its headers sent at once and the body held back for {@code delay} —
+         * what a streaming endpoint that admits the request immediately and produces its first
+         * bytes later looks like from the client's side.
+         *
+         * @param delay the pause between the headers and the body
+         * @return a new reply
+         */
+        public Reply withBodyDelay(Duration delay) {
+            return new Reply(status, headers, body, dropAfterBody, headerDelay, delay);
         }
     }
 
