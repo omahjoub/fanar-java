@@ -105,8 +105,8 @@ Response DTOs do not need builders — they are returned fully constructed from 
 ### Drift detection
 
 The `api-spec/openapi.json` file is checked into the repository. Any Fanar-side API change appears in the diff; PR
-reviewers enforce that DTO updates accompany spec updates. This discipline is documented in `CONTRIBUTING.md` and
-enforced by code review, not automation.
+reviewers enforce that DTO updates accompany spec updates. This discipline is documented in
+[CONTRIBUTING](../CONTRIBUTING.md#when-the-fanar-spec-changes) and enforced by code review, not automation.
 
 ## Alternatives considered
 

@@ -1,6 +1,6 @@
 # ADR-032 — Deep research background jobs: start, follow, retrieve and cancel on `client.sadiq()`
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-10-14
 - **Deciders**: @omahjoub
 

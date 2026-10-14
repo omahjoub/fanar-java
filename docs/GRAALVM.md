@@ -151,31 +151,6 @@ catch it because it decoded ten domain responses and no stream chunk. Both are f
 would have caught it is `decodeStreamChunks`, which exercises all six chat `StreamEvent` leaves plus
 the deep-research `ReportChunk`, including a progress event that arrives without a model.
 
----|:--:|:--:|
-| GraalVM for JDK 21 | resolved | **`ClassNotFoundException`** |
-| GraalVM for JDK 25 | resolved | resolved |
-
-**The legacy schema is the one every supported toolchain reads**; the unified schema is read by a
-strict subset. While Java 21 is the floor (`<java.version>21</java.version>`), a consumer building a
-native image on GraalVM for JDK 21 is a configuration this SDK supports, and only the legacy files
-reach them. GraalVM 25 emitted no deprecation warning for `reflect-config.json`.
-
-Nothing is broken by this today, and that is also measured rather than assumed: all eight
-entries in the unified files are redundant under any toolchain. Seven are deserializers that
-`Jackson3FanarJsonCodec.fanarFlatteningModule()` instantiates with `new`, so the call graph
-reaches them without reflection; the eighth is the codec itself, which consumers get through
-`ServiceLoader` — and native-image processes `META-INF/services` on its own. A native binary
-built with the unified file ignored still resolves the codec and builds a `FanarClient`.
-
-Two consequences worth knowing before you trust the gate:
-
-- **The PR gate does not validate those two files.** A wrong entry in them cannot fail CI while
-  CI runs JDK 21. Only `core`'s legacy files are actually enforced.
-- **The bootstrap loop below produces the legacy schema**, because the tracing agent on JDK 21
-  writes the six-file layout. Following Step 4 for a `json-jackson3` entry gives you a
-  `reflect-config.json` to place next to a `reachability-metadata.json` of a different schema.
-  Prefer the legacy file in those directories until CI moves to a GraalVM for JDK 23+.
-
 ---
 
 ## Setup (one time, ~5 minutes)

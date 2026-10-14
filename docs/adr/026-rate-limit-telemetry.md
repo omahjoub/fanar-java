@@ -55,7 +55,8 @@ observation attributes, response metadata on every DTO, or a proactive throttle.
    replace the rule. The OpenTelemetry adapter's typed dispatch already records them as `long` /
    `String` span attributes; the SLF4J adapter prints them with the other attributes. The same rule
    made `http.url` high-cardinality once deep-research job ids and event ids entered request URLs
-   (ADR-032, 2026-10-14).
+   (ADR-032, 2026-10-14), and then the stream measures `fanar.stream.chunks` and
+   `fanar.stream.first_chunk_ms`, which predate it (ADR-013, 2026-10-14).
 5. **No proactive throttling.** A throttle that models the sliding window is a user-supplied
    interceptor (ADR-012); the attributes and `RateLimitInfo` give it the data. The retry loop's
    only use of the headers stays `Retry-After` (ADR-025).
