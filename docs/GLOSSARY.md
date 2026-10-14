@@ -9,7 +9,7 @@ the links for depth.
 ## Fanar — the platform
 
 - **Fanar** — Qatar's Arabic-centric multimodal AI platform. Hosts all the models below. Base URL `https://api.fanar.qa`.
-- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 14 endpoints, 15 models.
+- **Fanar API** — the HTTP API this SDK targets. OpenAPI 3.1.0 spec committed at [`api-spec/openapi.json`](../api-spec/openapi.json) (normative; [`api-spec/openapi.yaml`](../api-spec/openapi.yaml) is its YAML twin): 16 endpoints, 16 models.
 - **OpenAI-compatible** — Fanar's chat endpoint accepts OpenAI-style request shapes. This SDK still exists because Fanar offers capabilities OpenAI does not (see [Compatibility matrix](COMPATIBILITY.md)).
 
 ## Fanar models
@@ -44,6 +44,7 @@ Exact model IDs as accepted by the API.
 
 - **`Fanar-Guard-2`** — content moderation. Returns both a safety score and a cultural-awareness score.
 - **`Fanar-Shaheen-MT-1`** — machine translation (EN ↔ AR) with HTML/whitespace-preserving preprocessing modes.
+- **`Fanar-Shaheen-MT-2`** — a second machine-translation model, listed since the 2026-10 spec with its own 20/day window; the spec does not describe how it differs from MT-1.
 - **`Fanar-Diwan`** — Arabic poetry generation.
 
 ## Fanar-exclusive concepts
@@ -64,7 +65,8 @@ Exact model IDs as accepted by the API.
 - **Emotional TTS** — `with_emotion` speech synthesis, available on `Fanar-Aura-TTS-2` with the emotion-capable voices (`Abdulrahman`, `Radwa`); other combinations are rejected with HTTP 422 per the spec (unverified live — see [wire observations](WIRE_OBSERVATIONS.md)).
 - **Prompt revision** — image generation's `revise` flag (server default on): Fanar rewrites the prompt for style, quality, and cultural alignment and reports `revised` / `revised_prompt` per image.
 - **Source scoping** (`preferred_sources`, `exclude_sources`, `filter_sources`, `book_names`, `madhab`) — Sadiq-family controls that narrow retrieval to specific corpora or schools.
-- **Deep research** — `POST /v1/sadiq/deep-research`: `Fanar-Sadiq-2` researches a topic over the Islamic knowledge base for minutes (`quick` 3–6, `standard` 7–10, `comprehensive` longer) and returns a cited, hierarchical, bilingual-titled report — streamed as SSE with a progress event per research pass, the draft as token deltas and the finished report as its own event. 20 runs per day, consumed on admission, so the SDK never retries it (ADR-031). Gated for the SDK's key: the report shape is the spec's claim, not an observation ([wire observations](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2)).
+- **Deep research** — `POST /v1/sadiq/deep-research`: `Fanar-Sadiq-2` researches a topic over the Islamic knowledge base for minutes (`quick` 3–6, `standard` 7–10, `comprehensive` longer) and returns a cited, hierarchical, bilingual-titled report — streamed as SSE with a progress event per research pass, the draft as token deltas and the finished report as its own event — or, since the 2026-10 spec, as a deep-research job. 20 runs per day, one spent per admitted run, so the SDK never retries a call that starts one (ADR-031). Gated for the SDK's key: the report shape is the spec's claim, not an observation ([wire observations](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2)).
+- **Deep-research job** — a deep-research run started in the background (`background: true`): the start returns a `DeepResearchJob` at once, and the run no longer depends on the caller's connection. The job is read (`GET /v1/sadiq/deep-research/{job_id}`) until its `JobStatus` is terminal, cancelled (`…/cancel`), or followed as an SSE stream that the SDK resumes after the last event id whenever a response ends before `[DONE]`. Kept 24 hours after it ends; reading costs no quota (ADR-032, [wire observations](WIRE_OBSERVATIONS.md#deep-research--background-jobs)).
 
 ## Java / JVM terms
 
@@ -91,9 +93,9 @@ Exact model IDs as accepted by the API.
 - **Lighthouse** — shorthand for [COMPATIBILITY.md](COMPATIBILITY.md), the authoritative "what's in / out / framework-layer" matrix.
 - **Observability plugin** — our unified metrics + tracing SPI, one per `FanarClient`. See ADR-013. `ObservabilityPlugin.compose(...)` fans out a single slot to multiple plugins.
 - **Seam** — an extension point on the core where a user or downstream module can supply an alternative (HTTP client, JSON codec, observability backend, interceptor, retry policy). Every seam is behind a typed interface.
-- **SSE** — Server-Sent Events. HTTP content type `text/event-stream`, used by Fanar's streaming chat endpoint and by deep research. Parsed internally; dispatched as typed `StreamEvent` (chat) or `DeepResearchEvent` (deep research) on `Flow.Publisher`.
+- **SSE** — Server-Sent Events. HTTP content type `text/event-stream`, used by Fanar's streaming chat endpoint and by deep research. Parsed internally; dispatched as typed `StreamEvent` (chat) or `DeepResearchEvent` (deep research) on `Flow.Publisher`. A deep-research job's stream is the one whose `id:` lines the SDK reads — they are its resume points (ADR-032).
 - **`StreamEvent`** — the sealed interface over SSE chunk types: `TokenChunk`, `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`. Consumed via pattern-matching switch, or through `Streams.toStream(...)` for a blocking `Stream`.
-- **`DeepResearchEvent`** — the sealed interface over a deep-research stream's events: `ProgressChunk`, `TokenChunk`, `ReportChunk`, `DoneChunk`, `ErrorChunk` — four of them the chat records themselves, each implementing both unions — so a chat `switch` never learns a case chat cannot send (ADR-031).
+- **`DeepResearchEvent`** — the sealed interface over a deep-research stream's events: `ProgressChunk`, `TokenChunk`, `ReportChunk`, `DoneChunk`, `ErrorChunk` — four of them the chat records themselves, each implementing both unions — so a chat `switch` never learns a case chat cannot send (ADR-031). A deep-research job's stream emits the same union (ADR-032).
 - **Wire-logging interceptor** — `qa.fanar.interceptor.logging.WireLoggingInterceptor`, OkHttp-style level ladder (`NONE` / `BASIC` / `HEADERS` / `BODY`). Logs to SLF4J under `fanar.wire`. Auto-wired by the SB4 starter when `fanar.wire-logging.level` ≠ `NONE`.
 
 ## Framework-adapter terms (Spring Boot 4, Spring AI, Google ADK)

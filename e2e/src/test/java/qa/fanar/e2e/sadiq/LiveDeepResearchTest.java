@@ -60,9 +60,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * against a scripted server by {@code FanarClientDeepResearchIntegrationTest}, which also pins that
  * a deep-research call is never retried; see WIRE_OBSERVATIONS, "Deep research".</p>
  *
- * <p>Budget: 20 requests per day for {@code Fanar-Sadiq-2 (deep research)}, consumed on
- * admission; 4 calls per full run once granted (2 methods × 2 codecs), each 3–6 minutes at
- * {@link DeepResearchDepth#QUICK} — start full runs ≥ 24 h apart. While the gate holds they are
+ * <p>Budget: 20 requests per day for {@code Fanar-Sadiq-2 (deep research)}, one spent per admitted
+ * run; 4 calls per full run once granted (2 methods × 2 codecs), each 3–6 minutes at
+ * {@link DeepResearchDepth#QUICK} — 6 with {@code LiveDeepResearchJobTest}'s two background jobs —
+ * so start full runs ≥ 24 h apart. While the gate holds they are
  * rejected before admission and carry no rate-limit headers, so they consume nothing (observed
  * 2026-09-24).</p>
  *

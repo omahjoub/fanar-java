@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Fanar API",
-    "description": "You can interact with FanarAPI for seamless chat completion and text processing using Fanar.<br/><strong>Base URL:</strong> https://api.fanar.qa<br/><strong>Request API Access:</strong> <a href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2>Rate Limits</h2>\n<p>To ensure fair usage and optimal performance for all users, our API has rate limits in place. When you exceed a rate limit, your request will typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>\n<details class=\"fnr-section\" open>\n<summary class=\"fnr-summary\">Limits by model</summary>\n<p>These are our default settings for all models. We understand that your needs may vary. If your application requires higher throughput or more tailored rate limits for specific models, please contact us:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Model</th>\n            <th>Rate Limit</th>\n        </tr>\n    </thead>\n    <tbody><tr>\n            <td><strong>Fanar</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-S-1-7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-1-8.7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-2-27B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2 (validate)</strong></td>\n            <td>200 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2 (deep research)</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-TTS-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IVU-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-TTS-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-LF-1</strong></td>\n            <td>10 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IG-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Guard-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Diwan</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        </tbody>\n</table>\n</details>\n<details class=\"fnr-section fnr-section-headers\">\n<summary class=\"fnr-summary\">Response headers</summary>\n<p>Every rate-limited response reports your current quota, so you can back off before being throttled:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Header</th>\n            <th>Description</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr><td><code>x-ratelimit-limit</code></td><td>Requests allowed per window.</td></tr>\n        <tr><td><code>x-ratelimit-remaining</code></td><td>Requests still available in the current window.</td></tr>\n        <tr><td><code>x-ratelimit-reset</code></td><td>Seconds until a request slot frees up.</td></tr>\n        <tr><td><code>ratelimit-policy</code></td><td>The quota and its window in seconds, as <code>limit;w=seconds</code> &mdash; so <code>100;w=86400</code> means 100 requests per day.</td></tr>\n        <tr><td><code>retry-after</code></td><td>Seconds to wait before retrying, sent only on a <code>429</code>. When your own quota ran out it counts down to a free slot; when an upstream service throttled the request it carries that service's own hint instead.</td></tr>\n    </tbody>\n</table>\n<p class=\"fnr-note\">Because <code>x-ratelimit-limit</code> alone cannot tell <code>3</code> per minute from <code>3</code> per day, read <code>ratelimit-policy</code> when you need the window. These headers are omitted for API keys with unlimited quota.</p>\n</details>\n",
+    "description": "You can interact with FanarAPI for seamless chat completion and text processing using Fanar.<br/><strong>Base URL:</strong> https://api.fanar.qa<br/><strong>Request API Access:</strong> <a href='https://api.fanar.qa/request'>https://api.fanar.qa/request</a><h2>Rate Limits</h2>\n<p>To ensure fair usage and optimal performance for all users, our API has rate limits in place. When you exceed a rate limit, your request will typically receive a <code>429 Too Many Requests</code> HTTP status code.</p>\n<details class=\"fnr-section\" open>\n<summary class=\"fnr-summary\">Limits by model</summary>\n<p>These are our default settings for all models. We understand that your needs may vary. If your application requires higher throughput or more tailored rate limits for specific models, please contact us:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Model</th>\n            <th>Rate Limit</th>\n        </tr>\n    </thead>\n    <tbody><tr>\n            <td><strong>Fanar</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-S-1-7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-1-8.7B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-C-2-27B</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2 (validate)</strong></td>\n            <td>200 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-2 (deep research)</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Sadiq-TTS-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IVU-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-TTS-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Aura-STT-LF-1</strong></td>\n            <td>10 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Oryx-IG-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Guard-2</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-1</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Shaheen-MT-2</strong></td>\n            <td>20 requests/day</td>\n        </tr>\n        <tr>\n            <td><strong>Fanar-Diwan</strong></td>\n            <td>50 requests/minute</td>\n        </tr>\n        </tbody>\n</table>\n</details>\n<details class=\"fnr-section fnr-section-headers\">\n<summary class=\"fnr-summary\">Response headers</summary>\n<p>Every rate-limited response reports your current quota, so you can back off before being throttled:</p>\n<table>\n    <thead>\n        <tr>\n            <th>Header</th>\n            <th>Description</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr><td><code>x-ratelimit-limit</code></td><td>Requests allowed per window.</td></tr>\n        <tr><td><code>x-ratelimit-remaining</code></td><td>Requests still available in the current window.</td></tr>\n        <tr><td><code>x-ratelimit-reset</code></td><td>Seconds until a request slot frees up.</td></tr>\n        <tr><td><code>ratelimit-policy</code></td><td>The quota and its window in seconds, as <code>limit;w=seconds</code> &mdash; so <code>100;w=86400</code> means 100 requests per day.</td></tr>\n        <tr><td><code>retry-after</code></td><td>Seconds to wait before retrying, sent only on a <code>429</code>. When your own quota ran out it counts down to a free slot; when an upstream service throttled the request it carries that service's own hint instead.</td></tr>\n    </tbody>\n</table>\n<p class=\"fnr-note\">Because <code>x-ratelimit-limit</code> alone cannot tell <code>3</code> per minute from <code>3</code> per day, read <code>ratelimit-policy</code> when you need the window. These headers are omitted for API keys with unlimited quota.</p>\n</details>\n",
     "termsOfService": "https://api.fanar.qa/terms-of-service",
     "contact": {
       "name": "Fanar Support",
@@ -2334,12 +2334,12 @@
           {
             "lang": "Curl",
             "label": "cURL",
-            "source": "curl -X POST \"https://api.fanar.qa/v1/translations\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -d '{\n    \"model\": \"Fanar-Shaheen-MT-1\",\n    \"text\": \"Your text here\",\n    \"langpair\": \"ar-en\",\n    \"preprocessing\": \"default\"\n  }'\n"
+            "source": "curl -X POST \"https://api.fanar.qa/v1/translations\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -d '{\n    \"model\": \"Fanar-Shaheen-MT-2\",\n    \"text\": \"Your text here\",\n    \"langpair\": \"ar-en\",\n    \"preprocessing\": \"default\"\n  }'\n"
           },
           {
             "lang": "Python",
             "label": "Python - requests",
-            "source": "# Translation requires additional authorization and is not allowed by default.\n\nimport requests\n\nheaders = {\n    \"Authorization\": \"Bearer YOUR_API_KEY\",\n    \"Content-Type\": \"application/json\",\n}\n\njson_data = {\n    \"model\": \"Fanar-Shaheen-MT-1\",\n    \"text\": \"مرحبا بك في عالم الذكاء الاصطناعي!\",\n    \"langpair\": \"ar-en\",\n    \"preprocessing\": \"default\",\n}\n\nresponse = requests.post(\"https://api.fanar.qa/v1/translations\", headers=headers, json=json_data)\n\nprint(response.json())"
+            "source": "# Translation requires additional authorization and is not allowed by default.\n\nimport requests\n\nheaders = {\n    \"Authorization\": \"Bearer YOUR_API_KEY\",\n    \"Content-Type\": \"application/json\",\n}\n\njson_data = {\n    \"model\": \"Fanar-Shaheen-MT-2\",\n    \"text\": \"مرحبا بك في عالم الذكاء الاصطناعي!\",\n    \"langpair\": \"ar-en\",\n    \"preprocessing\": \"default\",\n}\n\nresponse = requests.post(\"https://api.fanar.qa/v1/translations\", headers=headers, json=json_data)\n\nprint(response.json())"
           }
         ]
       }
@@ -3128,7 +3128,7 @@
           "Sadiq"
         ],
         "summary": "Create Deep Research",
-        "description": "Generate a structured research report on an Islamic topic using the **Fanar-Sadiq-2** model.<br/><br/>The endpoint retrieves relevant passages from the Islamic knowledge base, synthesises them across multiple research passes, and returns a hierarchical report with headings, content, and cited sources.<br/><br/>**Depth levels:**<br/>- `quick` — single-pass summary, fastest response<br/>- `standard` *(default)* — multi-pass with balanced depth and speed<br/>- `comprehensive` — exhaustive research with maximum source coverage<br/><br/>**Expected runtime** — a research run takes minutes, not seconds: roughly 3-6 min for `quick`, 7-10 min for `standard`, and longer for `comprehensive`. Give your client a timeout above that, and drive the call from a background worker rather than from a request handler — see the <em>background worker</em> code sample.<br/><br/>Set `stream: true` to receive the report incrementally as Server-Sent Events (same SSE format as `/v1/chat/completions`). Streaming is recommended: progress events arrive as each research pass completes, so a long run is visible rather than silent. The stream ends with a `ReportChunk` carrying the finished `report` — use that, not the concatenated token deltas, as the result. Set `stream: false` to receive a complete `DeepResearchReport` JSON object.<br/><br/>Enable `web_search` to augment Islamic knowledge-base results with live web sources.<br/><br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "description": "A structured research report on an Islamic topic from **Fanar-Sadiq-2**, with headings and cited sources.<br/><br/>**Depth levels:**<br/>- `quick` — single-pass summary, fastest<br/>- `standard` *(default)* — multi-pass, balanced<br/>- `comprehensive` — exhaustive, widest source coverage<br/><br/>**Expected runtime** — minutes, not seconds: about 3-6 min for `quick`, 7-10 min for `standard`, longer for `comprehensive`.<br/><br/>**Background mode (recommended).** Because a run is this long, set `background: true`: the call returns a `Job` at once (its id also in `X-Id`) and the research no longer depends on your connection. Poll `GET /v1/sadiq/deep-research/{id}` for the result, or add `stream: true` to receive its events on this connection, resumable after a drop.<br/><br/>**Without `background`**, one connection is held for the whole run: `stream: true` (default) sends Server-Sent Events ending with the `report`, `stream: false` sends the report as JSON. If you see timeouts or disconnects, switch to background mode.<br/><br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
         "operationId": "create_deep_research_v1_sadiq_deep_research_post",
         "requestBody": {
           "content": {
@@ -3142,61 +3142,92 @@
         },
         "responses": {
           "200": {
-            "description": "Deep research response — a structured report (non-streaming) or an SSE stream of token chunks (streaming).",
+            "description": "A structured report (synchronous, non-streaming), an SSE stream (streaming), or, with `background: true`, a `Job` -- or the job's event stream when `stream` is also true.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeepResearchReport"
-                },
-                "example": {
-                  "topic": "ما أهمية طلب العلم في الإسلام؟",
-                  "language": "ar",
-                  "title": "أهمية طلب العلم في الإسلام",
-                  "title_ar": "أهمية طلب العلم في الإسلام",
-                  "overview": "هذا التقرير يستعرض أهمية طلب العلم في الإسلام من خلال ثلاثة أقسام رئيسية: ...",
-                  "sections": [
+                  "oneOf": [
                     {
-                      "heading": "الأساس الديني لطلب العلم",
-                      "heading_ar": "الأساس الديني لطلب العلم",
-                      "mode": "general",
-                      "content": "## الأساس الديني لطلب العلم\n\n### الأدلة الأساسية\n\nيؤكد القرآن الكريم والسنة النبوية على أهمية طلب العلم ...",
-                      "cited_sources": [
+                      "$ref": "#/components/schemas/DeepResearchReport"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  ]
+                },
+                "examples": {
+                  "report": {
+                    "summary": "Synchronous: the report",
+                    "value": {
+                      "topic": "ما أهمية طلب العلم في الإسلام؟",
+                      "language": "ar",
+                      "title": "أهمية طلب العلم في الإسلام",
+                      "title_ar": "أهمية طلب العلم في الإسلام",
+                      "overview": "هذا التقرير يستعرض أهمية طلب العلم في الإسلام من خلال ثلاثة أقسام رئيسية: ...",
+                      "sections": [
+                        {
+                          "heading": "الأساس الديني لطلب العلم",
+                          "heading_ar": "الأساس الديني لطلب العلم",
+                          "mode": "general",
+                          "content": "## الأساس الديني لطلب العلم\n\n### الأدلة الأساسية\n\nيؤكد القرآن الكريم والسنة النبوية على أهمية طلب العلم ...",
+                          "cited_sources": [
+                            {
+                              "source": "https://islamweb.net/ar/article/228949/",
+                              "citation_tag": "[إسلام ويب:228949]",
+                              "quote": "العِلْمُ نورٌ للعُقولِ، وضِياءٌ للمجتمعات ...",
+                              "was_cited": true
+                            }
+                          ]
+                        }
+                      ],
+                      "sources": [
+                        {
+                          "source": "https://fiqh.islamonline.net/طلب-العلم-أهميته-وطرق-تحصيله/",
+                          "citation_tag": "[إسلام أون لاين:943042]",
+                          "quote": "طلب العلم : أهميته وطرق تحصيله ...",
+                          "was_cited": true
+                        },
                         {
                           "source": "https://islamweb.net/ar/article/228949/",
                           "citation_tag": "[إسلام ويب:228949]",
-                          "quote": "العِلْمُ نورٌ للعُقولِ، وضِياءٌ للمجتمعات ...",
+                          "quote": "العِلْمُ نورٌ للعُقولِ ...",
                           "was_cited": true
                         }
-                      ]
+                      ],
+                      "markdown": "# أهمية طلب العلم في الإسلام\n\n...",
+                      "metadata": {
+                        "depth": "quick",
+                        "mode": "deep_research",
+                        "language": "ar",
+                        "elapsed_seconds": 267.32,
+                        "sections_count": 4,
+                        "total_sources": 28,
+                        "total_queries": 5,
+                        "web_search_used": false,
+                        "web_sources_count": 0,
+                        "adaptive_planning_used": true,
+                        "editorial_polish_applied": true
+                      }
                     }
-                  ],
-                  "sources": [
-                    {
-                      "source": "https://fiqh.islamonline.net/طلب-العلم-أهميته-وطرق-تحصيله/",
-                      "citation_tag": "[إسلام أون لاين:943042]",
-                      "quote": "طلب العلم : أهميته وطرق تحصيله ...",
-                      "was_cited": true
-                    },
-                    {
-                      "source": "https://islamweb.net/ar/article/228949/",
-                      "citation_tag": "[إسلام ويب:228949]",
-                      "quote": "العِلْمُ نورٌ للعُقولِ ...",
-                      "was_cited": true
+                  },
+                  "job": {
+                    "summary": "background: true -- the job, queued",
+                    "value": {
+                      "id": "c3869c31-4283-4934-b7d6-18ad35265d70",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "queued",
+                      "progress_pct": 0,
+                      "attempt": 0,
+                      "created_at": 1791099697,
+                      "updated_at": 1791099697,
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما أهمية طلب العلم في الإسلام؟",
+                        "depth": "quick",
+                        "web_search": false
+                      }
                     }
-                  ],
-                  "markdown": "# أهمية طلب العلم في الإسلام\n\n...",
-                  "metadata": {
-                    "depth": "quick",
-                    "mode": "deep_research",
-                    "language": "ar",
-                    "elapsed_seconds": 267.32,
-                    "sections_count": 4,
-                    "total_sources": 28,
-                    "total_queries": 5,
-                    "web_search_used": false,
-                    "web_sources_count": 0,
-                    "adaptive_planning_used": true,
-                    "editorial_polish_applied": true
                   }
                 }
               },
@@ -3220,7 +3251,16 @@
                     }
                   ]
                 },
-                "example": "data: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789987956,\"model\":null,\"progress\":{\"message\":{\"en\":\"Analyzing topic and planning report structure...\",\"ar\":\"تحليل الموضوع وتخطيط هيكل التقرير...\"}}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789987961,\"model\":\"Fanar-Sadiq-2\",\"progress\":{\"message\":{\"en\":\"Researching: الأساس الديني لطلب العلم...\",\"ar\":\"البحث في: الأساس الديني لطلب العلم...\"}}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988100,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"يؤكد \"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988223,\"model\":\"Fanar-Sadiq-2\",\"report\":{\"title\":\"أهمية طلب العلم في الإسلام\",\"sections\":[...],\"sources\":[...]}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988223,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"references\":null},\"finish_reason\":\"stop\"}],\"metadata\":{\"depth\":\"quick\",\"elapsed_seconds\":267.32,\"total_sources\":28,\"web_search_used\":false}}\n\ndata: [DONE]\n\n"
+                "examples": {
+                  "stream": {
+                    "summary": "Synchronous stream",
+                    "value": "data: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789987956,\"model\":null,\"progress\":{\"message\":{\"en\":\"Analyzing topic and planning report structure...\",\"ar\":\"تحليل الموضوع وتخطيط هيكل التقرير...\"}}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789987961,\"model\":\"Fanar-Sadiq-2\",\"progress\":{\"message\":{\"en\":\"Researching: الأساس الديني لطلب العلم...\",\"ar\":\"البحث في: الأساس الديني لطلب العلم...\"}}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988100,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"يؤكد \"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988223,\"model\":\"Fanar-Sadiq-2\",\"report\":{\"title\":\"أهمية طلب العلم في الإسلام\",\"sections\":[...],\"sources\":[...]}}\n\ndata: {\"id\":\"chatcmpl-a46c47\",\"object\":\"chat.completion.chunk\",\"created\":1789988223,\"model\":\"Fanar-Sadiq-2\",\"choices\":[{\"index\":0,\"delta\":{\"references\":null},\"finish_reason\":\"stop\"}],\"metadata\":{\"depth\":\"quick\",\"elapsed_seconds\":267.32,\"total_sources\":28,\"web_search_used\":false}}\n\ndata: [DONE]\n\n"
+                  },
+                  "job": {
+                    "summary": "background + stream: the job's events, each with an id (job id in X-Id)",
+                    "value": "id: 1791099047115-0\ndata: {\"id\": \"chatcmpl-7d72ef6259e8459cb56ae483\", \"object\": \"chat.completion.chunk\", \"created\": 1791099047, \"model\": null, \"progress\": {\"message\": {\"ar\": \"جاري تحليل الموضوع وتخطيط هيكل التقرير...\", \"en\": \"Analyzing topic and planning report structure...\"}}}\n\nid: 1791099055269-0\ndata: {\"id\": \"chatcmpl-d7f7d15d14394022a808718c\", \"object\": \"chat.completion.chunk\", \"created\": 1791099055, \"model\": null, \"progress\": {\"message\": {\"ar\": \"تم تحديد الخطة: 4 أقسام مخطط لها\", \"en\": \"Report outlined: 4 sections planned\"}}}\n\n"
+                  }
+                }
               }
             }
           },
@@ -3456,23 +3496,883 @@
         "x-codeSamples": [
           {
             "lang": "Curl",
-            "label": "cURL",
-            "source": "# Deep research requires the sadiq_deep_research feature flag on your API key.\n# A run takes minutes, so give curl a max-time above the depth you asked for.\ncurl -X POST \"https://api.fanar.qa/v1/sadiq/deep-research\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\" \\\n  --max-time 1800 \\\n  -d '{\n    \"model\": \"Fanar-Sadiq-2\",\n    \"input\": \"Your research topic here\",\n    \"depth\": \"standard\",\n    \"web_search\": false,\n    \"stream\": false\n  }'\n"
+            "label": "cURL - background job",
+            "source": "# Deep research requires the sadiq_deep_research feature flag on your API key.\n# `background: true` returns a job at once; the research runs whatever happens to\n# your connection. Poll it with GET /v1/sadiq/deep-research/{id} until it ends.\ncurl -X POST \"https://api.fanar.qa/v1/sadiq/deep-research\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\" \\\n  -d '{\n    \"model\": \"Fanar-Sadiq-2\",\n    \"input\": \"Your research topic here\",\n    \"depth\": \"standard\",\n    \"background\": true\n  }'\n"
+          },
+          {
+            "lang": "cURL - single request",
+            "label": "cURL - single request",
+            "source": "# A run takes minutes. If it times out or drops, use \"cURL - background job\".\ncurl -X POST \"https://api.fanar.qa/v1/sadiq/deep-research\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\" \\\n  --max-time 1800 \\\n  -d '{\n    \"model\": \"Fanar-Sadiq-2\",\n    \"input\": \"Your research topic here\",\n    \"depth\": \"standard\",\n    \"web_search\": false,\n    \"stream\": false\n  }'\n"
           },
           {
             "lang": "Python",
             "label": "Python - single request",
-            "source": "# Deep research requires the sadiq_deep_research feature flag on your API key.\n#\n# Simplest shape: one blocking call, one report back. `model` is required.\n# A standard-depth run takes ~7-10 minutes, so the timeout has to be generous --\n# anything under the server's own ceiling just fails on your side instead.\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\n\ndef deep_research(topic, depth=\"standard\", web_search=False):\n    response = requests.post(\n        f\"{BASE_URL}/v1/sadiq/deep-research\",\n        headers={\n            \"Authorization\": f\"Bearer {API_KEY}\",\n            \"Content-Type\": \"application/json\",\n        },\n        json={\n            \"model\": \"Fanar-Sadiq-2\",\n            \"input\": topic,\n            \"depth\": depth,\n            \"web_search\": web_search,\n            \"stream\": False,\n        },\n        timeout=1800,\n    )\n    response.raise_for_status()\n    return response.json()\n\n\nreport = deep_research(\"The importance of seeking knowledge in Islam\")\n\nprint(report[\"title\"])\nprint(report[\"overview\"])\nfor section in report.get(\"sections\") or []:\n    print(f\"\\n## {section['heading']}\")\n    print(section[\"content\"])\n# A source is {source, citation_tag, quote, was_cited} -- a URL and its citation tag,\n# not a numbered reference. `quote` is the passage the report drew on.\nfor source in report.get(\"sources\") or []:\n    print(f\"{source.get('citation_tag', '')} {source['source']}\")\n"
+            "source": "# One blocking call, one report back (~7-10 minutes for `standard`).\n# Seeing timeouts or dropped connections? Use \"Python - background job\".\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\n\ndef deep_research(topic, depth=\"standard\", web_search=False):\n    response = requests.post(\n        f\"{BASE_URL}/v1/sadiq/deep-research\",\n        headers={\n            \"Authorization\": f\"Bearer {API_KEY}\",\n            \"Content-Type\": \"application/json\",\n        },\n        json={\n            \"model\": \"Fanar-Sadiq-2\",\n            \"input\": topic,\n            \"depth\": depth,\n            \"web_search\": web_search,\n            \"stream\": False,\n        },\n        timeout=1800,\n    )\n    response.raise_for_status()\n    return response.json()\n\n\nreport = deep_research(\"The importance of seeking knowledge in Islam\")\n\nprint(report[\"title\"])\nprint(report[\"overview\"])\nfor section in report.get(\"sections\") or []:\n    print(f\"\\n## {section['heading']}\")\n    print(section[\"content\"])\n# A source is {source, citation_tag, quote, was_cited} -- a URL and its citation tag,\n# not a numbered reference. `quote` is the passage the report drew on.\nfor source in report.get(\"sources\") or []:\n    print(f\"{source.get('citation_tag', '')} {source['source']}\")\n"
           },
           {
             "lang": "Python - streaming",
             "label": "Python - streaming",
-            "source": "# Streaming is the recommended mode: progress events arrive as each research pass\n# finishes, so a ten-minute run is visible instead of silent.\n#\n# The stream carries four kinds of chunk. Take the FINAL RESULT from the `report`\n# chunk, not from the concatenated token deltas -- the deltas are the prose as it was\n# drafted, the report is the structured, cited result.\n#\n#   {\"progress\": {\"message\": {\"en\": ..., \"ar\": ...}}}   a pass completed\n#   {\"choices\": [{\"delta\": {\"content\": \"...\"}}]}        prose, token by token\n#   {\"report\": {...}}                                   the finished report\n#   {\"choices\": [{\"finish_reason\": \"stop\", ...}]}       usage + references\n#   data: [DONE]                                        end of stream\n\nimport json\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\n\ndef deep_research_stream(topic, depth=\"standard\", web_search=False):\n    \"\"\"Yield (kind, payload) for each event; kind is progress|delta|report|done.\"\"\"\n    with requests.post(\n        f\"{BASE_URL}/v1/sadiq/deep-research\",\n        headers={\n            \"Authorization\": f\"Bearer {API_KEY}\",\n            \"Content-Type\": \"application/json\",\n        },\n        json={\n            \"model\": \"Fanar-Sadiq-2\",\n            \"input\": topic,\n            \"depth\": depth,\n            \"web_search\": web_search,\n            \"stream\": True,\n        },\n        stream=True,\n        timeout=1800,\n    ) as response:\n        response.raise_for_status()\n\n        for line in response.iter_lines(decode_unicode=True):\n            if not line or not line.startswith(\"data: \"):\n                continue\n            data = line[len(\"data: \"):].strip()\n            if data == \"[DONE]\":\n                break\n            chunk = json.loads(data)\n\n            if \"error\" in chunk:\n                raise RuntimeError(chunk[\"error\"].get(\"message\", \"stream error\"))\n            if \"progress\" in chunk:\n                yield \"progress\", chunk[\"progress\"][\"message\"][\"en\"]\n                continue\n            if \"report\" in chunk:\n                yield \"report\", chunk[\"report\"]\n                continue\n\n            choice = (chunk.get(\"choices\") or [{}])[0]\n            if choice.get(\"finish_reason\"):\n                yield \"done\", chunk\n            elif choice.get(\"delta\", {}).get(\"content\"):\n                yield \"delta\", choice[\"delta\"][\"content\"]\n\n\nreport = None\nfor kind, payload in deep_research_stream(\"The importance of seeking knowledge in Islam\"):\n    if kind == \"progress\":\n        print(f\"... {payload}\")\n    elif kind == \"report\":\n        report = payload\n    elif kind == \"done\":\n        # `metadata` carries the run facts (depth, elapsed_seconds, total_sources,\n        # web_search_used). `usage` is often absent on this endpoint -- do not rely on it.\n        print(f\"\\nmetadata: {payload.get('metadata')}\")\n\nif report:\n    print(report[\"title\"])\n    print(report.get(\"markdown\") or report[\"overview\"])\n"
+            "source": "# Holds one connection for the whole run; for a stream that survives drops, use\n# \"Python - background + stream\". Take the result from the `report` chunk.\n#\n#   {\"progress\": {\"message\": {\"en\": ..., \"ar\": ...}}}   a pass completed\n#   {\"choices\": [{\"delta\": {\"content\": \"...\"}}]}        prose, token by token\n#   {\"report\": {...}}                                   the finished report\n#   {\"choices\": [{\"finish_reason\": \"stop\", ...}]}       usage + references\n#   data: [DONE]                                        end of stream\n\nimport json\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\n\ndef deep_research_stream(topic, depth=\"standard\", web_search=False):\n    \"\"\"Yield (kind, payload) for each event; kind is progress|delta|report|done.\"\"\"\n    with requests.post(\n        f\"{BASE_URL}/v1/sadiq/deep-research\",\n        headers={\n            \"Authorization\": f\"Bearer {API_KEY}\",\n            \"Content-Type\": \"application/json\",\n        },\n        json={\n            \"model\": \"Fanar-Sadiq-2\",\n            \"input\": topic,\n            \"depth\": depth,\n            \"web_search\": web_search,\n            \"stream\": True,\n        },\n        stream=True,\n        timeout=1800,\n    ) as response:\n        response.raise_for_status()\n\n        for line in response.iter_lines(decode_unicode=True):\n            if not line or not line.startswith(\"data: \"):\n                continue\n            data = line[len(\"data: \"):].strip()\n            if data == \"[DONE]\":\n                break\n            chunk = json.loads(data)\n\n            if \"error\" in chunk:\n                raise RuntimeError(chunk[\"error\"].get(\"message\", \"stream error\"))\n            if \"progress\" in chunk:\n                yield \"progress\", chunk[\"progress\"][\"message\"][\"en\"]\n                continue\n            if \"report\" in chunk:\n                yield \"report\", chunk[\"report\"]\n                continue\n\n            choice = (chunk.get(\"choices\") or [{}])[0]\n            if choice.get(\"finish_reason\"):\n                yield \"done\", chunk\n            elif choice.get(\"delta\", {}).get(\"content\"):\n                yield \"delta\", choice[\"delta\"][\"content\"]\n\n\nreport = None\nfor kind, payload in deep_research_stream(\"The importance of seeking knowledge in Islam\"):\n    if kind == \"progress\":\n        print(f\"... {payload}\")\n    elif kind == \"report\":\n        report = payload\n    elif kind == \"done\":\n        # `metadata` carries the run facts (depth, elapsed_seconds, total_sources,\n        # web_search_used). `usage` is often absent on this endpoint -- do not rely on it.\n        print(f\"\\nmetadata: {payload.get('metadata')}\")\n\nif report:\n    print(report[\"title\"])\n    print(report.get(\"markdown\") or report[\"overview\"])\n"
           },
           {
-            "lang": "Python - background worker",
-            "label": "Python - background worker",
-            "source": "# A research run outlives an HTTP request handler, so do not call it from one.\n# There is no job API on this endpoint -- it is a single long-lived HTTP call -- so the\n# job lifecycle is yours: enqueue, hold the stream in a worker, poll your own store.\n# A task queue and a shared store are the usual pieces; here an asyncio task and a dict,\n# so the shape is visible without the infrastructure.\n#\n# Two things worth knowing before you add a retry:\n#   * quota is consumed when the request is ADMITTED, so a retry spends another unit\n#     even if the first attempt produced nothing;\n#   * a 429 carries retry-after, and a 403 means the key lacks sadiq_deep_research --\n#     neither is worth retrying blindly.\n\nimport asyncio\nimport json\nimport uuid\n\nimport httpx\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\n\nJOBS = {}  # job_id -> {\"status\", \"progress\", \"report\", \"error\"}\n\n\nasync def _run_job(job_id, topic, depth):\n    job = JOBS[job_id]\n    try:\n        async with httpx.AsyncClient(timeout=httpx.Timeout(1800.0)) as client:\n            async with client.stream(\n                \"POST\",\n                f\"{BASE_URL}/v1/sadiq/deep-research\",\n                headers={\n                    \"Authorization\": f\"Bearer {API_KEY}\",\n                    \"Content-Type\": \"application/json\",\n                },\n                json={\n                    \"model\": \"Fanar-Sadiq-2\",\n                    \"input\": topic,\n                    \"depth\": depth,\n                    \"stream\": True,\n                },\n            ) as response:\n                if response.status_code == 403:\n                    raise RuntimeError(\"deep research is not enabled for this API key\")\n                if response.status_code == 429:\n                    retry_after = response.headers.get(\"retry-after\")\n                    raise RuntimeError(f\"rate limited; retry after {retry_after}s\")\n                response.raise_for_status()\n\n                async for line in response.aiter_lines():\n                    if not line or not line.startswith(\"data: \"):\n                        continue\n                    data = line[len(\"data: \"):].strip()\n                    if data == \"[DONE]\":\n                        break\n                    chunk = json.loads(data)\n\n                    if \"progress\" in chunk:\n                        # Persist progress where your client can read it.\n                        job[\"progress\"].append(chunk[\"progress\"][\"message\"][\"en\"])\n                    elif \"report\" in chunk:\n                        job[\"report\"] = chunk[\"report\"]\n                    elif \"error\" in chunk:\n                        raise RuntimeError(chunk[\"error\"].get(\"message\", \"stream error\"))\n\n        job[\"status\"] = \"completed\" if job[\"report\"] else \"failed\"\n    except Exception as exc:                      # noqa: BLE001 - recorded, not swallowed\n        job[\"status\"] = \"failed\"\n        job[\"error\"] = str(exc)\n\n\ndef enqueue(topic, depth=\"standard\"):\n    \"\"\"Return immediately with a job id; the worker holds the long connection.\"\"\"\n    job_id = str(uuid.uuid4())\n    JOBS[job_id] = {\"status\": \"running\", \"progress\": [], \"report\": None, \"error\": None}\n    asyncio.create_task(_run_job(job_id, topic, depth))\n    return job_id\n\n\ndef get_job(job_id):\n    \"\"\"What your own GET /jobs/{job_id} would return.\"\"\"\n    return JOBS[job_id]\n\n\nasync def main():\n    job_id = enqueue(\"The importance of seeking knowledge in Islam\")\n\n    while get_job(job_id)[\"status\"] == \"running\":\n        await asyncio.sleep(5)\n        for step in get_job(job_id)[\"progress\"]:\n            print(f\"... {step}\")\n\n    job = get_job(job_id)\n    if job[\"status\"] == \"failed\":\n        raise SystemExit(job[\"error\"])\n    print(job[\"report\"][\"title\"])\n\n\nasyncio.run(main())\n"
+            "lang": "Python - background job",
+            "label": "Python - background job",
+            "source": "# Recommended: `background: true` returns a job at once; poll it until it ends.\n\nimport time\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\nHEADERS = {\"Authorization\": f\"Bearer {API_KEY}\"}\n\nresponse = requests.post(\n    f\"{BASE_URL}/v1/sadiq/deep-research\",\n    headers=HEADERS,\n    json={\n        \"model\": \"Fanar-Sadiq-2\",\n        \"input\": \"The importance of seeking knowledge in Islam\",\n        \"depth\": \"standard\",\n        \"background\": True,\n    },\n    timeout=30,\n)\nresponse.raise_for_status()\njob = response.json()\nprint(f\"job {job['id']}: {job['status']}\")\n\nwhile job[\"status\"] in (\"queued\", \"in_progress\"):\n    time.sleep(10)\n    job = requests.get(\n        f\"{BASE_URL}/v1/sadiq/deep-research/{job['id']}\", headers=HEADERS, timeout=30\n    ).json()\n    # progress_pct can sit at 100 for a while: the last sentences are still being\n    # checked before the job completes.\n    print(f\"{job['status']} {job['progress_pct']}%\")\n\nif job[\"status\"] == \"completed\":\n    report = job[\"result\"]\n    print(report[\"title\"])\n    print(report.get(\"markdown\") or report[\"overview\"])\nelif job[\"status\"] == \"incomplete\":\n    print(\"stopped by a content filter:\", job[\"incomplete_details\"][\"reason\"])\nelse:  # failed or cancelled\n    raise SystemExit(f\"{job['status']}: {job['error']}\")\n"
+          },
+          {
+            "lang": "TypeScript",
+            "label": "TypeScript - background job",
+            "source": "// Node 18+ (built-in fetch). Submit in the background and poll until the job ends.\nconst BASE_URL = \"https://api.fanar.qa\";\nconst API_KEY = \"YOUR_API_KEY_HERE\";\nconst headers = { Authorization: `Bearer ${API_KEY}`, \"Content-Type\": \"application/json\" };\n\ntype JobStatus = \"queued\" | \"in_progress\" | \"completed\" | \"failed\" | \"cancelled\" | \"incomplete\";\n\ninterface Job {\n  id: string;\n  status: JobStatus;\n  progress_pct: number;\n  result: { title: string; overview: string; markdown?: string } | null;\n  error: { code: string; message: string } | null;\n  incomplete_details: { reason: string } | null;\n}\n\nasync function call(path: string, init?: RequestInit): Promise<Job> {\n  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });\n  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);\n  return (await res.json()) as Job;\n}\n\nasync function main(): Promise<void> {\n  let job = await call(\"/v1/sadiq/deep-research\", {\n    method: \"POST\",\n    body: JSON.stringify({\n      model: \"Fanar-Sadiq-2\",\n      input: \"The importance of seeking knowledge in Islam\",\n      depth: \"standard\",\n      background: true,\n    }),\n  });\n  console.log(`job ${job.id}: ${job.status}`);\n\n  while (job.status === \"queued\" || job.status === \"in_progress\") {\n    await new Promise((resolve) => setTimeout(resolve, 10_000));\n    job = await call(`/v1/sadiq/deep-research/${job.id}`);\n    console.log(`${job.status} ${job.progress_pct}%`);\n  }\n\n  if (job.status === \"completed\" && job.result) {\n    console.log(job.result.title);\n    console.log(job.result.markdown ?? job.result.overview);\n  } else if (job.status === \"incomplete\") {\n    console.log(\"stopped by a content filter:\", job.incomplete_details?.reason);\n  } else {\n    throw new Error(`${job.status}: ${job.error?.message}`);\n  }\n}\n\nmain().catch((err) => {\n  console.error(err.message);\n  process.exit(1);\n});\n"
+          },
+          {
+            "lang": "Python - background + stream",
+            "label": "Python - background + stream",
+            "source": "# The job's events stream on this connection; its id is in the X-Id header.\n# A response that ends without `data: [DONE]` is resumed from the last event id.\n\nimport json\nimport time\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\nHEADERS = {\"Authorization\": f\"Bearer {API_KEY}\"}\n\n\ndef follow(response, state):\n    \"\"\"Read events until [DONE] (True) or the response ends (False).\"\"\"\n    event_id = None\n    for line in response.iter_lines(decode_unicode=True):\n        if line.startswith(\"id: \"):\n            event_id = line[4:]\n        elif line.startswith(\"data: \"):\n            state[\"last_id\"] = event_id\n            data = line[6:]\n            if data == \"[DONE]\":\n                return True\n            chunk = json.loads(data)\n            if \"progress\" in chunk:\n                print(\"...\", chunk[\"progress\"][\"message\"][\"en\"])\n            elif \"report\" in chunk:\n                # Use the report as the result, not the concatenated deltas. If a\n                # worker fails, the job restarts and its events replay from the start\n                # once -- the report is still the one to keep.\n                state[\"report\"] = chunk[\"report\"]\n    return False\n\n\nstate = {\"last_id\": None, \"report\": None}\nwith requests.post(\n    f\"{BASE_URL}/v1/sadiq/deep-research\",\n    headers=HEADERS,\n    json={\n        \"model\": \"Fanar-Sadiq-2\",\n        \"input\": \"The importance of seeking knowledge in Islam\",\n        \"depth\": \"standard\",\n        \"background\": True,\n        \"stream\": True,\n    },\n    stream=True,\n    timeout=(10, 120),  # a keepalive arrives every 15 seconds of quiet\n) as response:\n    response.raise_for_status()\n    job_id = response.headers[\"X-Id\"]\n    try:\n        done = follow(response, state)\n    except requests.RequestException:\n        done = False  # the job does not depend on this connection; resume below\n\nwhile not done:\n    try:\n        with requests.get(\n            f\"{BASE_URL}/v1/sadiq/deep-research/{job_id}\",\n            headers=HEADERS,\n            params={\"stream\": \"true\", \"starting_after\": state[\"last_id\"]},\n            stream=True,\n            timeout=(10, 120),\n        ) as response:\n            response.raise_for_status()\n            done = follow(response, state)\n    except requests.HTTPError as exc:\n        if exc.response.status_code < 500 and exc.response.status_code != 429:\n            raise  # 404: gone or never yours -- stop\n        time.sleep(2)\n    except requests.RequestException:\n        time.sleep(2)  # dropped, mid-event or before connecting: resume from the last id\n\n# The job object is the authoritative outcome: completed, failed, cancelled, incomplete.\njob = requests.get(f\"{BASE_URL}/v1/sadiq/deep-research/{job_id}\", headers=HEADERS, timeout=30).json()\nprint(job[\"status\"])\nif job[\"status\"] == \"completed\":\n    print(job[\"result\"][\"title\"])\n"
+          }
+        ]
+      }
+    },
+    "/v1/sadiq/deep-research/{job_id}": {
+      "get": {
+        "tags": [
+          "Sadiq"
+        ],
+        "summary": "Retrieve Deep Research Job",
+        "description": "Returns a background deep research job. `result` holds the report once `status` is `completed`; `incomplete` means a content filter stopped it.<br/><br/>With `stream=true`, returns the job's events as Server-Sent Events, each with an `id:`. `data: [DONE]` ends the job; if a response ends without it, reconnect with `starting_after=<last id>` to resume. Jobs are kept for 24 hours after they end.<br/><br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "operationId": "retrieve_deep_research_job_v1_sadiq_deep_research__job_id__get",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "stream",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Return the job's events as Server-Sent Events instead of the job object.",
+              "default": false,
+              "title": "Stream"
+            },
+            "description": "Return the job's events as Server-Sent Events instead of the job object."
+          },
+          {
+            "name": "starting_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With `stream=true`: resume after this event id (the last `id:` you received).",
+              "title": "Starting After"
+            },
+            "description": "With `stream=true`: resume after this event id (the last `id:` you received)."
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The standard SSE resume header; `starting_after` takes precedence.",
+              "title": "Last-Event-Id"
+            },
+            "description": "The standard SSE resume header; `starting_after` takes precedence."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job (JSON), or with `stream=true` its events (SSE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                },
+                "examples": {
+                  "in_progress": {
+                    "summary": "in_progress",
+                    "value": {
+                      "id": "fda0a674-7494-480d-83ea-0cf12f31dc83",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "in_progress",
+                      "progress_pct": 50,
+                      "attempt": 1,
+                      "created_at": 1791100381,
+                      "started_at": 1791100381,
+                      "updated_at": 1791100422,
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما أهمية الصلاة في حياة المسلم؟",
+                        "depth": "quick",
+                        "web_search": false
+                      }
+                    }
+                  },
+                  "completed": {
+                    "summary": "completed, with its report",
+                    "value": {
+                      "id": "5bbed6e2-ae53-486f-823a-2f01992ece59",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "completed",
+                      "progress_pct": 100,
+                      "attempt": 1,
+                      "created_at": 1791099046,
+                      "started_at": 1791099046,
+                      "completed_at": 1791099575,
+                      "updated_at": 1791099575,
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما فضل الصدقة في الإسلام؟",
+                        "depth": "quick",
+                        "web_search": false
+                      },
+                      "result": {
+                        "topic": "ما فضل الصدقة في الإسلام؟",
+                        "language": "ar",
+                        "title": "فضل الصدقة في الإسلام",
+                        "title_ar": "فضل الصدقة في الإسلام",
+                        "overview": "**المقدمة:**\nالصدقة في الإسلام تحمل أهمية روحية واجتماعية عميقة، فهي تُظهر قوة الإيمان وتعكس قيم التعاون والتكافل الاجتماعي. هذا التقرير يستعرض فضائل الصدقة من ...",
+                        "sections": [
+                          {
+                            "heading": "الأهمية الروحية والدينية للصدقة",
+                            "heading_ar": "الأهمية الروحية والدينية للصدقة",
+                            "content": "## الأهمية الروحية والدينية للصدقة\n\nللصدقة مكانة عظيمة في الإسلام، فهي تعكس صدق إيمان المسلم، حيث أن حب المال فطرة بشرية، ومن يتبرع بماله يكون بذلك قد تجاوز طبي ...",
+                            "mode": "general",
+                            "sources": [
+                              {
+                                "quote": "فنزلت: الَّذِينَ يَلْمِزُونَ الْمُطَّوِّعِينَ مِنَ الْمُؤْمِنِينَ فِي الصَّدَقات ...",
+                                "source": "نضرة النعيم في مكارم أخلاق الرسول الكريم [3243] - مجموعة من المؤلفين",
+                                "was_cited": true,
+                                "citation_tag": "[الشاملة:3243]"
+                              }
+                            ],
+                            "cited_sources": [
+                              {
+                                "quote": "فنزلت: الَّذِينَ يَلْمِزُونَ الْمُطَّوِّعِينَ مِنَ الْمُؤْمِنِينَ فِي الصَّدَقات ...",
+                                "source": "نضرة النعيم في مكارم أخلاق الرسول الكريم [3243] - مجموعة من المؤلفين",
+                                "was_cited": true,
+                                "citation_tag": "[الشاملة:3243]"
+                              }
+                            ]
+                          }
+                        ],
+                        "sources": [
+                          {
+                            "quote": "فنزلت: الَّذِينَ يَلْمِزُونَ الْمُطَّوِّعِينَ مِنَ الْمُؤْمِنِينَ فِي الصَّدَقات ...",
+                            "source": "نضرة النعيم في مكارم أخلاق الرسول الكريم [3243] - مجموعة من المؤلفين",
+                            "was_cited": true,
+                            "citation_tag": "[الشاملة:3243]"
+                          },
+                          {
+                            "quote": "للصدقة شأن عظيم في الإسلام، فهي من أوضح الدلالات، وأصدق العلامات على صدق إيمان ا ...",
+                            "source": "https://islamweb.net/ar/article/42149/فضائل-الصدقة",
+                            "was_cited": true,
+                            "citation_tag": "[إسلام ويب:42149]"
+                          }
+                        ],
+                        "metadata": {
+                          "depth": "quick",
+                          "total_queries": 5,
+                          "total_sources": 24,
+                          "sections_count": 4,
+                          "elapsed_seconds": 468.65,
+                          "web_search_used": false,
+                          "web_sources_count": 0,
+                          "adaptive_planning_used": false,
+                          "editorial_polish_applied": true
+                        },
+                        "markdown": "# فضل الصدقة في الإسلام\n\n**المقدمة:**\nالصدقة في الإسلام تحمل أهمية روحية واجتماعية عميقة، فهي تُظهر قوة الإيمان وتعكس قي ..."
+                      }
+                    }
+                  },
+                  "incomplete": {
+                    "summary": "incomplete: stopped by a content filter",
+                    "value": {
+                      "id": "fda0a674-7494-480d-83ea-0cf12f31dc83",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "incomplete",
+                      "incomplete_details": {
+                        "reason": "content_filter"
+                      },
+                      "progress_pct": 50,
+                      "attempt": 1,
+                      "created_at": 1791100381,
+                      "started_at": 1791100381,
+                      "completed_at": 1791100692,
+                      "updated_at": 1791100692,
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما أهمية الصلاة في حياة المسلم؟",
+                        "depth": "quick",
+                        "web_search": false
+                      }
+                    }
+                  },
+                  "queued": {
+                    "summary": "queued",
+                    "value": {
+                      "id": "c3869c31-4283-4934-b7d6-18ad35265d70",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "queued",
+                      "progress_pct": 0,
+                      "attempt": 0,
+                      "created_at": 1791099697,
+                      "updated_at": 1791099697,
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما أهمية طلب العلم في الإسلام؟",
+                        "depth": "quick",
+                        "web_search": false
+                      }
+                    }
+                  }
+                }
+              },
+              "text/event-stream": {
+                "examples": {
+                  "from_start": {
+                    "summary": "?stream=true -- from the first event",
+                    "value": "id: 1791099047115-0\ndata: {\"id\": \"chatcmpl-7d72ef6259e8459cb56ae483\", \"object\": \"chat.completion.chunk\", \"created\": 1791099047, \"model\": null, \"progress\": {\"message\": {\"ar\": \"جاري تحليل الموضوع وتخطيط هيكل التقرير...\", \"en\": \"Analyzing topic and planning report structure...\"}}}\n\nid: 1791099077710-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"choices\": [{\"index\": 0, \"delta\": {\"role\": \"assistant\"}, \"finish_reason\": null}]}\n\nid: 1791099077711-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"choices\": [{\"index\": 0, \"delta\": {\"content\": \"# فضل الصدقة في الإسلام\\n\\n**المقدمة:**\\nالصدقة في الإسلام تحمل أهمية روحية واجتماعية عميقة، فهي تُظهر قوة الإيمان وتعكس قيم التعاون والتكافل الاجتماعي.\"}, \"finish_reason\": null}]}\n\nid: 1791099077744-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"progress\": {\"message\": {\"ar\": \"اكتملت النظرة العامة\", \"en\": \"Overview complete\"}}}\n\nid: 1791099575053-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"report\": {\"title\": \"فضل الصدقة في الإسلام\", \"sections\": [...], \"sources\": [...]}}\n\nid: 1791099575097-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"choices\": [{\"index\": 0, \"delta\": {\"references\": [{\"index\": 0, \"number\": 1, \"source\": \"https://fiqh.islamonline.net/%d8%a3%d8%af%d9%84%d8%a9-%d8%a7%d9%84%d8%aa%d9%83%d8%a7%d9%81%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a-%d9%81%d9%8a-%d8%a7%d9%84%d8%a5%d8%b3%d9%84%d8%a7%d9%85/\", \"content\": \"أدلة التكافل الاجتماعي في الإسلام: يؤسس الإسلام العلاقات الاجتماعية بين الناس عل ...\", \"citation_tag\": \"[إسلام أون لاين:518085]\", \"was_cited\": true}, ...]}, \"finish_reason\": \"stop\"}], \"metadata\": {\"depth\": \"quick\", \"elapsed_seconds\": 468.65, \"total_sources\": 24, \"web_search_used\": false}}\n\nid: 1791099575102-0\ndata: [DONE]\n\n"
+                  },
+                  "resumed": {
+                    "summary": "?stream=true&starting_after=<id> -- resumed",
+                    "value": "GET /v1/sadiq/deep-research/5bbed6e2-ae53-486f-823a-2f01992ece59?stream=true&starting_after=1791099077711-0\n\nid: 1791099077744-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"progress\": {\"message\": {\"ar\": \"اكتملت النظرة العامة\", \"en\": \"Overview complete\"}}}\n\nid: 1791099077745-0\ndata: {\"id\": \"chatcmpl-1791099046\", \"object\": \"chat.completion.chunk\", \"created\": 1791099046, \"model\": \"Fanar-Sadiq-2\", \"progress\": {\"message\": {\"ar\": \"جاري البحث في الأقسام الأولية (2 من 4)...\", \"en\": \"Researching initial sections (2 of 4)...\"}}}\n\n: keepalive\n\n"
+                  }
+                },
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ProgressChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ReportChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DoneChunk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorChunk"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid authentication",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "invalid_authentication",
+                    "message": "Invalid authentication",
+                    "status": 401
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid authorization",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "invalid_authorization",
+                    "message": "Invalid authorization",
+                    "status": 403
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job: unknown, created under a different access, or past its 24-hour retention.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "Not found",
+                    "message": "No job found with this id.",
+                    "status": 404
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "Conflict",
+                    "status": 409
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "No longer supported",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "no_longer_supported",
+                    "message": "No longer supported",
+                    "status": 410
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request entity too large",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "too_large",
+                    "message": "Request entity too large",
+                    "status": 413
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "unprocessable",
+                    "message": "Unprocessable",
+                    "status": 422
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached or Exceeded quota",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "exceeded_quota",
+                    "message": "Exceeded quota",
+                    "status": 429
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "internal_server_error",
+                    "message": "Internal server error",
+                    "status": 500
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service overloaded",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "overloaded",
+                    "message": "Service overloaded",
+                    "status": 503
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Request timed out",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "timeout",
+                    "message": "Request timed out",
+                    "status": 504
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "label": "cURL - poll",
+            "source": "# The job, as JSON. Poll every few seconds until `status` is completed, failed,\n# cancelled or incomplete. Reading a job is not metered.\ncurl \"https://api.fanar.qa/v1/sadiq/deep-research/YOUR_JOB_ID\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\"\n"
+          },
+          {
+            "lang": "cURL - stream",
+            "label": "cURL - stream",
+            "source": "# The job's events. Omit starting_after to start from the first event; pass the last\n# `id:` you received to resume. `data: [DONE]` is the end of the job; a response that\n# ends without it is resumed the same way.\ncurl -N \"https://api.fanar.qa/v1/sadiq/deep-research/YOUR_JOB_ID?stream=true&starting_after=LAST_EVENT_ID\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\"\n"
+          },
+          {
+            "lang": "Python",
+            "label": "Python - poll until done",
+            "source": "import time\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\nJOB_ID = \"YOUR_JOB_ID\"  # the `id` from the create call, also its X-Id header\n\n\ndef wait_for(job_id, every=10):\n    while True:\n        response = requests.get(\n            f\"{BASE_URL}/v1/sadiq/deep-research/{job_id}\",\n            headers={\"Authorization\": f\"Bearer {API_KEY}\"},\n            timeout=30,\n        )\n        if response.status_code == 404:\n            # Unknown, created under a different access, or past its 24-hour retention.\n            raise SystemExit(\"no such job\")\n        response.raise_for_status()\n        job = response.json()\n        if job[\"status\"] not in (\"queued\", \"in_progress\"):\n            return job\n        print(f\"{job['status']} {job['progress_pct']}% (attempt {job['attempt']})\")\n        time.sleep(every)\n\n\njob = wait_for(JOB_ID)\nif job[\"status\"] == \"completed\":\n    print(job[\"result\"][\"title\"])\nelif job[\"status\"] == \"incomplete\":\n    # The output was stopped by a content filter; there is no result.\n    print(\"incomplete:\", job[\"incomplete_details\"][\"reason\"])\nelif job[\"status\"] == \"cancelled\":\n    print(\"cancelled by\", job[\"cancel_source\"])\nelse:  # failed\n    print(\"failed:\", job[\"error\"][\"code\"], job[\"error\"][\"message\"])\n"
+          },
+          {
+            "lang": "Python - stream with resume",
+            "label": "Python - stream with resume",
+            "source": "# Follow a job's events to the end, from its first event, surviving any number of\n# dropped or closed connections. Each event's `id:` is a resume point.\n\nimport json\nimport time\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\nJOB_ID = \"YOUR_JOB_ID\"\n\n\ndef events(job_id, after):\n    \"\"\"(id, payload) for each event after `after`, until the response ends.\"\"\"\n    with requests.get(\n        f\"{BASE_URL}/v1/sadiq/deep-research/{job_id}\",\n        headers={\"Authorization\": f\"Bearer {API_KEY}\"},\n        params={\"stream\": \"true\", \"starting_after\": after},\n        stream=True,\n        timeout=(10, 120),  # a keepalive arrives every 15 seconds of quiet\n    ) as response:\n        response.raise_for_status()\n        event_id = None\n        for line in response.iter_lines(decode_unicode=True):\n            if line.startswith(\"id: \"):\n                event_id = line[4:]\n            elif line.startswith(\"data: \"):\n                yield event_id, line[6:]\n\n\nlast_id, report, done = None, None, False\nwhile not done:\n    try:\n        for event_id, data in events(JOB_ID, last_id):\n            last_id = event_id\n            if data == \"[DONE]\":\n                done = True\n                break\n            chunk = json.loads(data)\n            if \"progress\" in chunk:\n                print(\"...\", chunk[\"progress\"][\"message\"][\"en\"])\n            elif \"report\" in chunk:\n                report = chunk[\"report\"]  # the result to keep\n            elif \"error\" in chunk:\n                print(\"error:\", chunk[\"error\"].get(\"message\"))\n    except requests.HTTPError as exc:\n        # 404: unknown, created under a different access, or past retention -- stop.\n        if exc.response.status_code < 500 and exc.response.status_code != 429:\n            raise\n        time.sleep(2)\n    except requests.RequestException:\n        # Dropped, mid-event or before connecting: resume from the last id.\n        time.sleep(2)\n    # Fell out without [DONE]: the server closed this response on purpose. Resume.\n\nprint(report[\"title\"] if report else \"no report (see the job's status)\")\n"
+          },
+          {
+            "lang": "TypeScript",
+            "label": "TypeScript - stream with resume",
+            "source": "// Node 18+ (built-in fetch). Follow a job's events to the end, resuming from the last\n// event id after every closed or dropped connection.\nconst BASE_URL = \"https://api.fanar.qa\";\nconst API_KEY = \"YOUR_API_KEY_HERE\";\nconst JOB_ID = \"YOUR_JOB_ID\";\nconst headers = { Authorization: `Bearer ${API_KEY}` };\n\nclass Fatal extends Error {}\n\ninterface Chunk {\n  progress?: { message: { en: string } };\n  report?: { title: string };\n  error?: { message?: string };\n}\n\n// One response. True on [DONE]; false when it ends without it (resume).\nasync function readSegment(state: { lastId: string | null }, onChunk: (c: Chunk) => void): Promise<boolean> {\n  const url = new URL(`${BASE_URL}/v1/sadiq/deep-research/${JOB_ID}`);\n  url.searchParams.set(\"stream\", \"true\");\n  if (state.lastId) url.searchParams.set(\"starting_after\", state.lastId);\n  const res = await fetch(url, { headers });\n  if (res.status >= 400 && res.status < 500 && res.status !== 429) {\n    throw new Fatal(`HTTP ${res.status}: ${await res.text()}`); // e.g. 404: unknown job\n  }\n  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);\n\n  const decoder = new TextDecoder();\n  let buffer = \"\";\n  for await (const bytes of res.body as unknown as AsyncIterable<Uint8Array>) {\n    buffer += decoder.decode(bytes, { stream: true });\n    let end: number;\n    while ((end = buffer.indexOf(\"\\n\\n\")) !== -1) {\n      const block = buffer.slice(0, end);\n      buffer = buffer.slice(end + 2);\n      let id: string | null = null;\n      let data: string | null = null;\n      for (const line of block.split(\"\\n\")) {\n        if (line.startsWith(\"id: \")) id = line.slice(4);\n        else if (line.startsWith(\"data: \")) data = line.slice(6);\n      }\n      if (data === null) continue; // keepalive\n      state.lastId = id ?? state.lastId;\n      if (data === \"[DONE]\") return true;\n      onChunk(JSON.parse(data) as Chunk);\n    }\n  }\n  return false;\n}\n\nasync function follow(): Promise<void> {\n  const state = { lastId: null as string | null };\n  let report: Chunk[\"report\"] | null = null;\n  const onChunk = (chunk: Chunk) => {\n    if (chunk.progress) console.log(\"...\", chunk.progress.message.en);\n    else if (chunk.report) report = chunk.report; // the result to keep\n    else if (chunk.error) console.log(\"error:\", chunk.error.message);\n  };\n  for (;;) {\n    try {\n      if (await readSegment(state, onChunk)) break;\n    } catch (err) {\n      if (err instanceof Fatal) throw err;\n      await new Promise((resolve) => setTimeout(resolve, 2000));\n    }\n  }\n  console.log(report ? (report as { title: string }).title : \"no report (see the job's status)\");\n}\n\nfollow().catch((err) => {\n  console.error(err.message);\n  process.exit(1);\n});\n"
+          }
+        ]
+      }
+    },
+    "/v1/sadiq/deep-research/{job_id}/cancel": {
+      "post": {
+        "tags": [
+          "Sadiq"
+        ],
+        "summary": "Cancel Deep Research Job",
+        "description": "Cancels a background deep research job and returns it. Cancellation is asynchronous: poll until `cancelled`. A job that already ended is returned unchanged. Quota is not refunded.<br/><br/>This endpoint requires additional authorization and is not allowed by default. Please contact <a href='mailto:support@fanar.qa'>support@fanar.qa</a>.",
+        "operationId": "cancel_deep_research_job_v1_sadiq_deep_research__job_id__cancel_post",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job as it stands after the cancel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                },
+                "examples": {
+                  "cancelled": {
+                    "summary": "cancelled",
+                    "value": {
+                      "id": "c3869c31-4283-4934-b7d6-18ad35265d70",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "cancelled",
+                      "progress_pct": 0,
+                      "attempt": 0,
+                      "created_at": 1791099697,
+                      "completed_at": 1791099697,
+                      "updated_at": 1791099697,
+                      "cancel_source": "owner",
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما أهمية طلب العلم في الإسلام؟",
+                        "depth": "quick",
+                        "web_search": false
+                      }
+                    }
+                  },
+                  "too_late": {
+                    "summary": "already finished: returned unchanged",
+                    "value": {
+                      "id": "5bbed6e2-ae53-486f-823a-2f01992ece59",
+                      "object": "job",
+                      "type": "deep_research",
+                      "status": "completed",
+                      "progress_pct": 100,
+                      "attempt": 1,
+                      "created_at": 1791099046,
+                      "started_at": 1791099046,
+                      "completed_at": 1791099575,
+                      "updated_at": 1791099575,
+                      "request": {
+                        "model": "Fanar-Sadiq-2",
+                        "input": "ما فضل الصدقة في الإسلام؟",
+                        "depth": "quick",
+                        "web_search": false
+                      },
+                      "result": {
+                        "topic": "ما فضل الصدقة في الإسلام؟",
+                        "language": "ar",
+                        "title": "فضل الصدقة في الإسلام",
+                        "title_ar": "فضل الصدقة في الإسلام",
+                        "overview": "**المقدمة:**\nالصدقة في الإسلام تحمل أهمية روحية واجتماعية عميقة، فهي تُظهر قوة الإيمان وتعكس قيم التعاون والتكافل الاجتماعي. هذا التقرير يستعرض فضائل الصدقة من ...",
+                        "sections": [
+                          {
+                            "heading": "الأهمية الروحية والدينية للصدقة",
+                            "heading_ar": "الأهمية الروحية والدينية للصدقة",
+                            "content": "## الأهمية الروحية والدينية للصدقة\n\nللصدقة مكانة عظيمة في الإسلام، فهي تعكس صدق إيمان المسلم، حيث أن حب المال فطرة بشرية، ومن يتبرع بماله يكون بذلك قد تجاوز طبي ...",
+                            "mode": "general",
+                            "sources": [
+                              {
+                                "quote": "فنزلت: الَّذِينَ يَلْمِزُونَ الْمُطَّوِّعِينَ مِنَ الْمُؤْمِنِينَ فِي الصَّدَقات ...",
+                                "source": "نضرة النعيم في مكارم أخلاق الرسول الكريم [3243] - مجموعة من المؤلفين",
+                                "was_cited": true,
+                                "citation_tag": "[الشاملة:3243]"
+                              }
+                            ],
+                            "cited_sources": [
+                              {
+                                "quote": "فنزلت: الَّذِينَ يَلْمِزُونَ الْمُطَّوِّعِينَ مِنَ الْمُؤْمِنِينَ فِي الصَّدَقات ...",
+                                "source": "نضرة النعيم في مكارم أخلاق الرسول الكريم [3243] - مجموعة من المؤلفين",
+                                "was_cited": true,
+                                "citation_tag": "[الشاملة:3243]"
+                              }
+                            ]
+                          }
+                        ],
+                        "sources": [
+                          {
+                            "quote": "فنزلت: الَّذِينَ يَلْمِزُونَ الْمُطَّوِّعِينَ مِنَ الْمُؤْمِنِينَ فِي الصَّدَقات ...",
+                            "source": "نضرة النعيم في مكارم أخلاق الرسول الكريم [3243] - مجموعة من المؤلفين",
+                            "was_cited": true,
+                            "citation_tag": "[الشاملة:3243]"
+                          },
+                          {
+                            "quote": "للصدقة شأن عظيم في الإسلام، فهي من أوضح الدلالات، وأصدق العلامات على صدق إيمان ا ...",
+                            "source": "https://islamweb.net/ar/article/42149/فضائل-الصدقة",
+                            "was_cited": true,
+                            "citation_tag": "[إسلام ويب:42149]"
+                          }
+                        ],
+                        "metadata": {
+                          "depth": "quick",
+                          "total_queries": 5,
+                          "total_sources": 24,
+                          "sections_count": 4,
+                          "elapsed_seconds": 468.65,
+                          "web_search_used": false,
+                          "web_sources_count": 0,
+                          "adaptive_planning_used": false,
+                          "editorial_polish_applied": true
+                        },
+                        "markdown": "# فضل الصدقة في الإسلام\n\n**المقدمة:**\nالصدقة في الإسلام تحمل أهمية روحية واجتماعية عميقة، فهي تُظهر قوة الإيمان وتعكس قي ..."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid authentication",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "invalid_authentication",
+                    "message": "Invalid authentication",
+                    "status": 401
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid authorization",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "invalid_authorization",
+                    "message": "Invalid authorization",
+                    "status": 403
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job: unknown, created under a different access, or past its 24-hour retention.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "Not found",
+                    "message": "No job found with this id.",
+                    "status": 404
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "conflict",
+                    "message": "Conflict",
+                    "status": 409
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "No longer supported",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "no_longer_supported",
+                    "message": "No longer supported",
+                    "status": 410
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request entity too large",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "too_large",
+                    "message": "Request entity too large",
+                    "status": 413
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "unprocessable",
+                    "message": "Unprocessable",
+                    "status": 422
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached or Exceeded quota",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "exceeded_quota",
+                    "message": "Exceeded quota",
+                    "status": 429
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "499": {
+            "description": "Client closed request before completion",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "client_closed_request",
+                    "message": "Client closed request before completion",
+                    "status": 499
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "internal_server_error",
+                    "message": "Internal server error",
+                    "status": 500
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service overloaded",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "overloaded",
+                    "message": "Service overloaded",
+                    "status": 503
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Request timed out",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "timeout",
+                    "message": "Request timed out",
+                    "status": 504
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "label": "cURL",
+            "source": "# Idempotent: cancelling a finished job returns it unchanged. Quota is not refunded.\ncurl -X POST \"https://api.fanar.qa/v1/sadiq/deep-research/YOUR_JOB_ID/cancel\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY_HERE\"\n"
+          },
+          {
+            "lang": "Python",
+            "label": "Python - cancel and confirm",
+            "source": "# Cancellation is asynchronous, and a job already finishing may complete anyway:\n# check the status you end with.\n\nimport time\n\nimport requests\n\nBASE_URL = \"https://api.fanar.qa\"\nAPI_KEY = \"YOUR_API_KEY_HERE\"\nHEADERS = {\"Authorization\": f\"Bearer {API_KEY}\"}\nJOB_ID = \"YOUR_JOB_ID\"\n\njob = requests.post(\n    f\"{BASE_URL}/v1/sadiq/deep-research/{JOB_ID}/cancel\", headers=HEADERS, timeout=30\n).json()\n\nwhile job[\"status\"] in (\"queued\", \"in_progress\"):\n    time.sleep(1)\n    job = requests.get(\n        f\"{BASE_URL}/v1/sadiq/deep-research/{JOB_ID}\", headers=HEADERS, timeout=30\n    ).json()\n\nif job[\"status\"] == \"cancelled\":\n    print(\"cancelled\")\nelse:\n    print(f\"finished before the cancel landed: {job['status']}\")\n"
+          },
+          {
+            "lang": "TypeScript",
+            "label": "TypeScript - cancel and confirm",
+            "source": "// Node 18+. Cancellation is asynchronous, and a job already finishing may complete\n// anyway: check the status you end with.\nconst BASE_URL = \"https://api.fanar.qa\";\nconst API_KEY = \"YOUR_API_KEY_HERE\";\nconst JOB_ID = \"YOUR_JOB_ID\";\nconst headers = { Authorization: `Bearer ${API_KEY}` };\n\ninterface Job { id: string; status: string }\n\nasync function call(path: string, method = \"GET\"): Promise<Job> {\n  const res = await fetch(`${BASE_URL}${path}`, { method, headers });\n  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);\n  return (await res.json()) as Job;\n}\n\nasync function main(): Promise<void> {\n  let job = await call(`/v1/sadiq/deep-research/${JOB_ID}/cancel`, \"POST\");\n  while (job.status === \"queued\" || job.status === \"in_progress\") {\n    await new Promise((resolve) => setTimeout(resolve, 1000));\n    job = await call(`/v1/sadiq/deep-research/${JOB_ID}`);\n  }\n  console.log(job.status === \"cancelled\" ? \"cancelled\" : `finished before the cancel landed: ${job.status}`);\n}\n\nmain().catch((err) => {\n  console.error(err.message);\n  process.exit(1);\n});\n"
           }
         ]
       }
@@ -4654,6 +5554,14 @@
           "التحالف السياسي في الإسلام"
         ],
         "title": "BookNamesEnum"
+      },
+      "CancelSource": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin"
+        ],
+        "title": "CancelSource"
       },
       "ChatCompletionAssistantMessageParam": {
         "properties": {
@@ -6076,6 +6984,257 @@
         ],
         "title": "DeepResearchDepth"
       },
+      "DeepResearchJobRequest": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "const": "Fanar-Sadiq-2",
+            "title": "Model"
+          },
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "depth": {
+            "$ref": "#/components/schemas/DeepResearchDepth",
+            "default": "standard"
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "input"
+        ],
+        "title": "DeepResearchJobRequest",
+        "description": "What a deep-research job was asked to do: `Job.request` for this type."
+      },
+      "DeepResearchReport-Input": {
+        "properties": {
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Ar"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DeepResearchSection-Input"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markdown"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DeepResearchReport"
+      },
+      "DeepResearchReport-Output": {
+        "properties": {
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Ar"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DeepResearchSection-Output"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markdown"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DeepResearchReport"
+      },
       "DeepResearchRequest": {
         "properties": {
           "model": {
@@ -6099,8 +7258,7 @@
               }
             ],
             "title": "Stream",
-            "description": "Whether to stream the response.",
-            "default": true
+            "description": "Whether to stream the response. Defaults to `true`, or to `false` when `background` is set."
           },
           "depth": {
             "anyOf": [
@@ -6126,6 +7284,19 @@
             "title": "Web Search",
             "description": "Whether to include web search results.",
             "default": false
+          },
+          "background": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background",
+            "description": "Run the research as a background job. The response is a `Job` returned immediately; retrieve it with `GET /v1/sadiq/deep-research/{id}`. With `stream: true` as well, the job's events stream on this same connection and can be resumed with `GET /v1/sadiq/deep-research/{id}?stream=true`.",
+            "default": false
           }
         },
         "type": "object",
@@ -6133,7 +7304,213 @@
           "model",
           "input"
         ],
-        "title": "DeepResearchRequest"
+        "title": "DeepResearchRequest",
+        "example": {
+          "model": "Fanar-Sadiq-2",
+          "input": "ما أهمية طلب العلم في الإسلام؟",
+          "depth": "quick",
+          "background": true
+        }
+      },
+      "DeepResearchSection-Input": {
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "heading_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Ar"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "cited_sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cited Sources"
+          },
+          "degraded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded"
+          },
+          "children": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DeepResearchSection-Input"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DeepResearchSection"
+      },
+      "DeepResearchSection-Output": {
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "heading_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Ar"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "cited_sources": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cited Sources"
+          },
+          "degraded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded"
+          },
+          "children": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DeepResearchSection-Output"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DeepResearchSection"
       },
       "Error": {
         "properties": {
@@ -6366,6 +7743,197 @@
           "url"
         ],
         "title": "ImageURL"
+      },
+      "IncompleteDetails": {
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/IncompleteReason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "IncompleteDetails"
+      },
+      "IncompleteReason": {
+        "type": "string",
+        "enum": [
+          "content_filter"
+        ],
+        "title": "IncompleteReason"
+      },
+      "Job": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "The job id. Also returned as the `X-Id` header on create."
+          },
+          "object": {
+            "$ref": "#/components/schemas/JobObject",
+            "default": "job"
+          },
+          "type": {
+            "$ref": "#/components/schemas/JobTypeName"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus",
+            "description": "`queued` → `in_progress` → one of `completed`, `failed`, `cancelled`, `incomplete`. `incomplete` means the output was stopped by a content filter."
+          },
+          "incomplete_details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncompleteDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress_pct": {
+            "type": "integer",
+            "title": "Progress Pct",
+            "description": "Research progress, 0-100. It can reach 100 while the last sentences are still being checked; only `status` says the job is done.",
+            "default": 0
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt",
+            "description": "How many times this job has been started. Above 1 means it was restarted after a server failure, and its events replayed from the start.",
+            "default": 0
+          },
+          "created_at": {
+            "type": "integer",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "updated_at": {
+            "type": "integer",
+            "title": "Updated At",
+            "description": "When the job was last updated. A running job is updated every few seconds."
+          },
+          "cancel_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CancelSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/DeepResearchJobRequest"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeepResearchReport-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when `status` is `completed`: the report, exactly as the synchronous endpoint returns it."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status",
+          "created_at",
+          "updated_at",
+          "request"
+        ],
+        "title": "Job"
+      },
+      "JobError": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/JobErrorCode"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "JobError"
+      },
+      "JobErrorCode": {
+        "type": "string",
+        "enum": [
+          "backend_task_lost",
+          "backend_failed",
+          "backend_unavailable",
+          "max_runtime_exceeded",
+          "internal_error"
+        ],
+        "title": "JobErrorCode"
+      },
+      "JobObject": {
+        "type": "string",
+        "enum": [
+          "job"
+        ],
+        "title": "JobObject"
+      },
+      "JobStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "in_progress",
+          "completed",
+          "failed",
+          "cancelled",
+          "incomplete"
+        ],
+        "title": "JobStatus",
+        "description": "OpenAI's background-response vocabulary, verbatim."
+      },
+      "JobTypeName": {
+        "type": "string",
+        "enum": [
+          "deep_research"
+        ],
+        "title": "JobTypeName"
       },
       "LLM": {
         "type": "string",
@@ -6951,7 +8519,8 @@
       "TranslationModels": {
         "type": "string",
         "enum": [
-          "Fanar-Shaheen-MT-1"
+          "Fanar-Shaheen-MT-1",
+          "Fanar-Shaheen-MT-2"
         ],
         "title": "TranslationModels"
       },
@@ -7001,7 +8570,7 @@
         ],
         "title": "TranslationRequest",
         "example": {
-          "model": "Fanar-Shaheen-MT-1",
+          "model": "Fanar-Shaheen-MT-2",
           "text": "Hello, how are you?",
           "langpair": "en-ar"
         }
@@ -7658,7 +9227,7 @@
         "type": "object"
       },
       "ReportChunk": {
-        "description": "Deep research's terminal payload: the finished structured report.\n\nEmitted once, near the end of a /v1/sadiq/deep-research stream, by\nChunkBuilder.report_chunk. Clients should render THIS rather than the concatenated\ntoken deltas -- the deltas are the prose as it was drafted, the report is the\nstructured, cited result (FNR-763).",
+        "description": "Deep research's terminal payload: the finished structured report.\n\nEmitted once, near the end of a deep research stream. Render this rather than the\nconcatenated token deltas: the deltas are the prose as it was drafted, the report is\nthe structured, cited result.",
         "properties": {
           "id": {
             "description": "A unique identifier for the chat completion",
@@ -7696,6 +9265,7 @@
         "type": "object"
       },
       "DeepResearchReport": {
+        "additionalProperties": true,
         "properties": {
           "topic": {
             "anyOf": [
@@ -7815,6 +9385,7 @@
         "type": "object"
       },
       "DeepResearchSection": {
+        "additionalProperties": true,
         "properties": {
           "heading": {
             "anyOf": [

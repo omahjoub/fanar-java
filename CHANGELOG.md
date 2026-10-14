@@ -61,6 +61,47 @@ may break public API until 1.0.0 ships.
 - **`e2e`** — `LiveDeepResearchTest` (2 methods × 2 codecs, `quick` depth under a 15-minute timeout),
   gated for the standard key and failing loudly until it carries the flag: four more known-failing
   cases, **10 → 14** per run ([ledger](docs/WIRE_OBSERVATIONS.md#live-suite-budget)).
+- **`fanar-core`** — deep-research background jobs on the `sadiq` facade
+  ([ADR-032](docs/adr/032-deep-research-background-jobs.md)), over `background: true` on
+  `POST /v1/sadiq/deep-research` and the new `GET /v1/sadiq/deep-research/{job_id}` and
+  `POST …/{job_id}/cancel`: `startDeepResearch(...)` returns a `DeepResearchJob` at once and is **never
+  retried** (creating a job spends a unit); `retrieveDeepResearchJob(id)` and `cancelDeepResearchJob(id)`
+  use the client's `RetryPolicy` (reads are "not metered", cancelling is idempotent); each has an `*Async`
+  twin. `deepResearchJobStream(id)` returns the job's events as a `Flow.Publisher<DeepResearchEvent>` that
+  **resumes itself**: the server may end a response before `[DONE]` on purpose, or the connection may drop,
+  and the publisher then requests the events after the last event id it delivered (`starting_after`),
+  through the client's retry policy, so each event arrives once; three consecutive responses that complete
+  no SSE block, or a needed resume without any event id, fail the stream with `FanarTransportException`; an
+  in-stream error frame is held until later events supersede it (a restarted job replays its events) or
+  `[DONE]` delivers it; cancelling the subscription closes the connection and interrupts a reconnect in
+  flight, and never cancels the job. Records in `qa.fanar.core.sadiq`: `DeepResearchJob` (the spec's `Job`
+  without its constant `object` / `type`; the request echo decodes into `DeepResearchRequest`), `JobError`,
+  `IncompleteDetails`; open value classes `JobStatus` (with `isTerminal()` — every status but `queued` and
+  `in_progress`, unknown ones included), `JobErrorCode`, `IncompleteReason`, `CancelSource`, registered in
+  both codecs' `WireValueModule`. Observations `fanar.sadiq.deep_research.start`, `.retrieve`, `.cancel`
+  and `.retrieve.stream`, with `stream_resumed` and `stream_error_superseded` events; three reachability
+  entries, a constructor entry for `DeepResearchRequest` (now decoded as well as encoded), and an
+  `e2e-graalvm` decode probe (13 + 11). Proved by `FanarClientDeepResearchJobIntegrationTest` and, with
+  both Jackson adapters, `DeepResearchJobWireIntegrationTest`. Starting a job is gated like the run; every
+  claim about a job itself is a `—` row in the [ledger](docs/WIRE_OBSERVATIONS.md#deep-research--background-jobs).
+- **`fanar-core`** — `TranslationModel.FANAR_SHAHEEN_MT_2`, the second translation model of the
+  2026-10 spec (its own 20/day window); `KNOWN` holds both, and the API sketch's translation example now
+  uses it, as the spec's samples do.
+- **Spec** — `api-spec/openapi.json` and its YAML twin refreshed to the 2026-10 Fanar spec:
+  **14 → 16 operations, 105 → 119 schemas** (paths 13 → 15), `info.version` still 1.0.0. Additive only —
+  no path, schema or field removed. Besides the job API and `Fanar-Shaheen-MT-2`: background mode is now
+  the recommended one for deep research; `stream`'s default depends on `background`; the deep-research
+  report and section objects declare `additionalProperties: true`; and three sentences the ledger and
+  ADR-031 quoted are gone ("quota is consumed when the request is ADMITTED", "Streaming is recommended…",
+  "a single long-lived HTTP call") — re-quoted from the new file.
+- **`e2e`** — `LiveDeepResearchJobTest` (2 methods × 2 codecs: one job at `quick` depth followed to its
+  report, and an unknown id that only reads) and a `Fanar-Shaheen-MT-2` case in `LiveTranslationsTest`.
+  First run 2026-10-14: starting a job answers the run's 403, so the job case fails loudly until the key
+  carries the flag — two more known-failing cases, **14 → 16** per run
+  ([ledger](docs/WIRE_OBSERVATIONS.md#live-suite-budget)) — while an unknown id answers 404 on every job
+  operation and its case passes; MT-2 works for the standard key, on its own 20-per-24 h window.
+- **`test-support`** — `ScriptedHttpServer.Received` records the raw query string (`query()`), so seam
+  tests can assert `stream=true&starting_after=…`.
 
 ### Changed
 
@@ -100,6 +141,23 @@ may break public API until 1.0.0 ships.
   forbids inventing one; an ADK `BaseTool` over the facade is a separate record
   ([ADR-021](docs/adr/021-spring-ai-2-adapter.md), [ADR-024](docs/adr/024-spring-ai-vendor-options.md),
   [ADR-030](docs/adr/030-google-adk-adapter.md)) — recorded in `COMPATIBILITY.md` §3.
+- **`fanar-core`** — the synchronous deep-research calls now send `"stream":true,"background":false`:
+  the 2026-10 spec made `stream`'s default depend on `background`, and the SDK pins both rather than rely
+  on either default ([ADR-032](docs/adr/032-deep-research-background-jobs.md)). The body still starts
+  with `{"stream":true,`.
+- **`fanar-core`** — the SSE layer reads `id:` lines — committed by the blank line that ends an event,
+  per WHATWG — and the job stream is the first the SDK reconnects; every other stream behaves as before.
+  [ADR-012](docs/adr/012-interceptor-spi.md) (reconnects run the interceptor chain on the stream's
+  thread), [ADR-014](docs/adr/014-retry-policy-defaults.md) (a resume replays nothing; the never-retry
+  exception covers every deep-research admission and no read), [ADR-015](docs/adr/015-dto-conventions.md)
+  (constant discriminators are not modelled; `isTerminal()`), [ADR-017](docs/adr/017-sse-parsing-strategy.md)
+  and [ADR-031](docs/adr/031-deep-research-facade.md) corrected in place. `DeepResearchEvent.id()` no longer
+  promises a per-run identity: the spec's job-stream examples change it between events.
+- **`fanar-obs-micrometer`** — `http.url` is now recorded as a high-cardinality key-value by default,
+  beside `fanar.ratelimit.remaining` / `.reset`: deep-research job ids and resume points made its value
+  space unbounded, and as a metric tag it would mint a series per job. Metrics grouped by `http.url` lose
+  the tag — the operation name is the bounded key; `highCardinalityKeys(Predicate)` restores the old rule
+  ([ADR-026](docs/adr/026-rate-limit-telemetry.md), [ADR-032](docs/adr/032-deep-research-background-jobs.md)).
 
 ### Fixed
 

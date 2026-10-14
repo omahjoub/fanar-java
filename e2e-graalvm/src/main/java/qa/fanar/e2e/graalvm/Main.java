@@ -47,9 +47,14 @@ import qa.fanar.core.moderations.SafetyFilterResponse;
 import qa.fanar.core.poems.PoemGenerationRequest;
 import qa.fanar.core.poems.PoemGenerationResponse;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.CancelSource;
 import qa.fanar.core.sadiq.DeepResearchDepth;
+import qa.fanar.core.sadiq.DeepResearchJob;
 import qa.fanar.core.sadiq.DeepResearchReport;
 import qa.fanar.core.sadiq.DeepResearchRequest;
+import qa.fanar.core.sadiq.IncompleteReason;
+import qa.fanar.core.sadiq.JobErrorCode;
+import qa.fanar.core.sadiq.JobStatus;
 import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.sadiq.SadiqValidationRequest;
 import qa.fanar.core.sadiq.SadiqValidationResponse;
@@ -120,6 +125,7 @@ public final class Main {
         decodePoems(codec);
         decodeSadiqValidation(codec);
         decodeDeepResearch(codec);
+        decodeDeepResearchJob(codec);
         decodeImages(codec);
         decodeAudioVoices(codec);
         decodeAudioStt(codec);
@@ -142,7 +148,7 @@ public final class Main {
         exerciseObservabilityPlugins();
         exerciseInterceptors();
 
-        System.out.println("self-test OK: 12 decode probes + 11 encode probes, "
+        System.out.println("self-test OK: 13 decode probes + 11 encode probes, "
                 + "4 obs plugins exercised, wire interceptor instantiated");
     }
 
@@ -294,6 +300,35 @@ public final class Main {
                 "deep research cited source");
         require(r.sources().size() == 2, "deep research sources");
         require("quick".equals(r.metadata().get("depth")), "deep research metadata depth");
+    }
+
+    /**
+     * Deep-research background jobs — the job record and every nullable part of it: the request
+     * echo (the first record the SDK both encodes and decodes), the report once completed, the
+     * failure, the content-filter stop and the cancel source.
+     */
+    private static void decodeDeepResearchJob(FanarJsonCodec codec) throws IOException {
+        String echo = "\"request\":{\"model\":\"Fanar-Sadiq-2\",\"input\":\"zakat\",\"depth\":\"quick\","
+                + "\"web_search\":false}";
+        DeepResearchJob completed = codec.decode(bytes("{\"id\":\"job_1\",\"object\":\"job\","
+                + "\"type\":\"deep_research\",\"status\":\"completed\",\"progress_pct\":100,\"attempt\":1,"
+                + "\"created_at\":1791099046,\"started_at\":1791099046,\"completed_at\":1791099575,"
+                + "\"updated_at\":1791099575," + echo + ",\"result\":{\"title\":\"Zakat\"}}"),
+                DeepResearchJob.class);
+        require(JobStatus.COMPLETED.equals(completed.status()), "job status");
+        require(completed.status().isTerminal(), "job terminal");
+        require(completed.completedAt() == 1791099575L, "job completed_at");
+        require(DeepResearchDepth.QUICK.equals(completed.request().depth()), "job request echo depth");
+        require("Zakat".equals(completed.result().title()), "job result");
+        DeepResearchJob failed = codec.decode(bytes("{\"id\":\"job_2\",\"status\":\"failed\","
+                + "\"created_at\":1,\"updated_at\":2," + echo + ","
+                + "\"error\":{\"code\":\"backend_failed\",\"message\":\"m\"},"
+                + "\"incomplete_details\":{\"reason\":\"content_filter\"},\"cancel_source\":\"owner\"}"),
+                DeepResearchJob.class);
+        require(JobErrorCode.BACKEND_FAILED.equals(failed.error().code()), "job error code");
+        require(IncompleteReason.CONTENT_FILTER.equals(failed.incompleteDetails().reason()), "job incomplete reason");
+        require(CancelSource.OWNER.equals(failed.cancelSource()), "job cancel source");
+        require(failed.startedAt() == null && failed.result() == null, "job nullable members");
     }
 
     private static void decodeImages(FanarJsonCodec codec) throws IOException {

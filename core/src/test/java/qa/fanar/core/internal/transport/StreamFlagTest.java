@@ -33,6 +33,22 @@ class StreamFlagTest {
         assertThrows(FanarTransportException.class, () -> inject("{"));
     }
 
+    @Test
+    void injectsSeveralMembersFirstInOrder() {
+        assertEquals("{\"stream\":false,\"background\":true,\"model\":\"Fanar-Sadiq-2\"}",
+                new String(StreamFlag.inject("{\"model\":\"Fanar-Sadiq-2\"}".getBytes(StandardCharsets.UTF_8),
+                        "\"stream\":false,\"background\":true"), StandardCharsets.UTF_8));
+        assertEquals("{\"stream\":true,\"background\":false}",
+                new String(StreamFlag.inject("{}".getBytes(StandardCharsets.UTF_8),
+                        "\"stream\":true,\"background\":false"), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void severalMembersStillRequireAnObjectBody() {
+        assertThrows(FanarTransportException.class,
+                () -> StreamFlag.inject("[]".getBytes(StandardCharsets.UTF_8), "\"background\":true"));
+    }
+
     private static String inject(String json) {
         return new String(
                 StreamFlag.inject(json.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);

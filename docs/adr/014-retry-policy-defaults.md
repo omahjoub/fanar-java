@@ -69,7 +69,10 @@ Retries apply to the **initial connection handshake only**. A connection that di
 error frame, not a transport failure — and the user decides whether to re-subscribe, because only they know the
 semantic implication of replaying partially-consumed events. The stream's observation records the
 failure before that `onError` (ADR-013), so a dropped stream is visible in telemetry even though the
-SDK does not retry it.
+SDK does not retry it. One stream resumes instead (ADR-032, 2026-10-14): a deep-research job's events. Each of its
+responses is retried at the handshake like any stream, and a response that ends or drops before `[DONE]` is
+followed by a request for the events after the last one delivered — the server keeps them, and nothing the
+subscriber has seen is replayed, so the objection below does not apply to it.
 
 *Proved by* `FanarClientRetryIntegrationTest.streamingHandshakeIsRetriedThroughThePublicApi` /
 `speechStreamHandshakeIsRetriedThroughThePublicApi` (a 503 handshake is retried, then the body streams) and
@@ -101,10 +104,12 @@ public enum JitterStrategy { NONE, FULL, EQUAL }
 ```
 
 Exposed via `FanarClient.builder().retryPolicy(RetryPolicy policy)` (ADR-016) and applied client-wide — every
-operation on every facade shares the one policy — with a single exception: deep research
-(`client.sadiq().deepResearch*`), whose chain `SadiqClientImpl` builds with `RetryPolicy.disabled()` whatever the
-client's policy, because the endpoint's daily quota is consumed on admission, so a repeated attempt spends a unit
-even when the first produced nothing (ADR-031, 2026-09-24). The error boundary stays; the attempts do not.
+operation on every facade shares the one policy — with a single exception: a deep-research admission
+(`client.sadiq().deepResearch*` and `startDeepResearch`), whose chain `SadiqClientImpl` builds with
+`RetryPolicy.disabled()` whatever the client's policy, because the endpoint's daily quota is spent per admitted
+run, so a repeated attempt spends a unit even when the first produced nothing (ADR-031, 2026-09-24). Reading,
+following and cancelling a job spend no quota and keep the client's policy (ADR-032, 2026-10-14). The error
+boundary stays; the attempts do not.
 `RetryPolicy.disabled()` is the explicit opt-out.
 
 ## Alternatives considered
@@ -117,7 +122,8 @@ even when the first produced nothing (ADR-031, 2026-09-24). The error boundary s
 - **Retry `exceeded_quota`**. *Rejected*: quota is a permanent state; retrying wastes caller cycles and potentially
   hits Fanar with requests that will continue to fail.
 - **Automatic mid-stream retry**. *Rejected*: cannot know whether the caller's application state can tolerate
-  duplicated tokens. Surface the failure, let the user decide.
+  duplicated tokens. Surface the failure, let the user decide. A resume after the last event id duplicates nothing,
+  which is why a deep-research job stream resumes (ADR-032, 2026-10-14).
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 # Project state
 
-> **Snapshot — 2026-09-24.** Last release 0.6.0 (2026-09-16); `main` is on 0.7.0-SNAPSHOT. Updated on every
+> **Snapshot — 2026-10-14.** Last release 0.6.0 (2026-09-16); `main` is on 0.7.0-SNAPSHOT. Updated on every
 > milestone. If this looks wrong or stale, that is the signal — update it in the same PR as whatever moved.
 
 ## Phase
@@ -83,15 +83,38 @@ declares — and nothing about a run has been, so every wire claim about the run
 the [ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and
 `LiveDeepResearchTest` fails loudly until the flag is granted — the known-failing live set grows from 10 to 14.
 
+**Also landed for 0.7.0 — deep-research background jobs** ([ADR-032](adr/032-deep-research-background-jobs.md),
+Proposed). The 2026-10 spec drop (operations 14 → 16, paths 13 → 15, schemas 105 → 119) adds a job API to deep
+research and calls it the recommended mode for runs this long: `background: true` returns a job at once, a new
+`GET /v1/sadiq/deep-research/{job_id}` reads it or streams its events, and a new `…/cancel` stops it. On
+`client.sadiq()`: `startDeepResearch(...)` (never retried — creating a job spends a unit),
+`retrieveDeepResearchJob(id)` and `cancelDeepResearchJob(id)` (both on the client's retry policy — reads are
+"not metered", cancelling is idempotent), each with an `*Async` twin, and `deepResearchJobStream(id)`, which
+follows the job's events across as many responses as the server sends: the server may end one before `[DONE]` on
+purpose, so the publisher resumes after the last event id it delivered, through the client's retry policy, and
+nothing is delivered twice. An error frame on a job stream is held until later events supersede it — the spec
+restarts a failed worker and replays its events — and cancelling the subscription stops following without
+cancelling the job. This reverses ADR-031's "no job API" (there was none on the wire then) and is the first
+stream the SDK reconnects (ADR-014, ADR-017 corrected in place: a resume after the last event id replays
+nothing). The synchronous calls are unchanged except that their body now pins `"background":false`, since
+`stream`'s default came to depend on it; re-basing them on a job waits for the first admitted live run.
+`obs-micrometer` now records `http.url` as high-cardinality — job ids and resume points made it unbounded.
+Also in the drop: **`Fanar-Shaheen-MT-2`**, a second translation model with its own 20/day window
+(`TranslationModel.FANAR_SHAHEEN_MT_2`), which works for our key. First live run, 2026-10-14: starting a job answers
+the run's 403, while reading, cancelling and streaming an unknown job answer 404 — so `LiveDeepResearchJobTest`'s job
+case fails loudly until the flag is granted (the known-failing set grows from 14 to 16) and its unknown-id case
+passes. No job has been created, so every claim about one is still the spec's, marked `—` in the
+[ledger](WIRE_OBSERVATIONS.md#deep-research--background-jobs).
+
 **Open on `main` (0.7.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
-verse-match tolerance on the 2026-09-15 run, so a full live run produces **14 failures, or 15 when
-a run's Diwan misses concentrate on one case** — the fourteen gated by design, plus that one. Miss rate
+verse-match tolerance on the 2026-09-15 run, so a full live run produces **16 failures, or 17 when
+a run's Diwan misses concentrate on one case** — the sixteen gated by design, plus that one. Miss rate
 by date: 2/4, 2/6, 0/4, 4/7, 4/8 — high, but not trending; 2026-09-15 and 2026-09-16 both saw four
 misses and only the first failed, because three landed on one case. Either the retry budget rises or
 `LivePoemsTest` joins the known-failing list; deferred 2026-09-16 until the upgraded
-API key lands, which turns the fourteen gated failures green (the four deep-research cases only if the upgrade
+API key lands, which turns the sixteen gated failures green (the six deep-research cases only if the upgrade
 carries the `sadiq_deep_research` flag) and rewrites the list in the same pass. The
-[ledger](WIRE_OBSERVATIONS.md#live-suite-budget) records 15 until then. Also carried: the live-suite nightly and the
+[ledger](WIRE_OBSERVATIONS.md#live-suite-budget) records 16, occasionally 17, until then. Also carried: the live-suite nightly and the
 publication decision ([ADR-029](adr/029-publication-target.md)), both waiting on the Fanar team.
 **Confirmed outstanding 2026-09-16**: the API-key enhancement was requested and has had no reply.
 Nothing in this repository records the state of that conversation, so re-date this line rather than
@@ -132,24 +155,26 @@ trusting it — what the key can *do* is checkable without asking anyone; see th
 - **Spring Boot 3 starter** — `fanar-spring-boot-3-starter` with the Jackson 2 codec; mechanical port of the SB4 starter.
 - **LangChain4j adapter** — `fanar-langchain4j` exposing the equivalent of Spring AI's adapters against LangChain4j's `ChatLanguageModel`. Ordered after the Google ADK adapter, whose integration cost was measured first ([ADR-030](adr/030-google-adk-adapter.md)).
 - **Quarkus extension** — CDI beans, build-time wiring, native-image friendliness.
-- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the fourteen known-gated cases (six, plus four for the gated validation endpoint since 2026-09-15, plus four for the gated deep-research endpoint since 2026-09-24) or stay red every night.
+- **Nightly live e2e on CI** — scheduled job runs `fanar-java-e2e` with the `FANAR_API_KEY` secret (it exists; today only `graalvm.yml`'s manual bootstrap job uses it); PR builds stay offline. Parked 2026-08-30 pending a higher-quota key from the Fanar team: on the standard key a full run spends 11 of `Fanar-Aura-TTS-2`'s 20 per trailing 24 h ([budget table](WIRE_OBSERVATIONS.md#live-suite-budget)), so the nightly would have to be the only full run within 24 h, and it must exclude the sixteen known-gated cases (six, plus four for the gated validation endpoint since 2026-09-15, plus four for the gated deep-research endpoint since 2026-09-24, plus two for the gated job start since 2026-10-14) or stay red every night.
   **How to tell whether the key has since been upgraded, without asking:** the gated cases are the
   test. With `FANAR_API_KEY` set, run
   ```
-  ./mvnw -pl e2e -am test -Dtest='LiveSadiqValidateTest,LiveDeepResearchTest,LiveAudioVoicesTest' -Dsurefire.failIfNoSpecifiedTests=false
+  ./mvnw -pl e2e -am test -Dtest='LiveSadiqValidateTest,LiveDeepResearchTest,LiveDeepResearchJobTest,LiveAudioVoicesTest' -Dsurefire.failIfNoSpecifiedTests=false
   ```
   Those failures are 403s rejected *before admission*, so they consume no quota and the run is safe
-  at any time — until the day it goes green: an admitted `LiveDeepResearchTest` case runs for minutes
-  and spends one of the day's twenty deep-research units, four per probe. **Check the count, not the
-  exit code**: you want `Tests run: 14` — every parameterized case, both codecs. (Until 2026-09-24 this
+  at any time — until the day it goes green: an admitted `LiveDeepResearchTest` or `LiveDeepResearchJobTest`
+  case runs for minutes and spends one of the day's twenty deep-research units, six per probe (the job test's
+  unknown-id case only reads, which spends nothing). **Check the count, not the exit code**: you want
+  `Tests run: 18` — every parameterized case, both codecs. (Until 2026-09-24 this
   line said `5`, which is the number of test *methods* a key-disabled class reports, not the cases a
   key-enabled run expands them into.) Separate the classes with a comma — Surefire does not treat `+`
-  as a separator, so a `+` selects nothing and still reports `BUILD SUCCESS`. `Skipped: 7` means the
+  as a separator, so a `+` selects nothing and still reports `BUILD SUCCESS`. `Skipped: 9` means the
   key was not visible to the JVM. Green means the permissions were granted: `LiveSadiqValidateTest`
   and `LiveAudioVoicesTest` for the validation and voice-personalization gates,
-  `LiveDeepResearchTest` for the `sadiq_deep_research` flag — and that first admitted run is the one
-  that converts the ledger's `—` rows (headers at admission, the stream order, the source item shape,
-  quota on cancel, runtime) into observations. For the quota, read `x-ratelimit-limit` on a TTS call
+  `LiveDeepResearchTest` and `LiveDeepResearchJobTest` for the `sadiq_deep_research` flag — and that first
+  admitted run is the one that converts the ledger's `—` rows (headers at admission, the stream order, the
+  source item shape, quota on cancel, runtime, and for jobs the event ids, deliberate closes and resume)
+  into observations. For the quota, read `x-ratelimit-limit` on a TTS call
   in the `fanar.wire` log: `20` is the standard key. Whatever this file says, that run is the current
   answer.
 

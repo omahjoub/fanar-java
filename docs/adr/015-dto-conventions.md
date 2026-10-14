@@ -35,9 +35,12 @@ Optional.ofNullable(response.someField())
 
 A response schema that declares no field required — the deep-research report and its recursive sections — is
 modelled the same way: nullable scalars, and collections that are never `null` (an absent list decodes to an empty
-one), so `{}` decodes to a usable record. A free-form object the spec marks `additionalProperties: true` is a
-`Map<String, Object>` — `DoneChunk.metadata` and `DeepResearchReport.metadata` — the only untyped values on a
-public DTO, because the spec itself declines to type them (ADR-031).
+one), so `{}` decodes to a usable record. A free-form object — one the spec declares with no properties of its
+own and `additionalProperties: true` — is a `Map<String, Object>` — `DoneChunk.metadata` and
+`DeepResearchReport.metadata` — the only untyped values on a public DTO, because the spec itself declines to type
+them (ADR-031). An object that declares its properties *and* allows more, as `DeepResearchReport` and
+`DeepResearchSection` do since the 2026-10 spec, is a record like any other: undeclared members are dropped on
+decode, as every unknown property is (ADR-032, 2026-10-14).
 
 ### Sealed interfaces + record variants for polymorphic unions
 
@@ -84,7 +87,13 @@ Response DTOs do not need builders — they are returned fully constructed from 
   release cadence when the server adds a value. The IDE-discoverable catalogue lives in the public
   `KNOWN` set on each type. Strictly-SDK identifiers (`ErrorCode`, `JitterStrategy`) stay enums
   because their values map 1:1 to exception subtypes or library behaviour, and adding one is an
-  SDK release event.
+  SDK release event. A value class may carry a predicate over its own vocabulary when the spec
+  defines the partition, with unknown values on the side that ends a loop: `JobStatus.isTerminal()`
+  is the first (ADR-032, 2026-10-14).
+- **Constant discriminators are not modelled.** A member whose value the record type and its path
+  already fix — a deep-research job's `object: "job"` and `type: "deep_research"` — is left off the
+  record, even when the spec requires it (ADR-032, 2026-10-14). `AvailableModel.object` predates the
+  rule.
 - **A domain owns a model value class only when its models are not chat models.** Where a domain's
   model enum names something `ChatModel` already covers, it reuses `ChatModel` rather than minting
   a parallel type that would compare unequal to the identical constant. `TokenizationRequest`,

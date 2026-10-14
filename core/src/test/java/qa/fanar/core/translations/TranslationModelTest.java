@@ -31,7 +31,10 @@ class TranslationModelTest {
 
     @Test
     void knownContainsBundledConstants() {
-        assertEquals(1, TranslationModel.KNOWN.size());
+        assertEquals(2, TranslationModel.KNOWN.size());
         assertTrue(TranslationModel.KNOWN.contains(TranslationModel.FANAR_SHAHEEN_MT_1));
+        assertTrue(TranslationModel.KNOWN.contains(TranslationModel.FANAR_SHAHEEN_MT_2));
+        assertEquals("Fanar-Shaheen-MT-1", TranslationModel.FANAR_SHAHEEN_MT_1.wireValue());
+        assertEquals("Fanar-Shaheen-MT-2", TranslationModel.FANAR_SHAHEEN_MT_2.wireValue());
     }
 }

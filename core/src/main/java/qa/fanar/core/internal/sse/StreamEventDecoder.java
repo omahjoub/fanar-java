@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import qa.fanar.core.FanarException;
@@ -52,7 +53,8 @@ import qa.fanar.core.spi.FanarJsonCodec;
  * own code samples check {@code "error" in chunk}), and decoding it as a chunk would report an
  * SDK decode failure and lose the message. It is routed like an HTTP error envelope instead —
  * by code, then by the status the envelope names — and thrown as the typed {@code FanarException}
- * for the subscriber's {@code onError} (ADR-006, ADR-031). A codec failure of any kind, checked
+ * for the subscriber's {@code onError} (ADR-006, ADR-031), or handed to the caller instead on a job
+ * stream, which holds it until later events supersede it (ADR-032). A codec failure of any kind, checked
  * or not, surfaces as {@link FanarTransportException} with the cause attached; a typed
  * {@code FanarException} a codec throws passes through unwrapped.</p>
  *
@@ -68,9 +70,9 @@ import qa.fanar.core.spi.FanarJsonCodec;
 final class StreamEventDecoder<E> {
 
     /**
-     * OpenAI-compatible terminal sentinel emitted by some gateways proxying Fanar. The data
-     * payload is the literal string {@code [DONE]}. Tolerated defensively even though the
-     * typed {@code DoneChunk} is the authoritative end-of-stream signal.
+     * OpenAI-compatible terminal sentinel. The data payload is the literal string {@code [DONE]}.
+     * On a chat or synchronous deep-research stream it is skipped — the typed {@code DoneChunk} is
+     * the end-of-stream signal there; on a job stream it is the end of the job (ADR-032).
      */
     static final String DONE_SENTINEL = "[DONE]";
 
@@ -94,9 +96,22 @@ final class StreamEventDecoder<E> {
 
     /**
      * Decode a frame into an event, or return {@code null} to signal that the frame is not a
-     * real event (blank data, {@code [DONE]} sentinel).
+     * real event (blank data, {@code [DONE]} sentinel). A server-reported error envelope is
+     * thrown as its typed exception.
      */
     E decode(SseFrame frame) {
+        return decode(frame, error -> {
+            throw error;
+        });
+    }
+
+    /**
+     * Like {@link #decode(SseFrame)}, but a server-reported error envelope goes to
+     * {@code errorFrames} as its typed exception instead of being thrown, and the frame decodes to
+     * {@code null} — how a job stream holds an error frame that later events may supersede
+     * (ADR-032).
+     */
+    E decode(SseFrame frame, Consumer<FanarException> errorFrames) {
         String data = frame.data();
         String trimmed = data.strip();
         if (trimmed.isEmpty() || DONE_SENTINEL.equals(trimmed)) {
@@ -106,10 +121,16 @@ final class StreamEventDecoder<E> {
         byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
         Map<?, ?> map = decodeAs(bytes, Map.class, "parse SSE payload");
         if (map.get("error") != null) {
-            throw ExceptionMapper.mapEnvelope(data);
+            errorFrames.accept(ExceptionMapper.mapEnvelope(data));
+            return null;
         }
         Class<? extends E> target = classifier.apply(map);
         return decodeAs(bytes, target, "decode " + target.getSimpleName());
+    }
+
+    /** Whether the frame is the {@code [DONE]} sentinel that ends a job stream (ADR-032). */
+    static boolean isDone(SseFrame frame) {
+        return DONE_SENTINEL.equals(frame.data().strip());
     }
 
     private <T> T decodeAs(byte[] bytes, Class<T> type, String failureDescription) {

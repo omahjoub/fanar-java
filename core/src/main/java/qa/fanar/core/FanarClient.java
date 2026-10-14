@@ -316,7 +316,10 @@ public final class FanarClient implements AutoCloseable {
         return audioClient;
     }
 
-    /** Sadiq facade — verify the Qur'anic verses and hadith quoted inside a block of text. */
+    /**
+     * Sadiq facade — verify the Qur'anic verses and hadith quoted inside a block of text, and
+     * research a topic over the Islamic knowledge base, synchronously or as a background job.
+     */
     public SadiqClient sadiq() {
         return sadiqClient;
     }

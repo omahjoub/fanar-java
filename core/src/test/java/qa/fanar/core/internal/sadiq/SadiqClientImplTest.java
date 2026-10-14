@@ -29,6 +29,7 @@ import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 
 import qa.fanar.core.FanarAuthenticationException;
+import qa.fanar.core.FanarNotFoundException;
 import qa.fanar.core.FanarOverloadedException;
 import qa.fanar.core.FanarTransportException;
 import qa.fanar.core.RetryPolicy;
@@ -42,8 +43,10 @@ import qa.fanar.core.chat.ProgressMessage;
 import qa.fanar.core.chat.TokenChunk;
 import qa.fanar.core.internal.transport.HttpTransport;
 import qa.fanar.core.sadiq.DeepResearchEvent;
+import qa.fanar.core.sadiq.DeepResearchJob;
 import qa.fanar.core.sadiq.DeepResearchReport;
 import qa.fanar.core.sadiq.DeepResearchRequest;
+import qa.fanar.core.sadiq.JobStatus;
 import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.sadiq.SadiqValidationRequest;
 import qa.fanar.core.sadiq.SadiqValidationResponse;
@@ -298,8 +301,8 @@ class SadiqClientImplTest {
         assertEquals(Optional.of("application/json"), sent.headers().firstValue("Content-Type"));
         assertEquals(Optional.of("text/event-stream"), sent.headers().firstValue("Accept"));
         assertEquals(Optional.of("Bearer stub-token"), sent.headers().firstValue("Authorization"));
-        assertEquals("{\"stream\":true,\"marker\":true}", bodyOf(sent),
-                "the stream flag is spliced in front of the encoded request (ADR-023)");
+        assertEquals("{\"stream\":true,\"background\":false,\"marker\":true}", bodyOf(sent),
+                "both flags are spliced in front of the encoded request (ADR-023, ADR-032)");
     }
 
     @Test
@@ -566,6 +569,291 @@ class SadiqClientImplTest {
     }
 
     // --- helpers
+
+    // --- background jobs (ADR-032) ----------------------------------------------------------
+
+    private static final RetryPolicy FAST = RetryPolicy.defaults()
+            .withBaseDelay(Duration.ofMillis(1))
+            .withMaxDelay(Duration.ofMillis(1));
+
+    private static final DeepResearchJob JOB = new DeepResearchJob("job-1", JobStatus.QUEUED, null, null, 0, 0,
+            1791099697L, null, null, 1791099697L, null, DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "t"), null);
+
+    @Test
+    void startDeepResearchPostsBothBackgroundFlagsFirstAndReturnsTheJob() throws Exception {
+        AtomicReference<HttpRequest> captured = new AtomicReference<>();
+        HttpTransport transport = req -> { captured.set(req); return httpResponse(200, "{}", Map.of()); };
+
+        assertSame(JOB, build(transport, jobCodec(), List.of()).startDeepResearch(researchRequest()));
+
+        HttpRequest sent = captured.get();
+        assertEquals("POST", sent.method());
+        assertEquals("/v1/sadiq/deep-research", sent.uri().getPath());
+        assertEquals(Optional.of("application/json"), sent.headers().firstValue("Content-Type"));
+        assertEquals(Optional.of("application/json"), sent.headers().firstValue("Accept"));
+        assertEquals("{\"stream\":false,\"background\":true,\"marker\":true}", bodyOf(sent),
+                "both flags are spliced in front of the encoded request (ADR-032)");
+        assertTrue(sent.timeout().isEmpty(), "no request timeout: on JDK 26 it would bound the body");
+    }
+
+    @Test
+    void startIsNeverRetriedWhileRetrieveAndCancelUseTheClientPolicy() {
+        AtomicInteger calls = new AtomicInteger();
+        HttpTransport overloaded = req -> { calls.incrementAndGet(); return httpResponse(503, "{\"error\":{}}", Map.of()); };
+        SadiqClientImpl client = new SadiqClientImpl(BASE, jobCodec(), () -> "t", List.of(), overloaded,
+                ObservabilityPlugin.noop(), FAST, Map.of(), null);
+
+        assertThrows(FanarOverloadedException.class, () -> client.startDeepResearch(researchRequest()));
+        assertEquals(1, calls.get(), "a retried start would admit a second job");
+        assertThrows(FanarOverloadedException.class, () -> client.retrieveDeepResearchJob("job-1"));
+        assertEquals(1 + 3, calls.get(), "reading a job is retried under the client's policy");
+        assertThrows(FanarOverloadedException.class, () -> client.cancelDeepResearchJob("job-1"));
+        assertEquals(1 + 3 + 3, calls.get(), "cancelling is idempotent and retried too");
+    }
+
+    @Test
+    void retrieveDeepResearchJobGetsTheJobById() {
+        AtomicReference<HttpRequest> captured = new AtomicReference<>();
+        HttpTransport transport = req -> { captured.set(req); return httpResponse(200, "{}", Map.of()); };
+
+        assertSame(JOB, build(transport, jobCodec(), List.of()).retrieveDeepResearchJob("job-1"));
+
+        HttpRequest sent = captured.get();
+        assertEquals("GET", sent.method());
+        assertEquals("/v1/sadiq/deep-research/job-1", sent.uri().getPath());
+        assertNull(sent.uri().getRawQuery());
+        assertEquals(Optional.of("application/json"), sent.headers().firstValue("Accept"));
+        assertEquals(Optional.of("Bearer stub-token"), sent.headers().firstValue("Authorization"));
+        assertTrue(sent.headers().firstValue("Content-Type").isEmpty(), "a GET carries no body");
+        assertTrue(sent.timeout().isEmpty());
+    }
+
+    @Test
+    void cancelDeepResearchJobPostsWithoutABody() throws Exception {
+        AtomicReference<HttpRequest> captured = new AtomicReference<>();
+        HttpTransport transport = req -> { captured.set(req); return httpResponse(200, "{}", Map.of()); };
+
+        assertSame(JOB, build(transport, jobCodec(), List.of()).cancelDeepResearchJob("job-1"));
+
+        HttpRequest sent = captured.get();
+        assertEquals("POST", sent.method());
+        assertEquals("/v1/sadiq/deep-research/job-1/cancel", sent.uri().getPath());
+        assertEquals(Optional.of("application/json"), sent.headers().firstValue("Accept"));
+        assertTrue(sent.headers().firstValue("Content-Type").isEmpty(), "the cancel has no body to describe");
+        assertEquals(0L, sent.bodyPublisher().orElseThrow().contentLength());
+        assertEquals("", bodyOf(sent));
+    }
+
+    @Test
+    void jobIdsArePathEncodedAndResumePointsQueryEncoded() throws Exception {
+        List<HttpRequest> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+        AtomicInteger call = new AtomicInteger();
+        HttpTransport transport = req -> {
+            sent.add(req);
+            return switch (call.getAndIncrement()) {
+                case 0 -> httpResponse(200, "{}", Map.of());
+                case 1 -> httpResponse(200, "id: x y/z\ndata: {\"progress\":{}}\n\n", Map.of());
+                default -> httpResponse(200, "id: 2\ndata: [DONE]\n\n", Map.of());
+            };
+        };
+        SadiqClientImpl client = build(transport, jobCodec(), List.of());
+
+        client.retrieveDeepResearchJob("a/b?c");
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+        client.deepResearchJobStream("a/b?c").subscribe(sub);
+        sub.awaitCompletion(Duration.ofSeconds(5));
+
+        assertEquals("/v1/sadiq/deep-research/a%2Fb%3Fc", sent.get(0).uri().getRawPath(),
+                "a job id is one path segment, whatever it contains");
+        assertEquals("stream=true", sent.get(1).uri().getRawQuery());
+        assertEquals("stream=true&starting_after=x+y%2Fz", sent.get(2).uri().getRawQuery());
+    }
+
+    @Test
+    void aNullOrBlankJobIdIsRejectedBeforeAnyRequest() {
+        AtomicInteger calls = new AtomicInteger();
+        SadiqClientImpl client = build(req -> { calls.incrementAndGet(); return null; }, jobCodec(), List.of());
+
+        assertThrows(NullPointerException.class, () -> client.retrieveDeepResearchJob(null));
+        assertThrows(NullPointerException.class, () -> client.retrieveDeepResearchJobAsync(null));
+        assertThrows(NullPointerException.class, () -> client.cancelDeepResearchJob(null));
+        assertThrows(NullPointerException.class, () -> client.cancelDeepResearchJobAsync(null));
+        assertThrows(NullPointerException.class, () -> client.deepResearchJobStream(null));
+        assertThrows(IllegalArgumentException.class, () -> client.retrieveDeepResearchJob(" "));
+        assertThrows(IllegalArgumentException.class, () -> client.cancelDeepResearchJob(""));
+        assertThrows(IllegalArgumentException.class, () -> client.deepResearchJobStream("\t"));
+        assertThrows(NullPointerException.class, () -> client.startDeepResearch(null));
+        assertThrows(NullPointerException.class, () -> client.startDeepResearchAsync(null));
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void aJobThatCannotBeDecodedNamesItsXId() {
+        FanarJsonCodec broken = new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) throws IOException { throw new IOException("bad json"); }
+            public void encode(OutputStream s, Object v) throws IOException { s.write("{}".getBytes(StandardCharsets.UTF_8)); }
+        };
+        SadiqClientImpl named = build(req -> httpResponse(200, "{", Map.of("X-Id", List.of("job-9"))), broken, List.of());
+        FanarTransportException withId = assertThrows(FanarTransportException.class,
+                () -> named.startDeepResearch(researchRequest()));
+        assertEquals("Failed to decode DeepResearchJob (X-Id job-9)", withId.getMessage(),
+                "after a start the job exists and is paid for; the id is the only way back to it");
+        assertInstanceOf(IOException.class, withId.getCause());
+
+        SadiqClientImpl anonymous = build(req -> httpResponse(200, "{", Map.of()), broken, List.of());
+        assertEquals("Failed to decode DeepResearchJob",
+                assertThrows(FanarTransportException.class, () -> anonymous.retrieveDeepResearchJob("job-1")).getMessage());
+    }
+
+    @Test
+    void theAsyncTwinsCompleteWithTheJobOrTheTypedFailure() throws Exception {
+        SadiqClientImpl ok = build(req -> httpResponse(200, "{}", Map.of()), jobCodec(), List.of());
+        assertSame(JOB, ok.startDeepResearchAsync(researchRequest()).get(5, TimeUnit.SECONDS));
+        assertSame(JOB, ok.retrieveDeepResearchJobAsync("job-1").get(5, TimeUnit.SECONDS));
+        assertSame(JOB, ok.cancelDeepResearchJobAsync("job-1").get(5, TimeUnit.SECONDS));
+
+        SadiqClientImpl unauthenticated = build(
+                req -> httpResponse(401, "{\"error\":{\"code\":\"invalid_authentication\"}}", Map.of()),
+                jobCodec(), List.of());
+        for (CompletableFuture<DeepResearchJob> future : List.of(
+                unauthenticated.startDeepResearchAsync(researchRequest()),
+                unauthenticated.retrieveDeepResearchJobAsync("job-1"),
+                unauthenticated.cancelDeepResearchJobAsync("job-1"))) {
+            ExecutionException e = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS));
+            assertInstanceOf(FanarAuthenticationException.class, e.getCause());
+        }
+    }
+
+    @Test
+    void jobObservationsAreNamedPerOperationAndOnlyTheStartNamesAModel() throws Exception {
+        List<String> opened = new java.util.concurrent.CopyOnWriteArrayList<>();
+        Map<String, Object> modelByOperation = new java.util.concurrent.ConcurrentHashMap<>();
+        CountDownLatch closed = new CountDownLatch(4);
+        ObservabilityPlugin plugin = name -> {
+            opened.add(name);
+            return new ObservationHandle() {
+                public ObservationHandle attribute(String k, Object v) {
+                    if (k.equals("fanar.model")) {
+                        modelByOperation.put(name, v);
+                    }
+                    return this;
+                }
+                public ObservationHandle event(String n) { return this; }
+                public ObservationHandle error(Throwable t) { return this; }
+                public ObservationHandle child(String c) { return this; }
+                public Map<String, String> propagationHeaders() { return Map.of(); }
+                public void close() { closed.countDown(); }
+            };
+        };
+        AtomicInteger call = new AtomicInteger();
+        HttpTransport transport = req -> call.getAndIncrement() < 3
+                ? httpResponse(200, "{}", Map.of())
+                : httpResponse(200, "id: 1\ndata: [DONE]\n\n", Map.of());
+        SadiqClientImpl client = new SadiqClientImpl(BASE, jobCodec(), () -> "t", List.of(), transport,
+                plugin, RetryPolicy.disabled(), Map.of(), null);
+
+        client.startDeepResearch(researchRequest());
+        client.retrieveDeepResearchJob("job-1");
+        client.cancelDeepResearchJob("job-1");
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+        client.deepResearchJobStream("job-1").subscribe(sub);
+        sub.awaitCompletion(Duration.ofSeconds(5));
+
+        assertEquals(List.of("fanar.sadiq.deep_research.start", "fanar.sadiq.deep_research.retrieve",
+                "fanar.sadiq.deep_research.cancel", "fanar.sadiq.deep_research.retrieve.stream"), opened);
+        assertEquals(Map.of("fanar.sadiq.deep_research.start", "Fanar-Sadiq-2"), modelByOperation,
+                "the start is the only job call that names a model");
+        assertTrue(closed.await(5, TimeUnit.SECONDS), "every observation closes, the stream's on its terminal signal");
+    }
+
+    @Test
+    void jobStreamResumesAfterTheLastEventIdAndCompletesOnDone() throws Exception {
+        List<HttpRequest> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+        AtomicInteger call = new AtomicInteger();
+        HttpTransport transport = req -> {
+            sent.add(req);
+            return call.getAndIncrement() == 0
+                    ? httpResponse(200, "id: 1\ndata: {\"progress\":{}}\n\n", Map.of())
+                    : httpResponse(200, "id: 2\ndata: {\"report\":{}}\n\nid: 3\ndata: [DONE]\n\n", Map.of());
+        };
+        Flow.Publisher<DeepResearchEvent> stream = build(transport, jobCodec(), List.of()).deepResearchJobStream("job-1");
+        assertEquals(1, sent.size(), "the first response is requested before the method returns");
+
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+        stream.subscribe(sub);
+        List<DeepResearchEvent> events = sub.awaitCompletion(Duration.ofSeconds(5));
+
+        assertInstanceOf(ProgressChunk.class, events.get(0));
+        assertInstanceOf(ReportChunk.class, events.get(1));
+        assertEquals(2, events.size());
+        assertEquals(2, sent.size());
+        for (HttpRequest request : sent) {
+            assertEquals("GET", request.method());
+            assertEquals("/v1/sadiq/deep-research/job-1", request.uri().getPath());
+            assertEquals(Optional.of("text/event-stream"), request.headers().firstValue("Accept"));
+            assertTrue(request.timeout().isEmpty());
+        }
+        assertEquals("stream=true", sent.get(0).uri().getRawQuery());
+        assertEquals("stream=true&starting_after=1", sent.get(1).uri().getRawQuery());
+    }
+
+    @Test
+    void jobStreamReconnectsUnderTheClientRetryPolicy() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        HttpTransport transport = req -> switch (calls.getAndIncrement()) {
+            case 0 -> httpResponse(200, "id: 1\ndata: {\"progress\":{}}\n\n", Map.of());
+            case 1 -> httpResponse(503, "{\"error\":{}}", Map.of());
+            default -> httpResponse(200, "id: 2\ndata: [DONE]\n\n", Map.of());
+        };
+        SadiqClientImpl client = new SadiqClientImpl(BASE, jobCodec(), () -> "t", List.of(), transport,
+                ObservabilityPlugin.noop(), FAST, Map.of(), null);
+
+        CollectingSubscriber<DeepResearchEvent> sub = CollectingSubscriber.unbounded();
+        client.deepResearchJobStream("job-1").subscribe(sub);
+        assertEquals(1, sub.awaitCompletion(Duration.ofSeconds(5)).size());
+        assertEquals(3, calls.get(), "the reconnect's 503 was retried by the chain, not by the stream");
+    }
+
+    @Test
+    void aJobStreamHandshakeFailureReportsAndClosesTheObservation() {
+        AtomicReference<Throwable> errored = new AtomicReference<>();
+        AtomicInteger closed = new AtomicInteger();
+        ObservabilityPlugin plugin = name -> new ObservationHandle() {
+            public ObservationHandle attribute(String k, Object v) { return this; }
+            public ObservationHandle event(String n) { return this; }
+            public ObservationHandle error(Throwable t) { errored.set(t); return this; }
+            public ObservationHandle child(String c) { return this; }
+            public Map<String, String> propagationHeaders() { return Map.of(); }
+            public void close() { closed.incrementAndGet(); }
+        };
+        HttpTransport transport = req -> httpResponse(404,
+                "{\"error\":{\"code\":\"Not found\",\"message\":\"No job found with this id.\",\"status\":404}}",
+                Map.of());
+        SadiqClientImpl client = new SadiqClientImpl(BASE, jobCodec(), () -> "t", List.of(), transport,
+                plugin, RetryPolicy.defaults(), Map.of(), null);
+
+        FanarNotFoundException gone = assertThrows(FanarNotFoundException.class, () -> client.deepResearchJobStream("job-1"));
+        assertEquals("No job found with this id.", gone.getMessage());
+        assertSame(gone, errored.get());
+        assertEquals(1, closed.get(), "no publisher exists to own the observation, so it closes at once");
+    }
+
+    /** The research codec, plus a canned {@link #JOB} for every job body. */
+    private static FanarJsonCodec jobCodec() {
+        FanarJsonCodec research = researchCodec();
+        return new FanarJsonCodec() {
+            public <T> T decode(InputStream s, Class<T> t) throws IOException {
+                if (t == DeepResearchJob.class) {
+                    s.readAllBytes();
+                    return t.cast(JOB);
+                }
+                return research.decode(s, t);
+            }
+            public void encode(OutputStream s, Object v) throws IOException {
+                research.encode(s, v);
+            }
+        };
+    }
 
     private static SadiqClientImpl build(HttpTransport transport, FanarJsonCodec codec, List<Interceptor> interceptors) {
         return build(transport, codec, interceptors, "stub-token");

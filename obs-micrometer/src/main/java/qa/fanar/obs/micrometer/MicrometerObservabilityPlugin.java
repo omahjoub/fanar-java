@@ -20,8 +20,9 @@ import qa.fanar.core.spi.ObservationHandle;
  * <p>Attributes become low-cardinality {@code KeyValue}s (suitable for metric tags) — except the
  * ones whose value space is unbounded, which become high-cardinality {@code KeyValue}s so they
  * never explode a metric's tag set: by default {@code fanar.ratelimit.remaining} and
- * {@code fanar.ratelimit.reset} (ADR-026); {@link Builder#highCardinalityKeys(Predicate)} replaces
- * the rule. Events, errors, and child observations map to the corresponding {@link Observation} APIs. The binding
+ * {@code fanar.ratelimit.reset} (ADR-026), and {@code http.url}, which carries deep-research job ids
+ * and resume points (ADR-032) — the operation name stays the bounded key;
+ * {@link Builder#highCardinalityKeys(Predicate)} replaces the rule. Events, errors, and child observations map to the corresponding {@link Observation} APIs. The binding
  * doesn't itself produce metrics or spans — that's the job of whatever {@code ObservationHandler}s
  * the consuming application registers on the {@code ObservationRegistry} (typically Spring Boot's
  * auto-configured {@code DefaultMeterObservationHandler} for metrics, plus an optional
@@ -41,10 +42,11 @@ public final class MicrometerObservabilityPlugin implements ObservabilityPlugin 
 
     private static final Predicate<String> INCLUDE_ALL = key -> true;
     private static final BiFunction<String, Object, Object> IDENTITY = (k, v) -> v;
-    /** The SDK attributes with an unbounded value space (ADR-026). */
+    /** The SDK attributes with an unbounded value space (ADR-026, ADR-032). */
     private static final Predicate<String> DEFAULT_HIGH_CARDINALITY = Set.of(
             FanarObservationAttributes.FANAR_RATELIMIT_REMAINING,
-            FanarObservationAttributes.FANAR_RATELIMIT_RESET)::contains;
+            FanarObservationAttributes.FANAR_RATELIMIT_RESET,
+            FanarObservationAttributes.HTTP_URL)::contains;
 
     private final ObservationRegistry registry;
     private final Predicate<String> attributeFilter;
@@ -114,7 +116,8 @@ public final class MicrometerObservabilityPlugin implements ObservabilityPlugin 
          * Set the predicate deciding which attribute keys are recorded as
          * {@code Observation.highCardinalityKeyValue} instead of a low-cardinality one — keys
          * whose value space is unbounded and must never become metric tags. Replaces the default
-         * rule ({@code fanar.ratelimit.remaining}, {@code fanar.ratelimit.reset}; ADR-026).
+         * rule ({@code fanar.ratelimit.remaining}, {@code fanar.ratelimit.reset}, {@code http.url};
+         * ADR-026, ADR-032).
          *
          * @param keys the predicate; must not be {@code null}
          * @since 0.4.0
@@ -164,7 +167,8 @@ public final class MicrometerObservabilityPlugin implements ObservabilityPlugin 
             }
             // Micrometer's metric path strongly prefers low-cardinality tags; the SDK's
             // standardized attributes (`http.*`, `fanar.*`) are bounded — except the rate-limit
-            // counters, which the default rule routes to the high-cardinality side (ADR-026).
+            // counters and the URL, which the default rule routes to the high-cardinality side
+            // (ADR-026, ADR-032).
             String text = String.valueOf(redacted);
             if (highCardinalityKeys.test(key)) {
                 observation.highCardinalityKeyValue(key, text);
