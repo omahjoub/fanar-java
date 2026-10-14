@@ -4,7 +4,8 @@ package qa.fanar.core;
  * Requested resource does not exist. Maps to {@link ErrorCode#NOT_FOUND} and HTTP 404.
  *
  * <p>Typical causes: unknown model identifier, unknown personalized voice name, misspelled
- * endpoint. Not retryable.</p>
+ * endpoint, and a deep-research job that is unknown, another key's, or past its 24-hour retention.
+ * Not retryable.</p>
  *
  * @author Oussama Mahjoub
  */

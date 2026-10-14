@@ -54,6 +54,25 @@ class ScriptedHttpServerTest {
     }
 
     @Test
+    void recordsTheRawQueryApartFromThePath() throws Exception {
+        try (ScriptedHttpServer server = ScriptedHttpServer.start()) {
+            server.enqueue(Reply.of(200, "a"), Reply.of(200, "b"), Reply.of(200, "c"));
+            URI base = server.baseUri();
+            for (String target : List.of("/v1/sadiq/deep-research/job-1?stream=true",
+                    "/v1/sadiq/deep-research/job-1?stream=true&starting_after=a%2Fb+c", "/v1/models")) {
+                http.send(HttpRequest.newBuilder(base.resolve(target)).GET().build(), HttpResponse.BodyHandlers.ofString());
+            }
+
+            List<Received> received = server.received();
+            assertEquals("/v1/sadiq/deep-research/job-1", received.get(0).path(), "the path excludes the query");
+            assertEquals("stream=true", received.get(0).query());
+            assertEquals("stream=true&starting_after=a%2Fb+c", received.get(1).query(),
+                    "the query is kept as sent, still encoded");
+            assertNull(received.get(2).query(), "no query string reads as null");
+        }
+    }
+
+    @Test
     void unscriptedRequestIsAnsweredWith500AndFailsClose() throws Exception {
         ScriptedHttpServer server = ScriptedHttpServer.start();
         HttpResponse<String> response = http.send(post(server.baseUri().resolve("/anything"), ""),

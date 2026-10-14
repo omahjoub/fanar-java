@@ -18,8 +18,14 @@ public record TranslationModel(String wireValue) {
     /** Shaheen v1 — Fanar's machine-translation model (Arabic ↔ English). */
     public static final TranslationModel FANAR_SHAHEEN_MT_1 = new TranslationModel("Fanar-Shaheen-MT-1");
 
+    /**
+     * Shaheen v2 — listed since the 2026-10 spec, with its own rate-limit window; the spec does not
+     * describe how it differs from v1.
+     */
+    public static final TranslationModel FANAR_SHAHEEN_MT_2 = new TranslationModel("Fanar-Shaheen-MT-2");
+
     /** Snapshot of the SDK's bundled constants. */
-    public static final Set<TranslationModel> KNOWN = Set.of(FANAR_SHAHEEN_MT_1);
+    public static final Set<TranslationModel> KNOWN = Set.of(FANAR_SHAHEEN_MT_1, FANAR_SHAHEEN_MT_2);
 
     public TranslationModel {
         Objects.requireNonNull(wireValue, "wireValue");

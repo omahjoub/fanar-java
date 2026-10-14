@@ -34,6 +34,7 @@ import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.spi.FanarJsonCodec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -423,5 +424,34 @@ class StreamEventDecoderTest {
         };
         assertSame(typed, assertThrows(FanarAuthorizationException.class,
                 () -> StreamEventDecoder.forDeepResearch(codec).decode(new SseFrame("{}"))));
+    }
+
+    // --- the job stream's hooks (ADR-032)
+
+    @Test
+    void anErrorFrameGoesToTheErrorCallbackInsteadOfBeingThrown() {
+        String frame = "{\"error\":{\"code\":\"internal_server_error\",\"message\":\"worker died\"}}";
+        Map<String, Object> shape = Map.of("error", Map.of("code", "internal_server_error"));
+        java.util.List<FanarException> held = new java.util.ArrayList<>();
+        assertNull(StreamEventDecoder.forDeepResearch(new FakeCodec(shape, null)).decode(new SseFrame(frame), held::add),
+                "a held error frame decodes to no event");
+        assertEquals(1, held.size());
+        FanarInternalServerException typed = assertInstanceOf(FanarInternalServerException.class, held.getFirst());
+        assertEquals("worker died", typed.getMessage());
+    }
+
+    @Test
+    void anEventFrameNeverReachesTheErrorCallback() {
+        TokenChunk expected = new TokenChunk("c_1", 0L, "Fanar-Sadiq-2", List.of());
+        assertSame(expected, StreamEventDecoder.forDeepResearch(new FakeCodec(Map.of(), expected))
+                .decode(new SseFrame("{}"), error -> { throw new AssertionError("not an error frame", error); }));
+    }
+
+    @Test
+    void onlyTheDoneSentinelIsDone() {
+        assertTrue(StreamEventDecoder.isDone(new SseFrame("[DONE]")));
+        assertTrue(StreamEventDecoder.isDone(new SseFrame(" [DONE] ")), "surrounding whitespace is tolerated");
+        assertFalse(StreamEventDecoder.isDone(new SseFrame("{\"id\":\"c\"}")));
+        assertFalse(StreamEventDecoder.isDone(new SseFrame("")));
     }
 }

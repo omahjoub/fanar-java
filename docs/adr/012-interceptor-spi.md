@@ -41,7 +41,10 @@ Rules:
   sleep, response-body caching) operates at the HTTP layer, not on `ChatRequest`/`ChatResponse`. A semantic-advisor
   layer is not ruled out for the future but is not needed today.
 - **Sync-only execution**, running on the caller's thread (ADR-004). The streaming body is out of scope: interceptors
-  see the initial HTTP handshake; mid-stream concerns compose at the `Flow.Publisher<StreamEvent>` layer.
+  see the initial HTTP handshake; mid-stream concerns compose at the `Flow.Publisher<StreamEvent>` layer. One
+  stream runs the chain again: a deep-research job stream resumes over several responses, and each reconnect passes
+  through the whole chain on the stream's virtual thread, so thread-local context set on the caller's thread is
+  absent there (ADR-032, 2026-10-14).
 - **First-added interceptor = outermost wrapper.** Registration order determines chain order, and
   the order decides what re-runs: everything *inside* retry runs once per attempt, everything
   outside it runs once per call. That is why the built-ins are ordered retry-then-auth and not the

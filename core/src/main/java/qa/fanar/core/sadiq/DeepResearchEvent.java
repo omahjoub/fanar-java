@@ -6,7 +6,8 @@ import qa.fanar.core.chat.ProgressChunk;
 import qa.fanar.core.chat.TokenChunk;
 
 /**
- * One event in a streamed deep-research run ({@code SadiqClient.deepResearchStream}).
+ * One event in a streamed deep-research run ({@code SadiqClient.deepResearchStream}) or in a
+ * background job's event stream ({@code SadiqClient.deepResearchJobStream}).
  *
  * <p>The endpoint streams the chat SSE format, so four of the five event kinds are the chat
  * records themselves — the same {@link TokenChunk}, {@link ProgressChunk}, {@link DoneChunk} and
@@ -30,7 +31,10 @@ import qa.fanar.core.chat.TokenChunk;
 public sealed interface DeepResearchEvent
         permits TokenChunk, ProgressChunk, ReportChunk, DoneChunk, ErrorChunk {
 
-    /** Completion id — stable across all events of the same run. */
+    /**
+     * Completion id. Not a run identity: the spec's job-stream examples change it between events of
+     * one run, so nothing should key on it (ADR-032).
+     */
     String id();
 
     /** Server-side creation timestamp, Unix seconds. */

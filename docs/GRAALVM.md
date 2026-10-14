@@ -20,9 +20,9 @@ What "works" means concretely:
   benchmark, so treat the shape as the claim and measure your own workload.)
 
 - Every Fanar domain (chat, models, tokens, moderations, translations, poems, Sadiq
-  validation, Sadiq deep research, images, audio) decodes its responses correctly. Deep
-  research is probed offline only: a real run takes minutes and spends a unit of the
-  endpoint's daily quota, so the live walk skips it.
+  validation, Sadiq deep research and its background jobs, images, audio) decodes its
+  responses correctly. Deep research is probed offline only: a real run takes minutes and
+  spends a unit of the endpoint's daily quota, so the live walk skips it.
 - Every observability adapter (SLF4J, OTel, Micrometer, the composite that fans them out)
   runs without crashing.
 - The typed `FanarException` hierarchy is reachable from the binary's error path. The
@@ -263,7 +263,7 @@ Expected output:
 [main] ERROR fanar.smoke.op - failed after 0ms attrs={k=v}
 java.lang.IllegalStateException: smoke-error
         …
-self-test OK: 12 decode probes + 11 encode probes, 4 obs plugins exercised, wire interceptor instantiated
+self-test OK: 13 decode probes + 11 encode probes, 4 obs plugins exercised, wire interceptor instantiated
 ```
 
 The `smoke-error` lines are intentional — the self-test deliberately calls
@@ -525,7 +525,9 @@ the bootstrap pass picks up every metadata gap in one go. Mirrors `Main.selfTest
 
 - **Decode probes** for every domain — chat, models, tokens, moderations, translations,
   poems, Sadiq validation, Sadiq deep research (`DeepResearchReport` with nested sections,
-  cited sources and run metadata), images, audio voices, audio STT (both `text` and `json`
+  cited sources and run metadata), deep-research jobs (`DeepResearchJob` completed with its
+  request echo — `DeepResearchRequest` decoded, the one record the SDK also encodes — and its
+  report, then failed with `JobError`, `IncompleteDetails` and a cancel source), images, audio voices, audio STT (both `text` and `json`
   sealed variants), and the streaming leaves — the six chat `StreamEvent` records plus the
   deep-research `ReportChunk`, including a progress event without a model.
 - **Encode probes** for every request record — `ChatRequest`, `TokenizationRequest`,
@@ -556,8 +558,8 @@ timeouts) is logged and the walk continues — failure to authorize on one domai
 shouldn't stop us from exercising the next under native. Includes one async probe to
 exercise the virtual-thread async wrapper. Deep research is the one domain the walk skips:
 a real run takes 3–10 minutes and spends a unit of the endpoint's daily quota, so it has
-offline probes only (`decodeDeepResearch`, `encodeDeepResearchRequest`, and the `ReportChunk`
-leaf in `decodeStreamChunks`).
+offline probes only (`decodeDeepResearch`, `decodeDeepResearchJob`, `encodeDeepResearchRequest`,
+and the `ReportChunk` leaf in `decodeStreamChunks`).
 
 ## Limits of what this catches
 

@@ -123,6 +123,22 @@ class MicrometerObservabilityPluginTest {
     }
 
     @Test
+    void httpUrlIsHighCardinalityByDefault() {
+        // A deep-research job's URL carries its id and, on a resumed stream, the last event id
+        // (ADR-032): as a metric tag it would mint a series per job and per resume.
+        try (ObservationHandle h = plugin().start("op")) {
+            h.attribute(FanarObservationAttributes.HTTP_URL,
+                    "https://api.fanar.qa/v1/sadiq/deep-research/5bbed6e2?stream=true&starting_after=1791099077711-0");
+            h.attribute(FanarObservationAttributes.HTTP_METHOD, "GET");
+        }
+        obs("op")
+                .hasHighCardinalityKeyValue("http.url",
+                        "https://api.fanar.qa/v1/sadiq/deep-research/5bbed6e2?stream=true&starting_after=1791099077711-0")
+                .doesNotHaveLowCardinalityKeyValueWithKey("http.url")
+                .hasLowCardinalityKeyValue("http.method", "GET");
+    }
+
+    @Test
     void builder_highCardinalityKeysReplacesTheDefaultRule() {
         MicrometerObservabilityPlugin custom = MicrometerObservabilityPlugin.builder(registry)
                 .highCardinalityKeys("http.url"::equals)

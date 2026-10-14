@@ -104,7 +104,7 @@ class DeepResearchWireIntegrationTest {
         assertEquals("stop", done.choices().getFirst().finishReason());
 
         String body = server.lastReceived().bodyAsString();
-        assertTrue(body.startsWith("{\"stream\":true,"), body);
+        assertTrue(body.startsWith("{\"stream\":true,\"background\":false,"), body);
         assertTrue(body.contains("\"depth\":\"quick\"") && body.contains("\"web_search\":false"), body);
         assertEquals(1, server.hits());
     }

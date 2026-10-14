@@ -38,10 +38,15 @@ import qa.fanar.core.models.ModelsResponse;
 import qa.fanar.core.poems.PoemGenerationRequest;
 import qa.fanar.core.poems.PoemGenerationResponse;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.CancelSource;
 import qa.fanar.core.sadiq.DeepResearchDepth;
+import qa.fanar.core.sadiq.DeepResearchJob;
 import qa.fanar.core.sadiq.DeepResearchReport;
 import qa.fanar.core.sadiq.DeepResearchRequest;
 import qa.fanar.core.sadiq.DeepResearchSection;
+import qa.fanar.core.sadiq.IncompleteReason;
+import qa.fanar.core.sadiq.JobErrorCode;
+import qa.fanar.core.sadiq.JobStatus;
 import qa.fanar.core.sadiq.ReportChunk;
 import qa.fanar.core.sadiq.SadiqValidationRequest;
 import qa.fanar.core.sadiq.SadiqValidationResponse;
@@ -469,6 +474,127 @@ class AdapterParityTest {
         assertEquals("Analyzing topic and planning report structure...", decoded3.message().en());
         assertEquals("تحليل الموضوع وتخطيط هيكل التقرير...", decoded3.message().ar());
         assertEquals(1_789_987_956L, decoded3.created());
+    }
+
+    @Test
+    void deepResearchJobDecodesIdenticallyAcrossAdapters() throws IOException {
+        // The spec's `completed` example of GET /v1/sadiq/deep-research/{job_id}, trimmed: the two
+        // constants `object` and `type` are not modelled and both adapters must ignore them; the
+        // request echo decodes into DeepResearchRequest; `result` is the synchronous report.
+        String wire = """
+                {
+                  "id": "5bbed6e2-ae53-486f-823a-2f01992ece59",
+                  "object": "job",
+                  "type": "deep_research",
+                  "status": "completed",
+                  "progress_pct": 100,
+                  "attempt": 1,
+                  "created_at": 1791099046,
+                  "started_at": 1791099046,
+                  "completed_at": 1791099575,
+                  "updated_at": 1791099575,
+                  "request": {"model": "Fanar-Sadiq-2", "input": "ما فضل الصدقة في الإسلام؟",
+                              "depth": "quick", "web_search": false},
+                  "result": {
+                    "title": "فضل الصدقة في الإسلام",
+                    "sections": [{"heading": "الأهمية الروحية والدينية للصدقة", "mode": "general",
+                                  "sources": [{"quote": "q", "source": "s", "was_cited": true,
+                                               "citation_tag": "[الشاملة:3243]"}]}],
+                    "metadata": {"depth": "quick", "elapsed_seconds": 468.65}
+                  }
+                }
+                """;
+        DeepResearchJob decoded2 = jackson2.decode(bytes(wire), DeepResearchJob.class);
+        DeepResearchJob decoded3 = jackson3.decode(bytes(wire), DeepResearchJob.class);
+        assertEquals(decoded2, decoded3, "DeepResearchJob decoded by both adapters must be record-equal");
+        assertEquals("5bbed6e2-ae53-486f-823a-2f01992ece59", decoded3.id());
+        assertEquals(JobStatus.COMPLETED, decoded3.status());
+        assertEquals(100, decoded3.progressPct());
+        assertEquals(1, decoded3.attempt());
+        assertEquals(1_791_099_046L, decoded3.createdAt());
+        assertEquals(1_791_099_046L, decoded3.startedAt());
+        assertEquals(1_791_099_575L, decoded3.completedAt());
+        assertEquals(1_791_099_575L, decoded3.updatedAt());
+        assertEquals(new DeepResearchRequest(ChatModel.FANAR_SADIQ_2, "ما فضل الصدقة في الإسلام؟",
+                DeepResearchDepth.QUICK, false), decoded3.request());
+        assertEquals("فضل الصدقة في الإسلام", decoded3.result().title());
+        assertEquals("[الشاملة:3243]",
+                decoded3.result().sections().getFirst().sources().getFirst().citationTag());
+        assertNull(decoded3.error());
+        assertNull(decoded3.incompleteDetails());
+        assertNull(decoded3.cancelSource());
+    }
+
+    @Test
+    void deepResearchJobWithOnlyItsRequiredFieldsDecodes() throws IOException {
+        // The spec's `required` set only: `progress_pct` and `attempt` default to 0 when absent —
+        // on Jackson 3 too, which fails an explicit JSON null for a primitive but not an absent one.
+        String wire = """
+                {"id": "c3869c31", "type": "deep_research", "status": "queued",
+                 "created_at": 1791099697, "updated_at": 1791099697,
+                 "request": {"model": "Fanar-Sadiq-2", "input": "topic"}}
+                """;
+        DeepResearchJob decoded2 = jackson2.decode(bytes(wire), DeepResearchJob.class);
+        DeepResearchJob decoded3 = jackson3.decode(bytes(wire), DeepResearchJob.class);
+        assertEquals(decoded2, decoded3, "a minimal DeepResearchJob must decode identically via both adapters");
+        assertEquals(JobStatus.QUEUED, decoded3.status());
+        assertEquals(0, decoded3.progressPct(), "absent progress_pct must decode to 0");
+        assertEquals(0, decoded3.attempt(), "absent attempt must decode to 0");
+        assertNull(decoded3.startedAt(), "absent started_at must decode to null");
+        assertNull(decoded3.completedAt(), "absent completed_at must decode to null");
+        assertNull(decoded3.result(), "absent result must decode to null");
+        assertEquals(DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "topic"), decoded3.request());
+    }
+
+    @Test
+    void deepResearchJobFailureShapesDecode() throws IOException {
+        // The spec has no failed-job example; these are its schemas: JobError, IncompleteDetails,
+        // CancelSource — and a status this SDK does not know, which must decode, not fail.
+        String failed = """
+                {"id": "j1", "status": "failed", "created_at": 1, "updated_at": 2,
+                 "request": {"model": "Fanar-Sadiq-2", "input": "t"},
+                 "error": {"code": "max_runtime_exceeded", "message": "ran out of time"}}
+                """;
+        String incomplete = """
+                {"id": "j2", "status": "incomplete", "created_at": 1, "updated_at": 2,
+                 "request": {"model": "Fanar-Sadiq-2", "input": "t"},
+                 "incomplete_details": {"reason": "content_filter"}}
+                """;
+        String cancelled = """
+                {"id": "j3", "status": "cancelled", "created_at": 1, "updated_at": 2,
+                 "request": {"model": "Fanar-Sadiq-2", "input": "t"}, "cancel_source": "owner"}
+                """;
+        String unknown = """
+                {"id": "j4", "status": "requires_action", "created_at": 1, "updated_at": 2,
+                 "request": {"model": "Fanar-Sadiq-2", "input": "t"}, "cancel_source": "system"}
+                """;
+        for (String wire : List.of(failed, incomplete, cancelled, unknown)) {
+            assertEquals(jackson2.decode(bytes(wire), DeepResearchJob.class),
+                    jackson3.decode(bytes(wire), DeepResearchJob.class),
+                    "both adapters must agree on " + wire);
+        }
+        DeepResearchJob f = jackson3.decode(bytes(failed), DeepResearchJob.class);
+        assertEquals(JobErrorCode.MAX_RUNTIME_EXCEEDED, f.error().code());
+        assertEquals("ran out of time", f.error().message());
+        assertEquals(IncompleteReason.CONTENT_FILTER,
+                jackson3.decode(bytes(incomplete), DeepResearchJob.class).incompleteDetails().reason());
+        assertEquals(CancelSource.OWNER, jackson3.decode(bytes(cancelled), DeepResearchJob.class).cancelSource());
+        DeepResearchJob u = jackson3.decode(bytes(unknown), DeepResearchJob.class);
+        assertEquals(JobStatus.of("requires_action"), u.status());
+        assertTrue(u.status().isTerminal(), "an unknown status must count as ended");
+        assertEquals(CancelSource.of("system"), u.cancelSource());
+    }
+
+    @Test
+    void deepResearchRequestDecodesFromTheJobEcho() throws IOException {
+        // The first record the SDK both encodes and decodes: what one adapter writes, both read back.
+        DeepResearchRequest original = new DeepResearchRequest(
+                ChatModel.FANAR_SADIQ_2, "topic", DeepResearchDepth.COMPREHENSIVE, true);
+        for (FanarJsonCodec writer : List.<FanarJsonCodec>of(jackson2, jackson3)) {
+            String wire = encode(writer, original);
+            assertEquals(original, jackson2.decode(bytes(wire), DeepResearchRequest.class));
+            assertEquals(original, jackson3.decode(bytes(wire), DeepResearchRequest.class));
+        }
     }
 
     @Test

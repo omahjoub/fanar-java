@@ -28,10 +28,12 @@ The parser pipeline:
    know which one it is carrying.
 2. **Frame accumulator** — lines are collected into SSE frames. Lines starting with `data:`
    accumulate the payload; a blank line dispatches the frame. **Every other field is ignored** —
-   `event:`, `id:`, `retry:` and comment lines alike. Fanar sends a single unnamed event type, so a
-   frame is its `data` and nothing else; parsing fields we would only discard is surface without
-   purpose. Ignoring rather than rejecting them is deliberate: an unknown field must never break a
-   stream.
+   `event:`, `retry:` and comment lines alike — **except `id:`**, which the accumulator tracks by the
+   WHATWG rules (it fills a buffer that the next blank line commits as the last event id) for the one
+   stream that resumes, a deep-research job's (ADR-032, 2026-10-14). Fanar sends a single unnamed event
+   type, so a frame is its `data` and nothing else; parsing fields we would only discard is surface
+   without purpose. Ignoring rather than rejecting them is deliberate: an unknown field must never
+   break a stream.
 3. **JSON decode** — the `data:` payload is handed to `FanarJsonCodec` (ADR-008), which deserializes into the
    appropriate `StreamEvent` subtype (discriminated by shape: `progress` field → `ProgressChunk`, `choices[*].delta`
    shape → `TokenChunk` / `ToolCallChunk` / `ToolResultChunk`, presence of `usage` → `DoneChunk`, presence of error →
@@ -90,9 +92,12 @@ downstream module notices, guaranteed by ADR-018.
   ours to avoid. Mitigated by a comprehensive test suite with curated fixtures and property-based tests.
 
 ### Neutral
-- The parser does not implement the `Last-Event-ID` reconnect semantics of the full SSE specification — Fanar does
-  not require it, and the streaming surface (ADR-005) delegates reconnection semantics to the user.
-  `retry:` is ignored for the same reason: it is advice about reconnecting, and we do not reconnect.
+- The parser implements the last-event-id half of the SSE reconnect semantics for one stream only: Fanar's
+  deep-research job streams require it — a response may end before `[DONE]` on purpose — and the publisher resumes
+  with the spec's `starting_after` parameter rather than the `Last-Event-ID` header, which the spec ranks second
+  (ADR-032, 2026-10-14). Every other stream delegates reconnection to the user (ADR-005). `retry:` is ignored
+  everywhere: it is advice about reconnecting, and the job stream reconnects at once and leaves backoff to the
+  retry policy.
 - The publisher owns the call's observation for the life of the stream and closes it on the terminal
   signal (ADR-013), so a stream that dies mid-flight is reported as a failure rather than as the
   clean success its handshake was.
@@ -100,10 +105,14 @@ downstream module notices, guaranteed by ADR-018.
 ## Proved by
 
 - `SseFrameAssemblerTest` — the frame state machine: multi-line `data:`, blank-line dispatch,
-  comments, unknown fields, CRLF.
-- `SseStreamPublisherTest` — demand, cancellation, error propagation and the observation lifecycle.
+  comments, unknown fields, CRLF, and the last event id committed on blank lines.
+- `SseStreamPublisherTest` — demand, cancellation, error propagation and the observation lifecycle;
+  `SseStreamPublisherResumeTest` — the job stream's resume across responses.
 - `FanarClientRetryIntegrationTest.connectionDropMidStreamIsNotRetried` — the whole path through
   `FanarClient.builder()` against a server that drops mid-stream.
+- `FanarClientDeepResearchJobIntegrationTest.jobStreamResumesAfterTheLastEventIdWhenAResponseEndsWithoutDone`
+  and `.jobStreamResumesAfterADroppedConnection` — the one stream that reconnects, through the public API
+  (ADR-032).
 
 ## References
 

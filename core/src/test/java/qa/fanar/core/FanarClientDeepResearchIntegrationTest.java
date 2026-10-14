@@ -127,7 +127,8 @@ class FanarClientDeepResearchIntegrationTest {
         assertEquals("application/json", sent.header("Content-Type"));
         assertEquals("text/event-stream", sent.header("Accept"));
         String body = sent.bodyAsString();
-        assertTrue(body.startsWith("{\"stream\":true,"), "the stream flag leads the body, was: " + body);
+        assertTrue(body.startsWith("{\"stream\":true,\"background\":false,"),
+                "both flags lead the body — the synchronous run pins background off (ADR-032), was: " + body);
         assertTrue(body.contains("\"model\":\"Fanar-Sadiq-2\""), body);
         assertTrue(body.contains("\"input\":\"seeking knowledge\""), body);
         assertTrue(body.contains("\"depth\":\"quick\""), body);

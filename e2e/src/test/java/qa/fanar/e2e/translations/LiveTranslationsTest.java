@@ -33,6 +33,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * longer does; should a key lose access the test surfaces a {@code FanarAuthorizationException}
  * loudly — share the wire log when that happens. Skipped when {@code FANAR_API_KEY} is not set.
  * Dated record: {@code docs/WIRE_OBSERVATIONS.md}.</p>
+ *
+ * <p>{@code Fanar-Shaheen-MT-2} — added to the spec's translation models in the 2026-10 drop — works
+ * for the standard key too (observed 2026-10-14), on its own {@code 20;w=86400} window: its
+ * {@code remaining} counts down from 19 independently of MT-1's. One case per codec, 2 of its 20 per
+ * full run.</p>
  */
 @Tag("live")
 @EnabledIfEnvironmentVariable(named = "FANAR_API_KEY", matches = ".+")
@@ -72,6 +77,23 @@ class LiveTranslationsTest {
                             "Hello, how are you?",
                             LanguagePair.EN_AR))
                     .get(60, TimeUnit.SECONDS);
+            assertNotNull(r.id(), "response id must be present");
+            assertNotNull(r.text(), "translated text must be present");
+            assertFalse(r.text().isBlank(), "translated text must not be blank");
+        }
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @MethodSource("codecs")
+    @DisplayName("§M.4 translate en→ar with Fanar-Shaheen-MT-2 returns non-empty Arabic text")
+    void translate_withShaheenMt2ReturnsNonEmptyTranslation(FanarJsonCodec codec) {
+        try (FanarClient client = TestClients.liveWithLogging(codec)) {
+            TranslationResponse r = client.translations().translate(
+                    TranslationRequest.of(
+                            TranslationModel.FANAR_SHAHEEN_MT_2,
+                            "Hello, how are you?",
+                            LanguagePair.EN_AR));
+
             assertNotNull(r.id(), "response id must be present");
             assertNotNull(r.text(), "translated text must be present");
             assertFalse(r.text().isBlank(), "translated text must not be blank");

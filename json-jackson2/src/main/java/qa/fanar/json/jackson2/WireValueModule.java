@@ -26,7 +26,11 @@ import qa.fanar.core.chat.Source;
 import qa.fanar.core.images.ImageModel;
 import qa.fanar.core.moderations.ModerationModel;
 import qa.fanar.core.poems.PoemModel;
+import qa.fanar.core.sadiq.CancelSource;
 import qa.fanar.core.sadiq.DeepResearchDepth;
+import qa.fanar.core.sadiq.IncompleteReason;
+import qa.fanar.core.sadiq.JobErrorCode;
+import qa.fanar.core.sadiq.JobStatus;
 import qa.fanar.core.translations.LanguagePair;
 import qa.fanar.core.translations.TranslationModel;
 import qa.fanar.core.translations.TranslationPreprocessing;
@@ -70,6 +74,10 @@ final class WireValueModule {
         register(module, SttModel.class, SttModel::wireValue, SttModel::of);
         register(module, SttFormat.class, SttFormat::wireValue, SttFormat::of);
         register(module, DeepResearchDepth.class, DeepResearchDepth::wireValue, DeepResearchDepth::of);
+        register(module, JobStatus.class, JobStatus::wireValue, JobStatus::of);
+        register(module, JobErrorCode.class, JobErrorCode::wireValue, JobErrorCode::of);
+        register(module, IncompleteReason.class, IncompleteReason::wireValue, IncompleteReason::of);
+        register(module, CancelSource.class, CancelSource::wireValue, CancelSource::of);
         return module;
     }
 

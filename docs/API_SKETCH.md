@@ -279,7 +279,7 @@ client.images().generate(new ImageGenerationRequest(
     ImageModel.FANAR_ORYX_IG_2, "A futuristic Doha skyline", false));
 
 // Translation
-client.translations().translate(TranslationRequest.of(TranslationModel.FANAR_SHAHEEN_MT_1,
+client.translations().translate(TranslationRequest.of(TranslationModel.FANAR_SHAHEEN_MT_2,
                                                   "Hello, how are you?", LanguagePair.EN_AR));
 
 // Poetry
@@ -298,9 +298,10 @@ SadiqValidationResponse validated = client.sadiq().validate(
     SadiqValidationRequest.of(ChatModel.FANAR_SADIQ_2, someAnswerText));
 
 // Deep research — a cited, hierarchical report on a topic from the Islamic knowledge base
-// (2026-09-23 spec, ADR-031). Blocks for minutes; never retried, whatever the client's RetryPolicy
-// (20 runs/day, consumed on admission); requestTimeout bounds only the handshake, never the run.
-// Requires additional authorization on the API key. The stream and async variants follow this block.
+// (2026-09-23 spec, ADR-031). Blocks for minutes on one connection; never retried, whatever the
+// client's RetryPolicy (20 runs/day, one spent per admitted run); requestTimeout bounds only the
+// handshake, never the run. Requires additional authorization on the API key. The stream and async
+// variants, and the background job the 2026-10 spec recommends for runs this long, follow this block.
 DeepResearchReport report = client.sadiq().deepResearch(
     DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam"));
 
@@ -319,9 +320,9 @@ import java.util.concurrent.Flow;
 import qa.fanar.core.chat.*;
 import qa.fanar.core.sadiq.*;
 
-// The stream the server recommends: a bilingual ProgressChunk per research pass, the draft as
-// TokenChunks, the finished report as a ReportChunk, then the terminal DoneChunk whose metadata
-// summarises the run. Never retried; cancel the subscription to abandon the run (ADR-031).
+// The synchronous stream: a bilingual ProgressChunk per research pass, the draft as TokenChunks,
+// the finished report as a ReportChunk, then the terminal DoneChunk whose metadata summarises the
+// run. Never retried; cancel the subscription to abandon the run (ADR-031).
 Flow.Publisher<DeepResearchEvent> research = client.sadiq().deepResearchStream(
     new DeepResearchRequest(ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam",
                             DeepResearchDepth.QUICK, true));
@@ -357,6 +358,52 @@ while the lists and the map are never `null`. `depth` and `webSearch` are option
 leaves both to the server's defaults, and a run takes minutes (`quick` 3–6, `standard` 7–10, `comprehensive`
 longer). The endpoint is gated for the SDK's key, so the report shape is the spec's claim until the first
 admitted run ([wire observations](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2)).
+
+### Deep research as a background job (2026-10 spec)
+
+```java
+import java.time.Duration;
+import java.util.stream.Stream;
+import qa.fanar.core.Streams;
+import qa.fanar.core.chat.ChatModel;
+import qa.fanar.core.sadiq.*;
+
+// The mode the spec recommends for runs this long (ADR-032): the start returns the job at once and
+// is never retried — it spends one of the day's 20 units — and the run then carries on whatever
+// happens to this connection or this process. Keep the id: the job stays readable for 24 hours
+// after it ends.
+DeepResearchJob job = client.sadiq().startDeepResearch(
+    DeepResearchRequest.of(ChatModel.FANAR_SADIQ_2, "The importance of seeking knowledge in Islam"));
+
+// Follow its events — the same events as the synchronous stream, resumed across dropped and
+// server-closed connections, each delivered once. Cancelling stops following, not the job.
+try (Stream<DeepResearchEvent> events = Streams.toStream(client.sadiq().deepResearchJobStream(job.id()))) {
+    events.filter(ReportChunk.class::isInstance)
+          .map(event -> ((ReportChunk) event).report())
+          .forEach(finished -> System.out.println(finished.markdown()));
+}
+
+// Or poll it: reading a job spends no quota and uses the client's RetryPolicy.
+DeepResearchJob current = client.sadiq().retrieveDeepResearchJob(job.id());
+while (!current.status().isTerminal()) {
+    Thread.sleep(Duration.ofSeconds(10));
+    current = client.sadiq().retrieveDeepResearchJob(job.id());
+}
+if (current.status().equals(JobStatus.COMPLETED)) {
+    DeepResearchReport result = current.result();             // what deepResearch() would return
+}
+
+// Cancel: asynchronous and idempotent — poll until CANCELLED; the unit is not refunded.
+DeepResearchJob cancelling = client.sadiq().cancelDeepResearchJob(job.id());
+```
+
+`JobStatus.isTerminal()` is true for every status but `QUEUED` and `IN_PROGRESS` — `COMPLETED`, `FAILED` (see
+`error()`), `CANCELLED` (`cancelSource()`), `INCOMPLETE` (stopped by a content filter, `incompleteDetails()`) and
+any status the SDK does not yet know — so the loop above cannot spin on a new value. A job the server restarts
+after a failure replays its events from the start, and its `attempt()` exceeds 1: render the report, not the
+deltas. An unknown or expired job is `FanarNotFoundException` — seen live for an unknown id on all three job
+operations. Starting a job is gated for our key like the run itself, so everything else about a job is the spec's
+description ([wire observations](WIRE_OBSERVATIONS.md#deep-research--background-jobs)).
 
 ---
 

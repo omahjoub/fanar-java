@@ -26,10 +26,12 @@ Three properties of the endpoint have no precedent in the SDK and shape this rec
    response headers and nothing after them, on every JDK.
 2. **A daily quota, consumed on admission.** The spec's rate-limit table gains
    `Fanar-Sadiq-2 (deep research)` at **20 requests/day** — keyed by endpoint, not by model, which is
-   new: the same model is 50/min on chat and 200/min on validation. Its code samples state that "quota
+   new: the same model is 50/min on chat and 200/min on validation. Its code samples stated that "quota
    is consumed when the request is ADMITTED, so a retry spends another unit even if the first attempt
-   produced nothing". The SDK's default `RetryPolicy` retries a 503, a 504 and any transport failure up
-   to twice, and the policy is client-wide ([ADR-014](014-retry-policy-defaults.md)).
+   produced nothing"; the 2026-10 drop removed that sentence and says instead that a cancelled job's
+   quota "is not refunded" (ADR-032, 2026-10-14). The SDK's default `RetryPolicy` retries a 503, a 504
+   and any transport failure up to twice, and the policy is client-wide
+   ([ADR-014](014-retry-policy-defaults.md)).
 3. **The stream reuses chat's records but not chat's union.** The SSE format is the same, and four of
    the five event kinds are the chat records verbatim, yet chat never emits a report and deep research
    never emits a tool event. `StreamEvent` is sealed over exactly what a chat stream can emit, and two
@@ -90,9 +92,13 @@ test, never the implementation.
    exception a codec throws passes through.
 
 4. **One wire path: always the stream. The blocking variants collect from it.** Every variant sends
-   `"stream":true` and `Accept: text/event-stream`; `deepResearch()` subscribes a collector that keeps
-   the `ReportChunk`, ignores progress and draft events, and returns the report on the terminal signal.
-   Three reasons. The stream is what the spec recommends. The server admits a streamed run at once and
+   `"stream":true` — and, since the 2026-10 spec made `stream`'s default depend on `background`,
+   `"background":false` (ADR-032, 2026-10-14) — and `Accept: text/event-stream`; `deepResearch()`
+   subscribes a collector that keeps the `ReportChunk`, ignores progress and draft events, and returns
+   the report on the terminal signal. Three reasons. The stream was what the 2026-09-23 spec
+   recommended — the 2026-10 spec recommends background jobs for long runs, which ADR-032 exposes
+   alongside these calls, and of its two synchronous modes the stream is still the better one for the
+   reasons that follow. The server admits a streamed run at once and
    sends its headers, so the client's `requestTimeout` bounds the admission and never the run, at the
    default and on every JDK — whereas the JSON mode holds a silent connection for the whole run and
    can only work with a client-wide timeout of half an hour, raised for every other call too
@@ -120,8 +126,10 @@ test, never the implementation.
    post-admission 503, 504 or transport failure would otherwise be retried up to twice and spend up to
    three of the day's twenty units on one call; a pre-admission failure is cheap for the caller to
    retry by hand on a minutes-long operation, and impossible for the SDK to tell apart from a
-   post-admission one. Validation on the same facade keeps the client's policy. ADR-014's
-   "client-wide" sentence is corrected in place to name this exception. An exhausted daily window
+   post-admission one. Validation on the same facade keeps the client's policy. The rule covers every
+   admission: ADR-032's `startDeepResearch` runs on the same chain, while reading, following and
+   cancelling a job — none of which spends quota — keep the client's policy (ADR-032, 2026-10-14).
+   ADR-014's "client-wide" sentence is corrected in place to name this exception. An exhausted daily window
    (a 429 whose `Retry-After` is measured in hours) surfaces at once as `FanarRateLimitException`
    with `retryAfter()` and `rateLimit()` (ADR-025, ADR-026), which is the same behaviour the default
    policy would give — proved rather than assumed.
@@ -171,8 +179,9 @@ test, never the implementation.
   mode is loud and cheap to fix.
 - **A dedicated `research()` facade or a `DeepResearchClient`.** *Rejected*: ADR-011 says facades mirror
   the API's domains; the domain is Sadiq and the tag ↔ facade rule of ADR-016 holds.
-- **A job API (enqueue, poll).** *Rejected*: there is none on the wire — "a single long-lived HTTP call" —
-  and the spec's own background-worker sample shows that lifecycle belongs to the application.
+- **A job API (enqueue, poll).** *Rejected* while there was none on the wire — the 2026-09-23 spec described
+  "a single long-lived HTTP call", and its background-worker sample left the lifecycle to the application.
+  The 2026-10 spec added one; ADR-032 exposes it alongside this record's synchronous calls (2026-10-14).
 
 ## Consequences
 
@@ -202,7 +211,8 @@ test, never the implementation.
   unrecorded there; a caller who needs it subscribes to the stream.
 - The known-failing live set grows to 14 cases per run (`LiveDeepResearchTest`: 2 methods × 2 codecs),
   occasionally 15 with the Diwan verse-miss case, and a granted key would add 12–24 minutes to a full
-  live run at `quick` depth — the ledger's budget table carries the derivation.
+  live run at `quick` depth — the ledger's budget table carries the derivation. ADR-032's job case
+  raises both, to 16 cases (occasionally 17) and 18–36 minutes (ADR-032, 2026-10-14).
 
 ### Neutral
 - Six reachability-metadata entries — the five new records and the `DeepResearchEvent` interface the
@@ -218,7 +228,7 @@ test, never the implementation.
 ## Proved by
 
 - `FanarClientDeepResearchIntegrationTest.deepResearchStreamReachesTheEndpointAndDeliversEveryEventKind`
-  (endpoint, bearer, `"stream":true` first in the body, depth and web-search on the wire, the spec's
+  (endpoint, bearer, `"stream":true,"background":false` first in the body, depth and web-search on the wire, the spec's
   five event kinds decoded end to end with a null-model progress event),
   `.deepResearchCollectsTheReportFromTheSameStream`, `.deepResearchAsyncCrossesTheSameSeam`,
   `.deepResearchFailsWhenTheStreamReportsAnError`, `.deepResearchFailsWhenTheStreamEndsWithoutAReport`,

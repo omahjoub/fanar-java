@@ -92,7 +92,11 @@ public interface ObservationHandle extends AutoCloseable {
   when the stream ends, then closes the handle on completion, failure and cancellation alike. One
   observation per stream, not per chunk; per-chunk tracing would be noise and composes at the
   publisher layer anyway. The consequence a caller sees is that a stream which dies mid-flight is
-  reported as a failure rather than as the clean success its handshake was.
+  reported as a failure rather than as the clean success its handshake was. A deep-research job
+  stream keeps the one observation across every response it resumes over, counting chunks across
+  them and adding a `stream_resumed` event per reconnect — and `stream_error_superseded` when an
+  error frame it held is overtaken by later events — beside the retry interceptor's
+  `retry_attempt` (ADR-032, 2026-10-14).
 - **No built-in logging plugin**. `System.Logger` (JDK-built-in) is always available; structured logging bindings
   are the responsibility of downstream adapter modules.
 - **No OpenTelemetry or Micrometer types in core**. The `fanar-obs-*` adapter modules provide these,
@@ -136,7 +140,8 @@ public interface ObservationHandle extends AutoCloseable {
   and `.reset` have unbounded value spaces and must never become metric tags. The Micrometer adapter
   records them as high-cardinality by default and exposes `highCardinalityKeys(Predicate)` to change
   the rule; OpenTelemetry's typed dispatch and the SLF4J adapter need nothing. Any attribute added
-  from here is classified the same way before it ships.
+  from here is classified the same way before it ships. `http.url` joined them when job ids and
+  event ids entered request URLs (ADR-032, 2026-10-14); the operation name stays the bounded key.
 
 ## Proved by
 

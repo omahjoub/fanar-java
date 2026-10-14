@@ -125,11 +125,11 @@ What remains is an API-shape decision (ADR-019 window): where the operation hang
   rather than a compile error — the same trade `tokens` already makes.
 - Callers who want structured citations must strip the markup themselves until a parser ships.
 - The known-failing live set grows from 6 to **10** cases per run (`LiveSadiqValidateTest`:
-  2 methods × 2 codecs; 14 since ADR-031), which the parked nightly job must exclude or be red every night.
+  2 methods × 2 codecs; 14 since ADR-031, 16 since ADR-032), which the parked nightly job must exclude or be red every night.
 
 ### Neutral
 - `SadiqValidationRequest` / `SadiqValidationResponse` are plain records, so they need two ordinary
-  reachability-metadata entries (34 domain records now; 45 since ADR-031, counted from `reflect-config.json` — the 34 had already grown to 40 by 0.6.0 with the streaming leaves) and two `e2e-graalvm` probes.
+  reachability-metadata entries (34 domain records now; 45 since ADR-031 and 48 since ADR-032, counted from `reflect-config.json` — the 34 had already grown to 40 by 0.6.0 with the streaming leaves) and two `e2e-graalvm` probes.
 - The endpoint is not rate-limit scarce: the 2026-09-23 rate table keys the limit by endpoint, and
   validation is 200/min (`Fanar-Sadiq-2` is 50/min on chat and 20/day on deep research — ADR-031),
   so the live cases, rejected at the gate before admission, still cost nothing against the

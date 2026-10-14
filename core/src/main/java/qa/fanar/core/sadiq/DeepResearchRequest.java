@@ -14,11 +14,14 @@ import qa.fanar.core.chat.ChatModel;
  * {@link SadiqValidationRequest} and {@code TokenizationRequest} make (ADR-015). The SDK does not
  * narrow it statically; a model the endpoint does not serve surfaces as a server error.</p>
  *
- * <p>The wire field {@code stream} is deliberately not modelled: whether the report arrives as a
- * stream or as one value is the call-site method's choice on {@link SadiqClient}
- * (ADR-023). A run takes minutes — see {@link DeepResearchDepth} — and the endpoint has a small
- * daily quota that is consumed when the request is admitted, so the SDK never retries it
- * (ADR-031).</p>
+ * <p>The wire fields {@code stream} and {@code background} are deliberately not modelled: whether
+ * the report arrives as a stream, as one value or through a background job is the call-site
+ * method's choice on {@link SadiqClient} (ADR-023, ADR-032). A run takes minutes — see
+ * {@link DeepResearchDepth} — and the endpoint has a small daily quota that each admitted run
+ * spends, so the SDK never retries a call that starts one (ADR-031).</p>
+ *
+ * <p>The same record comes back as {@link DeepResearchJob#request()}, with the server's defaults
+ * for depth and web search filled in.</p>
  *
  * @param model     the model to research with; must not be {@code null}
  * @param input     the research topic or question; must not be {@code null}

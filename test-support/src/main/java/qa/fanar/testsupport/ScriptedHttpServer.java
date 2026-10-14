@@ -191,7 +191,7 @@ public final class ScriptedHttpServer implements AutoCloseable {
             requestBody = in.readAllBytes();
         }
         Received request = new Received(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),
-                copyOf(exchange.getRequestHeaders()), requestBody);
+                exchange.getRequestURI().getRawQuery(), copyOf(exchange.getRequestHeaders()), requestBody);
         received.add(request);
 
         Reply reply = script.poll();
@@ -399,11 +399,14 @@ public final class ScriptedHttpServer implements AutoCloseable {
      * One request the server saw.
      *
      * @param method  the HTTP method
-     * @param path    the request path (no query string)
+     * @param path    the request path, percent-decoded, without the query string
+     * @param query   the query string as sent — still percent-encoded — or {@code null} when the
+     *                request had none
      * @param headers request headers, keyed case-insensitively
      * @param body    the request body bytes (empty when there was none)
      */
-    public record Received(String method, String path, Map<String, List<String>> headers, byte[] body) {
+    public record Received(String method, String path, String query, Map<String, List<String>> headers,
+                           byte[] body) {
 
         /**
          * The body decoded as UTF-8.

@@ -50,6 +50,7 @@ the list instead.
 - [023 — Streaming TTS via Flow.Publisher&lt;byte[]&gt;](023-streaming-tts-via-flow-publisher.md)
 - [028 — Qur'an and hadith validation: a ninth domain facade](028-sadiq-validation-facade.md)
 - [031 — Deep research: a minutes-long, quota-scarce, stream-first operation on `client.sadiq()`](031-deep-research-facade.md)
+- [032 — Deep research background jobs: start, follow, retrieve and cancel on `client.sadiq()`](032-deep-research-background-jobs.md)
 
 ### Transport and serialization
 

@@ -742,6 +742,33 @@
     "queryAllDeclaredMethods": true
   },
   {
+    "name": "qa.fanar.core.sadiq.DeepResearchJob",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "qa.fanar.core.sadiq.JobStatus",
+          "qa.fanar.core.sadiq.IncompleteDetails",
+          "qa.fanar.core.sadiq.JobError",
+          "int",
+          "int",
+          "long",
+          "java.lang.Long",
+          "java.lang.Long",
+          "long",
+          "qa.fanar.core.sadiq.CancelSource",
+          "qa.fanar.core.sadiq.DeepResearchRequest",
+          "qa.fanar.core.sadiq.DeepResearchReport"
+        ]
+      }
+    ]
+  },
+  {
     "name": "qa.fanar.core.sadiq.DeepResearchReport",
     "allDeclaredFields": true,
     "allRecordComponents": true,
@@ -771,6 +798,15 @@
     "queryAllDeclaredMethods": true,
     "queryAllDeclaredConstructors": true,
     "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "qa.fanar.core.chat.ChatModel",
+          "java.lang.String",
+          "qa.fanar.core.sadiq.DeepResearchDepth",
+          "java.lang.Boolean"
+        ]
+      },
       {
         "name": "depth",
         "parameterTypes": []
@@ -825,6 +861,37 @@
           "java.lang.String",
           "java.lang.String",
           "java.lang.Boolean"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "qa.fanar.core.sadiq.IncompleteDetails",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "qa.fanar.core.sadiq.IncompleteReason"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "qa.fanar.core.sadiq.JobError",
+    "allDeclaredFields": true,
+    "allRecordComponents": true,
+    "queryAllDeclaredMethods": true,
+    "queryAllDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "qa.fanar.core.sadiq.JobErrorCode",
+          "java.lang.String"
         ]
       }
     ]
