@@ -139,6 +139,23 @@ class MicrometerObservabilityPluginTest {
     }
 
     @Test
+    void streamMeasurementsAreHighCardinalityByDefault() {
+        // A chunk count and a time-to-first-chunk take a new value on nearly every stream: as
+        // metric tags they would mint a series per distinct count and per millisecond (ADR-013).
+        try (ObservationHandle h = plugin().start("op")) {
+            h.attribute(FanarObservationAttributes.FANAR_STREAM_FIRST_CHUNK_MS, 412L);
+            h.attribute(FanarObservationAttributes.FANAR_STREAM_CHUNKS, 37);
+            h.attribute(FanarObservationAttributes.FANAR_MODEL, "Fanar");
+        }
+        obs("op")
+                .hasHighCardinalityKeyValue("fanar.stream.first_chunk_ms", "412")
+                .hasHighCardinalityKeyValue("fanar.stream.chunks", "37")
+                .doesNotHaveLowCardinalityKeyValueWithKey("fanar.stream.first_chunk_ms")
+                .doesNotHaveLowCardinalityKeyValueWithKey("fanar.stream.chunks")
+                .hasLowCardinalityKeyValue("fanar.model", "Fanar");
+    }
+
+    @Test
     void builder_highCardinalityKeysReplacesTheDefaultRule() {
         MicrometerObservabilityPlugin custom = MicrometerObservabilityPlugin.builder(registry)
                 .highCardinalityKeys("http.url"::equals)

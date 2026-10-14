@@ -142,6 +142,9 @@ public interface ObservationHandle extends AutoCloseable {
   the rule; OpenTelemetry's typed dispatch and the SLF4J adapter need nothing. Any attribute added
   from here is classified the same way before it ships. `http.url` joined them when job ids and
   event ids entered request URLs (ADR-032, 2026-10-14); the operation name stays the bounded key.
+  The two stream measures predate the rule and were still metric tags — a series per distinct chunk
+  count and per millisecond — until an audit of every attribute moved them to the high-cardinality
+  side as well (2026-10-14).
 
 ## Proved by
 
@@ -151,7 +154,8 @@ public interface ObservationHandle extends AutoCloseable {
   observes everything.
 - `MicrometerObservabilityPluginIntegrationTest` — a real `FanarClient` over a scripted server
   produces one observation named for the operation, stopped, carrying the retry event and the
-  rate-limit attributes.
+  rate-limit attributes; `.streamedCallKeepsItsMeasurementsOffMetricTags` — a real stream's two
+  measures land on the high-cardinality side while `fanar.model` stays a tag.
 - `SseStreamPublisherTest` / `AudioStreamPublisherTest` — the streaming observation records both
   stream measures and closes exactly once, on completion, on failure (with the error recorded) and
   on cancellation.

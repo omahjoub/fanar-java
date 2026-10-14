@@ -84,7 +84,7 @@ the [ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar
 `LiveDeepResearchTest` fails loudly until the flag is granted — the known-failing live set grows from 10 to 14.
 
 **Also landed for 0.7.0 — deep-research background jobs** ([ADR-032](adr/032-deep-research-background-jobs.md),
-Proposed). The 2026-10 spec drop (operations 14 → 16, paths 13 → 15, schemas 105 → 119) adds a job API to deep
+Accepted). The 2026-10 spec drop (operations 14 → 16, paths 13 → 15, schemas 105 → 119) adds a job API to deep
 research and calls it the recommended mode for runs this long: `background: true` returns a job at once, a new
 `GET /v1/sadiq/deep-research/{job_id}` reads it or streams its events, and a new `…/cancel` stops it. On
 `client.sadiq()`: `startDeepResearch(...)` (never retried — creating a job spends a unit),

@@ -174,6 +174,25 @@ may break public API until 1.0.0 ships.
   `HttpClient.send` does, instead of becoming a retryable transport failure. Pinned by
   `FanarClientStreamsIntegrationTest`; the `test-support` fixture gained `Reply.withHeaderDelay` /
   `withBodyDelay` for it, and `e2e` now depends on the fixture for its offline seam tests.
+- **`fanar-obs-micrometer`** — the stream measures `fanar.stream.chunks` and `fanar.stream.first_chunk_ms`
+  are now high-cardinality key-values by default. They predate the cardinality rule and were still
+  recorded as metric tags, so a metrics backend minted a series per distinct chunk count and per
+  millisecond to first chunk. They stay on traces; a custom `highCardinalityKeys(Predicate)` restores the
+  old rule ([ADR-013](docs/adr/013-observability-spi.md), [ADR-026](docs/adr/026-rate-limit-telemetry.md)).
+  Pinned by `MicrometerObservabilityPluginIntegrationTest.streamedCallKeepsItsMeasurementsOffMetricTags`.
+
+### Docs
+
+- **[ADR-032](docs/adr/032-deep-research-background-jobs.md)** accepted, now that its change has merged.
+- **`docs/CONTRIBUTING.md`** — a "When the Fanar spec changes" section, the discipline ADR-015 said was
+  documented there and was not; the next-ADR-number command no longer prints `INDEX.md`.
+- **`docs/WIRE_OBSERVATIONS.md`** — "Adding an observation" now says to correct an ADR in place, as the
+  ADR index requires before 1.0.0, instead of amending it; `LiveAgenticGateTest` joins the list of pinning
+  test classes.
+- **[ADR-016](docs/adr/016-fanarclient-builder-domain-facades.md)** — its facade list and "eight facade
+  interfaces" give way to the rule, one facade per OpenAPI tag, as ADR-028 said they had.
+- **`docs/GRAALVM.md`** — a stale tail of the metadata-schema section, describing the state before
+  2026-09-16 (unified metadata in the Jackson modules, CI on JDK 21 only), removed.
 
 ## [0.6.0] - 2026-09-16
 

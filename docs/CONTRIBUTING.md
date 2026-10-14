@@ -88,7 +88,7 @@ next to the dated record of every observed deviation from the spec that the live
 If your change touches the public API, adds or alters an SPI, changes scope, or affects stability, it needs an ADR.
 
 1. Pick the next unused number — the highest existing number plus one, regardless of which [INDEX](adr/INDEX.md)
-   section it sits in (`ls docs/adr | sort | tail -1`). Numbers are assigned in creation order and **never**
+   section it sits in (`ls docs/adr/[0-9]*.md | tail -1`). Numbers are assigned in creation order and **never**
    renumbered.
 2. Copy a recent ADR as a template — they all follow the extended Michael Nygard format described in
    [INDEX](adr/INDEX.md#format):
@@ -103,6 +103,24 @@ If your change touches the public API, adds or alters an SPI, changes scope, or 
 5. When the PR merges, flip the ADR's Status to `Accepted`.
 6. If the change supersedes an existing ADR, set the old one's Status to `Superseded by ADR-XYZ` and add a cross-
    reference both ways.
+
+## When the Fanar spec changes
+
+`api-spec/openapi.json` and its YAML twin are checked in so that every Fanar-side change arrives as a diff
+([ADR-015](adr/015-dto-conventions.md), "Drift detection"). A spec update is one PR that carries everything the new
+file implies — never the spec alone, and never DTOs ahead of the evidence:
+
+1. **Diff structurally**, not by eye: operations, paths, schemas, required fields and enum values, old against new,
+   and confirm the YAML twin says the same. Read the code samples too — they state rules the schema does not. Then
+   check that every sentence the [wire-observations ledger](WIRE_OBSERVATIONS.md) and the ADRs quote from the spec
+   is still in the new file: a drop can delete the sentence a decision rests on. Re-source a vanished quote rather
+   than repeating it.
+2. **Work in this order:** a ledger row for each new claim the SDK will lean on (`—` until a live call observes it),
+   then the ADR — a new one, or the existing ones corrected in place — then the DTOs, the tests and the docs.
+3. **Budget the full grid for every record change:** both Jackson codecs, the GraalVM reachability metadata
+   (`reflect-config.json` and the `e2e-graalvm` probes) and every `KNOWN`-count assertion.
+4. **Record the drop in `CHANGELOG.md`** with the before/after operation, path and schema counts, then grep every
+   number you changed across the repository.
 
 ## Commit messages
 

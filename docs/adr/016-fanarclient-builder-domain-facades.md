@@ -24,14 +24,10 @@ configurability to cover every reasonable enterprise deployment on the other.
 public final class FanarClient implements AutoCloseable {
     public static Builder builder() { return new Builder(); }
 
-    public ChatClient         chat();
-    public AudioClient        audio();
-    public ImagesClient       images();
-    public TranslationsClient translations();
-    public PoemsClient        poems();
-    public ModerationsClient  moderations();
-    public TokensClient       tokens();
-    public ModelsClient       models();
+    public ChatClient  chat();
+    public AudioClient audio();
+    public SadiqClient sadiq();
+    // … one accessor per OpenAPI tag; FanarClient declares the set (ADR-028, 2026-10-14)
 
     @Override public void close();
 }
@@ -135,8 +131,8 @@ Loud, early, helpful:
 ### Negative / Trade-offs
 - Domain facade interfaces are part of the public API surface. Changing a facade method signature is a breaking change
   subject to the deprecation discipline (JLBP-7, ADR-019). Worth it for the independence it buys.
-- Eight facade interfaces to name and document — more surface than a monolithic client, less surface than what it
-  replaces inside that client.
+- A facade interface per OpenAPI tag to name and document (`FanarClient` declares the set; ADR-028, 2026-10-14) —
+  more surface than a monolithic client, less surface than what it replaces inside that client.
 
 ### Neutral
 - The builder is immutable once `build()` returns. Reconfiguration means constructing a new client.

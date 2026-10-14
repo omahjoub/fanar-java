@@ -26,6 +26,7 @@
 Pinning test classes, all under [`e2e/src/test/java/qa/fanar/e2e/`](../e2e/src/test/java/qa/fanar/e2e/):
 [`LiveChatCompletionsTest`](../e2e/src/test/java/qa/fanar/e2e/chat/LiveChatCompletionsTest.java) (with its
 [`Probes`](../e2e/src/test/java/qa/fanar/e2e/Probes.java)),
+[`LiveAgenticGateTest`](../e2e/src/test/java/qa/fanar/e2e/chat/LiveAgenticGateTest.java),
 [`LiveModelsTest`](../e2e/src/test/java/qa/fanar/e2e/models/LiveModelsTest.java),
 [`LivePoemsTest`](../e2e/src/test/java/qa/fanar/e2e/poems/LivePoemsTest.java),
 [`LiveAudioSpeechTest`](../e2e/src/test/java/qa/fanar/e2e/audio/LiveAudioSpeechTest.java),
@@ -278,5 +279,5 @@ Rules that follow:
 3. Name the live test that pins it, and put the dated caveat in that test's javadoc in the same PR, under the
    tolerance rule in [CONTRIBUTING — Testing](CONTRIBUTING.md#testing) (fail loudly; retries only for a documented
    nondeterministic *semantic* outcome).
-4. If an SDK behaviour claim changed with it, amend the ADR with a dated entry: this ledger records the server, the
-   ADRs record the SDK.
+4. If an SDK behaviour claim changed with it, correct the ADR in place with a dated note — there are
+   [no amendment sections before 1.0.0](adr/INDEX.md#format): this ledger records the server, the ADRs record the SDK.
