@@ -55,7 +55,7 @@ class FanarRunnerIntegrationTest {
             Session session = sessions.createSession("app", "user").blockingGet();
 
             List<Event> events = runner.runAsync("user", session.id(), Content.fromParts(Part.fromText("ping")),
-                            RunConfig.builder().setStreamingMode(StreamingMode.SSE).build())
+                            RunConfig.builder().streamingMode(StreamingMode.SSE).build())
                     .toList().blockingGet();
 
             assertEquals(2, events.stream().filter(e -> e.partial().orElse(false)).count(), "two partial events");
@@ -70,6 +70,9 @@ class FanarRunnerIntegrationTest {
             assertTrue(first.indexOf("\"role\":\"system\"") < first.indexOf("\"role\":\"user\""), first);
 
             Session stored = sessions.getSession("app", "user", session.id(), Optional.empty()).blockingGet();
+            // events() is deprecated since ADK 1.12 for immutableEvents(), whose Guava return type would enter this
+            // module's bytecode and fail dependency:analyze (Guava is ADK's, not ours); reading the list is all we need.
+            @SuppressWarnings("deprecation")
             List<Event> persisted = stored.events().stream().filter(e -> "fanar".equals(e.author())).toList();
             assertEquals(1, persisted.size(), "partials are never persisted; the final event is");
             assertEquals("hello", persisted.get(0).content().get().text());

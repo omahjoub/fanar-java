@@ -9,6 +9,23 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+### Added
+
+- **`fanar-adk-sample`** — a runnable Google ADK sample, like the two Spring samples: ADK's dev UI
+  with two agents on Fanar models. `assistant` is a single `LlmAgent` (one chat call per turn);
+  `story_studio` turns an idea into an illustrated, checked, translated and narrated Arabic short
+  story across seven Fanar models — three chat models as workflow steps, and image, moderation,
+  translation and speech as custom agents. `./mvnw -pl adk-sample spring-boot:run` starts the dev UI;
+  `./mvnw -pl adk-sample compile exec:java` runs the studio without it. `AgentDiscoveryIntegrationTest`
+  runs the dev server's own agent loader over the sample with no API key, which pins ADR-030's
+  lazy-client guidance ([ADR-030](docs/adr/030-google-adk-adapter.md)). Not published; not in the BOM.
+
+### Changed
+
+- **`fanar-adk`** — tested against ADK 1.12 (from 1.11), on the google-genai 1.77.0 and RxJava 3.1.12
+  that release declares; no adapter change. `google-adk-dev` joins the root's managed versions at
+  ADK's version.
+
 ## [0.7.0] - 2026-10-16
 
 Deep research and Google ADK. `fanar-adk` runs ADK agents on Fanar models

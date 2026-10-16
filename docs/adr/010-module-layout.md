@@ -20,7 +20,7 @@ whether it publishes, whether it carries the quality gates, whether it may take 
 |---|---|---|
 | **Library** — the SDK a consumer depends on | yes, as a jar | `fanar-core`, the two JSON codecs, the three observability adapters, `fanar-interceptor-logging`, the two starters, `fanar-adk` |
 | **BOM** — one version coordinate for all of the above | yes, as a pom | `fanar-java-bom` |
-| **Support** — samples, live e2e, the native-image probe, the test fixture | never (`maven.deploy.skip`) | `spring-*-sample`, `e2e`, `e2e-graalvm`, `test-support` |
+| **Support** — samples, live e2e, the native-image probe, the test fixture | never (`maven.deploy.skip`) | `*-sample`, `e2e`, `e2e-graalvm`, `test-support` |
 
 `bom/pom.xml` manages **every** library module, which is the BOM's whole job: a module that ships
 but is missing from the BOM is a module a consumer must version by hand, which is exactly the

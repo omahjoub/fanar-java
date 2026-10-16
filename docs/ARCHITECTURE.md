@@ -61,7 +61,7 @@ that are sliding 24 h windows rather than the per-day limits above — the dated
 ### Module layout
 
 <p align="center">
-  <img src="images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, the Google ADK adapter (fanar-adk) depends on fanar-core directly, and three categories of extension modules implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+  <img src="images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, a third sample app depends on the Google ADK adapter (fanar-adk), which depends on fanar-core directly, and three categories of extension modules implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
 </p>
 
 ```
@@ -86,6 +86,7 @@ fanar-java                            (reactor parent — NOT published)
 ├── spring-ai-starter/                qa.fanar:fanar-spring-ai-starter      — jar  (Spring AI 2.0 ChatModel/Image/TTS/STT adapters)
 ├── spring-ai-sample/                 qa.fanar:fanar-spring-ai-sample       — jar  (runnable sample; not published)
 ├── adk/                              qa.fanar:fanar-adk                    — jar  (Google ADK BaseLlm adapter, on core)
+├── adk-sample/                       qa.fanar:fanar-adk-sample             — jar  (runnable ADK agents + dev UI; not published)
 ├── e2e/                              qa.fanar:fanar-java-e2e               — jar  (live integration tests; not published)
 ├── e2e-graalvm/                      qa.fanar:fanar-java-e2e-graalvm       — jar  (native-image self-test + live walk; not published)
 ├── test-support/                     qa.fanar:fanar-java-test-support      — jar  (scripted HttpServer + collecting subscriber for *IntegrationTest; not published)
