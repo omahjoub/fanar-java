@@ -1,12 +1,31 @@
 # Project state
 
-> **Snapshot — 2026-10-14.** Last release 0.6.0 (2026-09-16); `main` is on 0.7.0-SNAPSHOT. Updated on every
+> **Snapshot — 2026-10-16.** Last release 0.7.0 (2026-10-16); `main` is on 0.8.0-SNAPSHOT. Updated on every
 > milestone. If this looks wrong or stale, that is the signal — update it in the same PR as whatever moved.
 
 ## Phase
 
-**0.6.0 released 2026-09-16** ([v0.6.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.6.0),
-GitHub Release, 10 artifacts) — "reconciliation". Every document was checked against the code rather
+**0.7.0 released 2026-10-16** ([v0.7.0](https://github.com/omahjoub/fanar-java/releases/tag/v0.7.0),
+GitHub Release, 11 artifacts) — "deep research and Google ADK". **`fanar-adk`** runs ADK agents, the dev UI,
+sessions, callbacks and plugins on Fanar models: a `BaseLlm` over `FanarClient`, layered directly on core with the
+Jackson 2 codec at runtime scope ([ADR-030](adr/030-google-adk-adapter.md)). It refuses what Fanar cannot honour —
+tool declarations, the transfer tool ADK injects for multi-agent trees among them, and output schemas — before the
+wire instead of dropping it, the opposite of the Spring AI choice, because in ADK the runner's loop is function
+calling; the published set grows to ten library jars plus the BOM. **Deep research** lands on `client.sadiq()`:
+streamed or collected runs, never retried because starting one spends one of twenty daily units, their events on a
+sealed `DeepResearchEvent` union of their own so no chat `switch` changes
+([ADR-031](adr/031-deep-research-facade.md)); then, with the 2026-10 spec drop (operations 14 → 16, schemas
+105 → 119), background jobs whose event stream resumes itself after the last event id it delivered — the first
+stream the SDK reconnects ([ADR-032](adr/032-deep-research-background-jobs.md)) — and `Fanar-Shaheen-MT-2`.
+MT-2 works for our key; deep research does not: the run and the job start answer 403 (observed 2026-09-24 and
+2026-10-14), so every claim about a run or a job is still the spec's, marked `—` in the
+[ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and the known-failing live
+set grew from 10 to 16. **Fixed:** `requestTimeout` bounds only the wait for response headers, on every JDK; from
+JDK 26 the JDK's own timer also bounded the body, ending every longer stream while CI on 21 and 25 stayed green
+([ADR-007](adr/007-jdk-httpclient-default-transport.md)). **Breaking** — `model` nullable on stream chunks,
+in-stream error envelopes typed, three Micrometer keys off metric tags; see [CHANGELOG](../CHANGELOG.md).
+
+Before it, **0.6.0 (2026-09-16)** — "reconciliation". Every document was checked against the code rather
 than against other documents, and the disagreements were defects more often than drift. Five were
 consumer-facing, two of them making whole integration paths unusable: `chat().stream()` never worked
 under GraalVM native-image (no `StreamEvent` was in the reachability metadata) and
@@ -41,72 +60,7 @@ in the [wire-observations ledger](WIRE_OBSERVATIONS.md); the retry boundary publ
 rate-limit window (ADR-026) and stops sleeping past a total budget (ADR-027, that release's one
 breaking change).
 
-**Landed on `main` for 0.7.0 — `fanar-adk`, the Google ADK Java adapter**
-([ADR-030](adr/030-google-adk-adapter.md)). A `BaseLlm` over `FanarClient`, layered directly on
-core with the Jackson 2 codec at runtime scope (ADK already carries Jackson 2), so one dependency
-plus ADK gives ADK agents, the dev UI, sessions, callbacks and plugins on Fanar models. Transport,
-retry, auth and observability stay on `FanarClient.builder()`; the client can be built lazily so a
-missing key or codec no longer vanishes into ADK's agent loader. Features Fanar cannot honour —
-tool declarations (including the transfer tool ADK injects for multi-agent trees), output schemas,
-unmapped parts — are refused before the wire by default rather than dropped silently, the opposite
-of the Spring AI choice, because in ADK the runner's loop is function calling; workflow steps and
-leaf specialists need no opt-in. Sadiq references become ADK grounding metadata. The published set
-grows to ten library jars plus the BOM. The adapter touched nothing in core. The `Fanar-Agentic`
-model gate is now pinned by `LiveAgenticGateTest`, which passes while the gate holds and goes red the
-day the key is granted — the trigger to probe user tools by hand and reopen ADR-021, ADR-024 and
-ADR-030.
-
-**Also landed for 0.7.0 — `requestTimeout` bounds the wait for response headers, on every JDK**
-([ADR-007](adr/007-jdk-httpclient-default-transport.md), definition added in place 2026-09-24). The
-transport used `HttpRequest.Builder.timeout`, whose built-in timer stops at the headers through
-JDK 25 but runs until the body is consumed from JDK 26 — so on JDK 26 every stream longer than the
-timeout (60 s by default) died mid-body, while CI on 21 and 25 stayed green. The transport now
-waits on the asynchronous exchange for the headers and cancels it when the wait expires; the
-failure keeps its type (`FanarTransportException`, `HttpTimeoutException` cause) so the retry
-policy is unchanged. Found while planning the deep-research endpoint, whose runs last minutes.
-
-**Also landed for 0.7.0 — deep research** ([ADR-031](adr/031-deep-research-facade.md), Accepted). The
-2026-09-23 spec drop adds one operation (13 → 14; schemas 100 → 105), `POST /v1/sadiq/deep-research`, and it
-lands on the existing facade: `client.sadiq().deepResearchStream(...)` returns a
-`Flow.Publisher<DeepResearchEvent>` — a bilingual progress event per research pass, the draft as token deltas,
-the finished report as a `ReportChunk`, then the run summary — and `deepResearch()` / `deepResearchAsync()`
-collect the report from that same stream, because every variant sends `stream:true`: a run takes minutes, and
-the stream is what lets the client's `requestTimeout` bound the admission rather than the run. Never retried,
-whatever the client's policy — the endpoint's twenty daily units are consumed on admission, so
-`SadiqClientImpl` builds that chain with `RetryPolicy.disabled()`. `DeepResearchEvent` is its own sealed union
-over four of the chat records plus `ReportChunk`, so `StreamEvent` and every chat `switch` — the Spring AI and
-ADK adapters included — are untouched; the visible changes to chat are `model` becoming nullable on every
-chunk record (the spec's own example requires it), an error envelope inside a stream surfacing as its
-typed exception instead of a decode failure, and codec failures during decoding always typed. The endpoint is gated for our key (the `sadiq_deep_research`
-flag): the gate was observed 2026-09-24 — 403 `invalid_authorization`, rejected before admission, as the spec
-declares — and nothing about a run has been, so every wire claim about the run is the spec's, marked as such in
-the [ledger](WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2), and
-`LiveDeepResearchTest` fails loudly until the flag is granted — the known-failing live set grows from 10 to 14.
-
-**Also landed for 0.7.0 — deep-research background jobs** ([ADR-032](adr/032-deep-research-background-jobs.md),
-Accepted). The 2026-10 spec drop (operations 14 → 16, paths 13 → 15, schemas 105 → 119) adds a job API to deep
-research and calls it the recommended mode for runs this long: `background: true` returns a job at once, a new
-`GET /v1/sadiq/deep-research/{job_id}` reads it or streams its events, and a new `…/cancel` stops it. On
-`client.sadiq()`: `startDeepResearch(...)` (never retried — creating a job spends a unit),
-`retrieveDeepResearchJob(id)` and `cancelDeepResearchJob(id)` (both on the client's retry policy — reads are
-"not metered", cancelling is idempotent), each with an `*Async` twin, and `deepResearchJobStream(id)`, which
-follows the job's events across as many responses as the server sends: the server may end one before `[DONE]` on
-purpose, so the publisher resumes after the last event id it delivered, through the client's retry policy, and
-nothing is delivered twice. An error frame on a job stream is held until later events supersede it — the spec
-restarts a failed worker and replays its events — and cancelling the subscription stops following without
-cancelling the job. This reverses ADR-031's "no job API" (there was none on the wire then) and is the first
-stream the SDK reconnects (ADR-014, ADR-017 corrected in place: a resume after the last event id replays
-nothing). The synchronous calls are unchanged except that their body now pins `"background":false`, since
-`stream`'s default came to depend on it; re-basing them on a job waits for the first admitted live run.
-`obs-micrometer` now records `http.url` as high-cardinality — job ids and resume points made it unbounded.
-Also in the drop: **`Fanar-Shaheen-MT-2`**, a second translation model with its own 20/day window
-(`TranslationModel.FANAR_SHAHEEN_MT_2`), which works for our key. First live run, 2026-10-14: starting a job answers
-the run's 403, while reading, cancelling and streaming an unknown job answer 404 — so `LiveDeepResearchJobTest`'s job
-case fails loudly until the flag is granted (the known-failing set grows from 14 to 16) and its unknown-id case
-passes. No job has been created, so every claim about one is still the spec's, marked `—` in the
-[ledger](WIRE_OBSERVATIONS.md#deep-research--background-jobs).
-
-**Open on `main` (0.7.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
+**Open on `main` (0.8.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
 verse-match tolerance on the 2026-09-15 run, so a full live run produces **16 failures, or 17 when
 a run's Diwan misses concentrate on one case** — the sixteen gated by design, plus that one. Miss rate
 by date: 2/4, 2/6, 0/4, 4/7, 4/8 — high, but not trending; 2026-09-15 and 2026-09-16 both saw four
@@ -119,6 +73,7 @@ publication decision ([ADR-029](adr/029-publication-target.md)), both waiting on
 **Confirmed outstanding 2026-09-16**: the API-key enhancement was requested and has had no reply.
 Nothing in this repository records the state of that conversation, so re-date this line rather than
 trusting it — what the key can *do* is checkable without asking anyone; see the nightly item below.
+Checked 2026-10-16: unchanged — all sixteen gated cases failed in that day's live runs.
 
 ## Planned
 

@@ -102,7 +102,7 @@ build green, and why `fanar-spring-boot-4-starter` shipped four times unable to 
 path at all. Both were found in 0.6.0 by doing this, and neither was visible to any other gate.
 
 ```bash
-./mvnw install                       # populate ~/.m2 from the release branch
+./mvnw clean install                 # populate ~/.m2 from the release branch; clean, so no stale class rides into a jar
 D=$(mktemp -d) && mkdir -p "$D/src/main/java/smoke"
 cat > "$D/pom.xml" <<XML
 <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
@@ -187,8 +187,8 @@ git push -u origin bump/$NEXT
 
 - [ ] Update `docs/PROJECT_STATE.md` (move the release from *Planned*, refresh the snapshot
       date and phase) — can ride in the bump-back PR.
-- [ ] Bump the README quick-start version snippets to `$NEXT` — four `<version>` blocks that track
-      `main`'s snapshot. `check-docs` enforces this **only while the reactor is on a `-SNAPSHOT`**,
+- [ ] Bump the README quick-start version snippets to `$NEXT` — every `<version>` in the README
+      tracks `main`'s snapshot. `check-docs` enforces this **only while the reactor is on a `-SNAPSHOT`**,
       so a miss turns up in CI on `main` — fix it here rather than on a red `main`. The check is
       deliberately skipped on a release branch, where the reactor is `$VERSION` and the README is
       still on the old snapshot by design; it prints a line saying so.
