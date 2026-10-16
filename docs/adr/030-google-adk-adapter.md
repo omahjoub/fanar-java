@@ -51,8 +51,8 @@ fallback already answers; it is listed as cost, and no decision below acts on it
 Two ADK facts shape the design rather than the failure list. ADK builds the `call_llm` span itself
 in `BaseLlmFlow`, derives its attributes from `LlmRequest` and `LlmResponse` — token counts and the
 finish reason as attributes, the whole response, model version included, as one serialised
-attribute — makes the span current for the whole subscription, and no model in ADK emits
-telemetry of its own. And
+attribute — makes the span current while the model's `Flowable` is subscribed and again on each
+signal it relays, and no model in ADK emits telemetry of its own. And
 `LlmResponse.customMetadata` exists but `BaseLlmFlow` does not copy it onto the event, so nothing
 placed there reaches sessions or the UI.
 
@@ -231,7 +231,7 @@ Three open questions, decided below:
   and reactive-streams `provided`, pinned in the reactor's version catalogue — genai, RxJava and
   reactive-streams because their types appear in the adapter's signatures or bytecode, which strict
   `dependency:analyze` sees. No Guava: the obvious implementation reaches for its immutable
-  collections, and that is a declared dependency bought for types the JDK has. ADK 1.9 is a
+  collections, and that is a declared dependency bought for types the JDK has. ADK 1.x is a
   released, post-1.0 line and satisfies JLBP-4; its `models` package nonetheless carries no
   documented stability guarantee, so an ADK bump runs the seam tests, not just a compile.
 
@@ -269,8 +269,8 @@ Three open questions, decided below:
   hierarchy, named module), and wrong in kind — nothing went on the wire.
 - **A generic `Map<String, Object>` for Fanar extras.** *Rejected* in ADR-024, for reasons that do
   not change here.
-- **Surface server-side tool calls as `customMetadata`.** *Rejected*: ADK 1.9 drops it at the
-  event boundary.
+- **Surface server-side tool calls as `customMetadata`.** *Rejected*: ADK drops it at the event
+  boundary (1.9 through 1.11).
 - **Map server-side tool calls to ADK function calls.** *Rejected*: ADK would execute them, and an
   already-executed retrieval is not a pending call.
 - **`subscribeOn(Schedulers.io())` to keep the HTTP call off ADK's thread.** *Rejected*: it splits
@@ -296,12 +296,21 @@ Three open questions, decided below:
 - Tool-using, schema-using and freely-transferring ADK setups are refused rather than degraded,
   which will arrive as support questions; the two multi-agent recipes and `IGNORE` are the
   answers.
-- Coupled to the ADK 1.9 line, whose streaming protocol is enforced only by `BaseLlmFlow`'s
-  behaviour. An ADK bump is a seam-test run. *2026-09-23, 1.9.0 → 1.10.1:* no adapter change;
+- Coupled to the ADK 1.x line (measured against 1.11.0), whose streaming protocol is enforced only
+  by `BaseLlmFlow`'s behaviour. An ADK bump is a seam-test run, and it moves `google-genai.version`
+  and `rxjava.version` to what the new `google-adk` pom declares — Dependabot ignores both, because
+  bumped alone they drift from what an ADK user runs. *2026-09-23, 1.9.0 → 1.10.1:* no adapter change;
   the run failed only `FanarLlmPolicyIntegrationTest`'s narration pin, because ADK 1.10 fences
   another agent's relayed text between `<<<BEGIN_QUOTED_AGENT_CONTENT>>>` and
   `<<<END_QUOTED_AGENT_CONTENT>>>` markers (`Fencing`, ported from ADK Python). The test now pins
-  `[name] said:` followed by the reply and leaves the wording to ADK.
+  `[name] said:` followed by the reply and leaves the wording to ADK. *2026-10-14, 1.10.1 → 1.11.0
+  (#113):* no adapter or test change. `BaseLlm`, `LlmRequest`, `LlmResponse`, `LlmRegistry` and
+  `Fencing` are byte-identical; `AgentTransfer` and `Contents` changed only in form; 1.11's
+  resumability (`StepResume`, end-of-agent checkpoint events) applies only to an `App` with a
+  resumable `ResumabilityConfig`; and `Tracing.traceFlowable` re-activates `call_llm` on subscribe
+  and on each signal instead of holding one scope, under which the Fanar span still nests. genai had
+  drifted to 1.76.0 through Dependabot and went back to the 1.75.0 ADK 1.11.0 declares — the
+  adapter's jar is byte-identical either way.
 - ADK's dependency tree is large and reaches the adapter's test classpath through `provided`
   scope; CI's newer-JDK leg has to load it.
 - The `Runner`-level tests depend on ADK internals — `InMemorySessionService`, transfer injection —
@@ -377,4 +386,4 @@ Seam-crossing, in `qa.fanar.adk`, through `FanarClient.builder()` and `ScriptedH
   dependency rule this record was checked against.
 - [Google ADK Java](https://github.com/google/adk-java) — `BaseLlm`, `BaseLlmFlow`, `Runner`,
   `AgentTransfer`, `LlmRegistry`, `Contents` and `CompiledAgentLoader` are the types named
-  throughout; behaviour verified against the 1.9.0 sources.
+  throughout; behaviour verified against the 1.9.0 sources and re-checked against 1.10.1 and 1.11.0.

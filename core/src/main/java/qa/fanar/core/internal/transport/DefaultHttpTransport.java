@@ -23,9 +23,11 @@ import qa.fanar.core.FanarTransportException;
  * translating transport-layer failures ({@link java.io.IOException}, timeouts,
  * {@link InterruptedException}) into {@link FanarTransportException} so the rest of the SDK only
  * sees unchecked exceptions (ADR-006). Preserves the interrupt flag when the call is
- * interrupted. A {@link RuntimeException} or {@link Error} the exchange fails with is rethrown
- * as it is — the same surface {@code HttpClient.send} presents, so a programming error never
- * becomes a retryable transport failure.</p>
+ * interrupted, and a caller that is already interrupted fails before anything is sent, as
+ * {@code HttpClient.send} does. A {@link RuntimeException} or {@link Error} the exchange fails with
+ * is rethrown as it is, so a programming or JVM error never becomes a retryable transport failure;
+ * {@code HttpClient.send} differs here, rethrowing only {@link IllegalArgumentException} and
+ * {@link SecurityException} and wrapping every other cause in an {@link java.io.IOException}.</p>
  *
  * <p><strong>The request timeout bounds the wait for response headers, on every JDK.</strong>
  * Once the status line and headers have arrived the call returns and the body — a JSON document
@@ -67,6 +69,11 @@ public final class DefaultHttpTransport implements HttpTransport {
 
     @Override
     public HttpResponse<InputStream> send(HttpRequest request) {
+        if (Thread.currentThread().isInterrupted()) {
+            // sendAsync would dispatch first and only then notice; a request that leaves here can
+            // spend a never-retried deep-research admission.
+            throw new FanarTransportException("HTTP request interrupted", new InterruptedException());
+        }
         CompletableFuture<HttpResponse<InputStream>> inFlight = sender.apply(request);
         try {
             return requestTimeout == null

@@ -69,12 +69,17 @@ directly as the configuration point.
   through JDK 25 the JDK's request timer stops when the headers arrive, from JDK 26 it runs "to the instant the
   response body is consumed" (its `@implNote`), which ended every stream longer than the timeout. If the
   headers land in the same instant the wait expires, the response that can no longer be returned is closed so
-  its connection is released. A `RuntimeException` or `Error` the exchange fails with is rethrown as it is —
-  the surface `HttpClient.send` presents — so only I/O failures become the retryable `FanarTransportException`.
-  A timeout an interceptor sets on the request itself is passed through with the JDK's semantics. Proved by
+  its connection is released. A `RuntimeException` or `Error` the exchange fails with is rethrown as it is, so
+  only I/O failures become the retryable `FanarTransportException`. That is the transport's own rule, not
+  `HttpClient.send`'s: `send` rethrows only `IllegalArgumentException` and `SecurityException` and wraps every
+  other cause in an `IOException`. As with `send`, a caller that is already interrupted fails before anything
+  is dispatched — `sendAsync` alone would send first, and a request that leaves can spend a never-retried
+  admission. A caller-supplied `HttpClient` therefore receives `sendAsync`, never `send`. A timeout an
+  interceptor sets on the request itself is passed through with the JDK's semantics, which from JDK 26 bound
+  the body as well. Proved by
   `FanarClientStreamsIntegrationTest.aBodySlowerThanTheRequestTimeoutIsStillDeliveredInFull` and
   `headersSlowerThanTheRequestTimeoutFailTheCall`, and at the unit level by
-  `DefaultHttpTransportTest.requestTimeoutIsAppliedWhenSet`.
+  `DefaultHttpTransportTest.requestTimeoutIsAppliedWhenSet` and `anAlreadyInterruptedCallerFailsBeforeAnythingIsSent`.
 
 ## References
 
