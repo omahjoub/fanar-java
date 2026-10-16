@@ -26,7 +26,8 @@ may break public API until 1.0.0 ships.
   (partials, then one aggregated final response), finish reasons map onto ADK's vocabulary, Sadiq
   references become grounding metadata, server-side tool calls are not emitted, and Fanar errors
   reach `onModelErrorCallback` unwrapped. No retry, logging or exception wrapping of its
-  own; the OpenTelemetry span nests under ADK's `call_llm`. Provided-scope ADK 1.10.
+  own; the OpenTelemetry span nests under ADK's `call_llm`. Provided-scope ADK 1.11, tested on the
+  google-genai and RxJava versions that release declares.
 - **`e2e`** — `LiveAgenticGateTest` pins the `Fanar-Agentic` model gate (422 "Model not
   authorized" for the standard key) and goes red the day it lifts, the signal to probe user tools
   ([ledger](docs/WIRE_OBSERVATIONS.md#chat-completions--post-v1chatcompletions)).
@@ -105,25 +106,40 @@ may break public API until 1.0.0 ships.
 
 ### Changed
 
+- **Breaking** — **`fanar-core`** — `model` is now nullable on every streaming chunk record
+  (`TokenChunk`, `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`,
+  `ReportChunk`), and `StreamEvent.model()` / `DeepResearchEvent.model()` are documented so: the spec
+  marks it required, but its own deep-research example sends the first progress event with
+  `"model": null`, which the records rejected, and an informational field must not fail a
+  minutes-long run at decode. The Spring AI starter passes the value through, so a streamed
+  `ChatResponse`'s `getMetadata().getModel()` may be null as well. A consumer that dereferences
+  `model()` should null-check it ([ADR-019](docs/adr/019-pre-10-stability-policy.md)).
+- **Breaking** — **`fanar-core`** — an error envelope arriving *inside* an SSE stream (a top-level
+  `error` on a frame, the shape the deep-research samples check for a run the server abandons after
+  admission) now reaches the subscriber's `onError` as the typed `FanarException` its code routes
+  to — falling back to the status the envelope names, then to `FanarUnexpectedServerException`
+  carrying the raw frame — for chat and deep research alike. Before, it decoded as a chunk and
+  surfaced as a `FanarTransportException("Failed to decode …")` that lost the server's message. A
+  codec runtime failure during SSE decoding (a flattening deserializer's own null check) is now
+  wrapped as `FanarTransportException` with the cause instead of escaping raw; a typed exception a
+  codec throws passes through. Code that caught `FanarTransportException` for a server-sent error
+  should catch `FanarException`, or the subtype it handles; a Spring AI streaming `Flux` fails with
+  the same typed exception ([ADR-006](docs/adr/006-unchecked-exception-hierarchy.md),
+  [ADR-017](docs/adr/017-sse-parsing-strategy.md), corrected in place).
+- **Breaking** — **`fanar-obs-micrometer`** — `http.url`, `fanar.stream.chunks` and
+  `fanar.stream.first_chunk_ms` are now high-cardinality key-values by default, beside
+  `fanar.ratelimit.remaining` / `.reset`: they stay on traces and are no longer metric tags.
+  Deep-research job ids and resume points made `http.url`'s value space unbounded, so as a tag it
+  would mint a series per job; the two stream measures predate the cardinality rule and minted a
+  series per distinct chunk count and per millisecond to first chunk. Metrics grouped by any of the
+  three lose the tag — the operation name is the bounded key. 0.6.0's tags come back with
+  `highCardinalityKeys(Set.of(FANAR_RATELIMIT_REMAINING, FANAR_RATELIMIT_RESET)::contains)` on the
+  plugin's builder (constants from `qa.fanar.core.spi.FanarObservationAttributes`)
+  ([ADR-013](docs/adr/013-observability-spi.md), [ADR-026](docs/adr/026-rate-limit-telemetry.md),
+  [ADR-032](docs/adr/032-deep-research-background-jobs.md)). Pinned by
+  `MicrometerObservabilityPluginIntegrationTest.streamedCallKeepsItsMeasurementsOffMetricTags`.
 - **BOM / release** — the published set is now ten library jars plus the BOM (`fanar-adk` added);
   `docs/RELEASING.md` counts and the consumer smoke follow.
-- **`fanar-core`** — `model` is now nullable on every streaming chunk record (`TokenChunk`,
-  `ToolCallChunk`, `ToolResultChunk`, `ProgressChunk`, `DoneChunk`, `ErrorChunk`, `ReportChunk`), and
-  `StreamEvent.model()` / `DeepResearchEvent.model()` are documented so: the spec marks it required,
-  but its own deep-research example sends the first progress event with `"model": null`, which the
-  records rejected, and an informational field must not fail a minutes-long run at decode. A pre-1.0
-  minor change ([ADR-019](docs/adr/019-pre-10-stability-policy.md)); a consumer that dereferences
-  `model()` should null-check it.
-- **`fanar-core`** — an error envelope arriving *inside* an SSE stream (a top-level `error` on a frame,
-  the shape the deep-research samples check for a run the server abandons after admission) now reaches
-  the subscriber's `onError` as the typed `FanarException` its code routes to — falling back to the
-  status the envelope names, then to `FanarUnexpectedServerException` carrying the raw frame — for
-  chat and deep research alike. Before, it decoded as a chunk and surfaced as a
-  `FanarTransportException("Failed to decode …")` that lost the server's message. A codec runtime
-  failure during SSE decoding (a flattening deserializer's own null check) is now wrapped as
-  `FanarTransportException` with the cause instead of escaping raw; a typed exception a codec throws
-  passes through ([ADR-006](docs/adr/006-unchecked-exception-hierarchy.md),
-  [ADR-017](docs/adr/017-sse-parsing-strategy.md), corrected in place).
 - **`fanar-core`** — on the deep-research stream, a terminal frame whose first choice has a
   `finish_reason` other than `error` is the `DoneChunk` even when it carries neither `usage` nor
   `metadata`, so the promised terminal event always arrives; and the blocking `deepResearch()` returns
@@ -153,11 +169,6 @@ may break public API until 1.0.0 ships.
   (constant discriminators are not modelled; `isTerminal()`), [ADR-017](docs/adr/017-sse-parsing-strategy.md)
   and [ADR-031](docs/adr/031-deep-research-facade.md) corrected in place. `DeepResearchEvent.id()` no longer
   promises a per-run identity: the spec's job-stream examples change it between events.
-- **`fanar-obs-micrometer`** — `http.url` is now recorded as a high-cardinality key-value by default,
-  beside `fanar.ratelimit.remaining` / `.reset`: deep-research job ids and resume points made its value
-  space unbounded, and as a metric tag it would mint a series per job. Metrics grouped by `http.url` lose
-  the tag — the operation name is the bounded key; `highCardinalityKeys(Predicate)` restores the old rule
-  ([ADR-026](docs/adr/026-rate-limit-telemetry.md), [ADR-032](docs/adr/032-deep-research-background-jobs.md)).
 
 ### Fixed
 
@@ -170,20 +181,25 @@ may break public API until 1.0.0 ships.
   `FanarTransportException` with an `HttpTimeoutException` cause, so the retry policy sees the
   same type ([ADR-007](docs/adr/007-jdk-httpclient-default-transport.md), definition added in
   place). A response whose headers land in the same instant the wait expires is closed rather than
-  leaked, and a `RuntimeException` or `Error` the exchange fails with is rethrown raw, as
-  `HttpClient.send` does, instead of becoming a retryable transport failure. Pinned by
-  `FanarClientStreamsIntegrationTest`; the `test-support` fixture gained `Reply.withHeaderDelay` /
+  leaked. Three edge cases change with `sendAsync`: a `RuntimeException` or `Error` the exchange fails
+  with is rethrown as it is, where `HttpClient.send` wrapped every cause but `IllegalArgumentException`
+  and `SecurityException` in an `IOException` that 0.6.0 surfaced as a retryable
+  `FanarTransportException`; a caller-supplied `HttpClient` receives `sendAsync`, not `send`; and a
+  timeout an interceptor sets on the request is no longer overwritten by `requestTimeout` — it reaches
+  the JDK, whose timer from JDK 26 also bounds the body. As with `send`, a caller that is already
+  interrupted fails before anything is sent. Pinned by `FanarClientStreamsIntegrationTest` and
+  `DefaultHttpTransportTest`; the `test-support` fixture gained `Reply.withHeaderDelay` /
   `withBodyDelay` for it, and `e2e` now depends on the fixture for its offline seam tests.
-- **`fanar-obs-micrometer`** — the stream measures `fanar.stream.chunks` and `fanar.stream.first_chunk_ms`
-  are now high-cardinality key-values by default. They predate the cardinality rule and were still
-  recorded as metric tags, so a metrics backend minted a series per distinct chunk count and per
-  millisecond to first chunk. They stay on traces; a custom `highCardinalityKeys(Predicate)` restores the
-  old rule ([ADR-013](docs/adr/013-observability-spi.md), [ADR-026](docs/adr/026-rate-limit-telemetry.md)).
-  Pinned by `MicrometerObservabilityPluginIntegrationTest.streamedCallKeepsItsMeasurementsOffMetricTags`.
 
 ### Docs
 
-- **[ADR-032](docs/adr/032-deep-research-background-jobs.md)** accepted, now that its change has merged.
+- **[ADR-030](docs/adr/030-google-adk-adapter.md)**, **[ADR-031](docs/adr/031-deep-research-facade.md)**
+  and **[ADR-032](docs/adr/032-deep-research-background-jobs.md)** accepted, each once its change had
+  merged.
+- **`docs/RELEASING.md`** — the consumer smoke (step 3b) is mandatory and runs on the release branch
+  before anything is tagged: the reactor resolves siblings from its own build and cannot catch a
+  packaging fault, which is how a module missing from the BOM and a starter that could not go on the
+  module path both shipped.
 - **`docs/CONTRIBUTING.md`** — a "When the Fanar spec changes" section, the discipline ADR-015 said was
   documented there and was not; the next-ADR-number command no longer prints `INDEX.md`.
 - **`docs/WIRE_OBSERVATIONS.md`** — "Adding an observation" now says to correct an ADR in place, as the

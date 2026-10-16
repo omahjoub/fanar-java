@@ -27,6 +27,7 @@ import qa.fanar.core.FanarTransportException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -297,6 +298,29 @@ class DefaultHttpTransportTest {
                 () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build()));
         assertSame(checked, ex.getCause());
         assertEquals("HTTP request failed: odd", ex.getMessage());
+    }
+
+    @Test
+    void anAlreadyInterruptedCallerFailsBeforeAnythingIsSent() {
+        // HttpClient.send refuses an interrupted caller up front; sendAsync dispatches and only the
+        // wait notices. The exception is the same either way — only `dispatched` tells them apart.
+        AtomicBoolean dispatched = new AtomicBoolean();
+        DefaultHttpTransport transport = new DefaultHttpTransport(request -> {
+            dispatched.set(true);
+            return new CompletableFuture<>();
+        }, Duration.ofSeconds(1));
+
+        Thread.currentThread().interrupt();
+        try {
+            FanarTransportException ex = assertThrows(FanarTransportException.class,
+                    () -> transport.send(HttpRequest.newBuilder(URI.create("http://t/")).GET().build()));
+            assertEquals("HTTP request interrupted", ex.getMessage());
+            assertInstanceOf(InterruptedException.class, ex.getCause());
+            assertTrue(Thread.currentThread().isInterrupted(), "the interrupt flag must survive");
+        } finally {
+            Thread.interrupted();   // leave the test thread clean for the next test
+        }
+        assertFalse(dispatched.get(), "nothing may be dispatched for an interrupted caller");
     }
 
     private static HttpResponse<InputStream> response(InputStream body) {

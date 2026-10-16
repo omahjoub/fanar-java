@@ -28,3 +28,8 @@ updates:
       include: "scope"
     # Core SDK goal is zero runtime dependencies; most PRs here will be plugin or test-scope bumps.
     open-pull-requests-limit: 10
+    # fanar-adk is tested on the genai and RxJava its ADK release declares; bumped alone they drift
+    # from what an ADK user runs. They move by hand with each google-adk bump (ADR-030, Consequences).
+    ignore:
+      - dependency-name: "com.google.genai:google-genai"
+      - dependency-name: "io.reactivex.rxjava3:rxjava"
