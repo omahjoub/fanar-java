@@ -129,7 +129,7 @@ Jackson 2 codec ADK's classpath already satisfies. Tool declarations and output 
 endpoint silently ignores them ([ADR-030](docs/adr/030-google-adk-adapter.md)).
 
 To see it run, [`adk-sample`](adk-sample/) puts two agents in ADK's dev UI: a one-call assistant, and a
-story studio that chains six Fanar models (chat, image, moderation, translation, speech):
+story studio that chains seven Fanar models (chat, image, moderation, translation, speech):
 
 ```bash
 ./mvnw install                                          # once, from the repository root
@@ -149,7 +149,7 @@ FANAR_API_KEY=… ./mvnw -pl adk-sample spring-boot:run   # then open http://loc
 | `fanar-spring-ai-starter` | Spring AI 2.0 `ChatModel` / `ImageModel` / `TextToSpeechModel` / `TranscriptionModel` adapters. |
 | `fanar-spring-ai-sample` | Runnable sample app with `ChatClient` + memory. |
 | `fanar-adk` | Google ADK Java `BaseLlm` adapter (`FanarLlm`) — no Spring required. |
-| `fanar-adk-sample` | Runnable ADK agents in the dev UI: an assistant and a six-model story pipeline. |
+| `fanar-adk-sample` | Runnable ADK agents in the dev UI: an assistant and a seven-model story pipeline. |
 | `fanar-java-bom` | Imports for aligned versioning. |
 
 <p align="center">

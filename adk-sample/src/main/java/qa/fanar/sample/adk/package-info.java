@@ -6,8 +6,8 @@
  *   <li>{@code assistant} ({@link qa.fanar.sample.adk.Assistant}) — one {@code LlmAgent} on Fanar's
  *       default chat model, one chat call per turn. Start here.</li>
  *   <li>{@code story_studio} ({@link qa.fanar.sample.adk.studio.StoryStudio}) — an idea in, an
- *       illustrated, checked, translated and narrated Arabic short story out: six Fanar models in one
- *       {@code SequentialAgent}, seven calls per run.</li>
+ *       illustrated, checked, translated and narrated Arabic short story out: seven Fanar models
+ *       in one {@code SequentialAgent}, one call each.</li>
  * </ul>
  *
  * <p>Install the SDK from the repository root once ({@code ./mvnw install}), then start ADK's dev UI

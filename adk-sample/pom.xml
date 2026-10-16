@@ -16,7 +16,7 @@
 
     <name>Fanar Java :: Google ADK Sample</name>
     <description>Runnable Google ADK agents on Fanar models through fanar-adk: a single-agent assistant and
-        a six-model "Story Studio" pipeline, in ADK's dev UI or from the command line. Not published; not
+        a seven-model "Story Studio" pipeline, in ADK's dev UI or from the command line. Not published; not
         part of the BOM. Run the dev UI with `./mvnw -pl adk-sample spring-boot:run`, or the studio
         headless with `./mvnw -pl adk-sample compile exec:java`, after exporting `FANAR_API_KEY`.</description>
 

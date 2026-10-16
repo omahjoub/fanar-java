@@ -241,7 +241,7 @@ Three open questions, decided below:
   do. Inline bytes are not mapped: `ImagePart` documents `data:` URIs, so the mapping is additive
   once the ledger records that Fanar accepts them. No embeddings. No ADK `BaseTool` wrappers for
   the other domain facades — a separate record if wanted. The dev-server sample came after this
-  record's PR: `adk-sample` (2026-10-16) runs a single agent and a six-model pipeline in ADK's dev UI.
+  record's PR: `adk-sample` (2026-10-16) runs a single agent and a seven-model pipeline in ADK's dev UI.
 
 - **Ordering, layout and docs.** ADK goes ahead of LangChain4j because its integration cost is
   measured and the others' is not, and because the ADK dev UI gives the SDK a demo surface. The

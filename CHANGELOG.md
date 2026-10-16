@@ -14,7 +14,7 @@ may break public API until 1.0.0 ships.
 - **`fanar-adk-sample`** — a runnable Google ADK sample, like the two Spring samples: ADK's dev UI
   with two agents on Fanar models. `assistant` is a single `LlmAgent` (one chat call per turn);
   `story_studio` turns an idea into an illustrated, checked, translated and narrated Arabic short
-  story across six Fanar models — three chat models as workflow steps, and image, moderation,
+  story across seven Fanar models — three chat models as workflow steps, and image, moderation,
   translation and speech as custom agents. `./mvnw -pl adk-sample spring-boot:run` starts the dev UI;
   `./mvnw -pl adk-sample compile exec:java` runs the studio without it. `AgentDiscoveryIntegrationTest`
   runs the dev server's own agent loader over the sample with no API key, which pins ADR-030's

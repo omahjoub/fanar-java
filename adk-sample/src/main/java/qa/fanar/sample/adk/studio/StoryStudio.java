@@ -12,7 +12,7 @@ import qa.fanar.sample.adk.SampleClient;
 
 /**
  * Story Studio — one idea in, an illustrated, checked, translated and narrated Arabic short story
- * out, across six Fanar models and three model-variant chat calls:
+ * out, one call each to seven Fanar models, three of them chat models:
  *
  * <pre>
  *   story_studio (SequentialAgent)

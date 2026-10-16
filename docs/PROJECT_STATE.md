@@ -62,7 +62,7 @@ breaking change).
 
 **Landed on `main` for 0.8.0 — `fanar-adk-sample`, and ADK 1.12** ([ADR-030](adr/030-google-adk-adapter.md)).
 The ADK adapter gets the runnable sample the two starters have: ADK's dev UI with a single-agent `assistant` and a
-six-model `story_studio` pipeline (chat steps, plus image, moderation, translation and speech as custom agents),
+seven-model `story_studio` pipeline (chat steps, plus image, moderation, translation and speech as custom agents),
 started with `./mvnw -pl adk-sample spring-boot:run`. Its `AgentDiscoveryIntegrationTest` runs the dev server's
 agent loader over it without a key — the lazy-client guidance ADR-030 opens with. ADK moved to 1.12 (genai
 1.77.0) on its release notes and the seam tests; the adapter did not change.
