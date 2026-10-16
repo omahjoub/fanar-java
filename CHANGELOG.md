@@ -9,6 +9,21 @@ may break public API until 1.0.0 ships.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-16
+
+Deep research and Google ADK. `fanar-adk` runs ADK agents on Fanar models
+([ADR-030](docs/adr/030-google-adk-adapter.md)); `client.sadiq()` gains deep research — streamed or
+collected runs ([ADR-031](docs/adr/031-deep-research-facade.md)) and background jobs whose event
+stream resumes itself ([ADR-032](docs/adr/032-deep-research-background-jobs.md)) — and
+`Fanar-Shaheen-MT-2` arrives with the 2026-10 spec; `requestTimeout` now bounds only the wait for
+response headers, so long streams no longer die mid-body on JDK 26. Deep research is gated for the
+SDK's own key: everything about an admitted run is the spec's claim until one is observed
+([ledger](docs/WIRE_OBSERVATIONS.md#deep-research--post-v1sadiqdeep-research-fanar-sadiq-2)).
+Pre-1.0, so three changes below break without a deprecation cycle
+([ADR-019](docs/adr/019-pre-10-stability-policy.md)); they lead **Changed**, with migration notes.
+Not yet on Maven Central — jars are attached to the GitHub Release
+([ADR-029](docs/adr/029-publication-target.md)).
+
 ### Added
 
 - **`fanar-adk`** — a Google ADK Java adapter: `qa.fanar.adk.FanarLlm` implements ADK's
@@ -743,7 +758,8 @@ from a clone, or download the artifacts attached to this release.
   end-to-end since they shape the prompt text.
 - **Fanar `stop` parameter** — silently dropped server-side; documented in tests.
 
-[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/omahjoub/fanar-java/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.7.0
 [0.6.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.6.0
 [0.5.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.5.0
 [0.4.0]: https://github.com/omahjoub/fanar-java/releases/tag/v0.4.0
