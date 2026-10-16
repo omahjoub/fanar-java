@@ -11,7 +11,7 @@ Java SDK for [Fanar](https://fanar.qa) — Qatar's Arabic-centric multimodal AI 
 > against the real API. Every domain but `sadiq` is exercised live; its operations — validation and,
 > since the 2026-09-23 and 2026-10 specs, deep research, run directly or as a background job — are gated for our key,
 > so their behaviour follows the spec rather than an observation ([wire observations](docs/WIRE_OBSERVATIONS.md)).
-> Spring Boot 4 and Spring AI 2.0 starters ship with a sample app each.
+> The Spring Boot 4 and Spring AI 2.0 starters and the Google ADK adapter each ship with a runnable sample.
 > Requires **Java 21+**. Not yet on Maven Central — install via `./mvnw install` for now.
 
 ## Why this SDK?
@@ -123,10 +123,18 @@ FanarLlm model = new FanarLlm(() -> FanarClient.builder().build(), ChatModel.FAN
 LlmAgent agent = LlmAgent.builder().name("fanar").model(model).instruction("Answer in Arabic.").build();
 ```
 
-Built and tested against Google ADK Java 1.11; ADK itself stays the application's dependency
+Built and tested against Google ADK Java 1.12; ADK itself stays the application's dependency
 (`com.google.adk:google-adk`, plus `google-adk-dev` for the dev UI), and the adapter brings the
 Jackson 2 codec ADK's classpath already satisfies. Tool declarations and output schemas are refused by default because Fanar's chat
 endpoint silently ignores them ([ADR-030](docs/adr/030-google-adk-adapter.md)).
+
+To see it run, [`adk-sample`](adk-sample/) puts two agents in ADK's dev UI: a one-call assistant, and a
+story studio that chains six Fanar models (chat, image, moderation, translation, speech):
+
+```bash
+./mvnw install                                          # once, from the repository root
+FANAR_API_KEY=… ./mvnw -pl adk-sample spring-boot:run   # then open http://localhost:8080
+```
 
 ## Modules
 
@@ -141,10 +149,11 @@ endpoint silently ignores them ([ADR-030](docs/adr/030-google-adk-adapter.md)).
 | `fanar-spring-ai-starter` | Spring AI 2.0 `ChatModel` / `ImageModel` / `TextToSpeechModel` / `TranscriptionModel` adapters. |
 | `fanar-spring-ai-sample` | Runnable sample app with `ChatClient` + memory. |
 | `fanar-adk` | Google ADK Java `BaseLlm` adapter (`FanarLlm`) — no Spring required. |
+| `fanar-adk-sample` | Runnable ADK agents in the dev UI: an assistant and a six-model story pipeline. |
 | `fanar-java-bom` | Imports for aligned versioning. |
 
 <p align="center">
-  <img src="docs/images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, the Google ADK adapter (fanar-adk) depends on fanar-core directly, and three categories of extension modules (JSON codecs, observability adapters, interceptors) implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
+  <img src="docs/images/fanar_java_module_dependencies.svg" alt="Maven module dependency graph: two sample apps depend on two framework starters, both starters depend on fanar-core, a third sample app depends on the Google ADK adapter (fanar-adk), which depends on fanar-core directly, and three categories of extension modules (JSON codecs, observability adapters, interceptors) implement core's SPIs from below. The fanar-java-bom governs versions across the whole project." width="720">
 </p>
 
 ## Docs

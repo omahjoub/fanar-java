@@ -25,7 +25,9 @@ What the adapter cost, in order:
   `ExceptionInInitializerError` — a `LinkageError` whose `getMessage()` is `null` — and the loader
   logs the message, not the throwable: `Linkage error loading class … : null`, then
   `Found 0 total agents`. Recovering the actionable text meant loading the class under a
-  `URLClassLoader` by hand.
+  `URLClassLoader` by hand. `adk-sample` pins this today: its `AgentDiscoveryIntegrationTest` runs the
+  dev server's loader over the sample with no key (google-adk-dev 1.12.0, where the line reads
+  `Linkage error loading class … from unit classes: null`).
 - **`.apiKey("FANAR_API_KEY")` passed the literal string** as the bearer token, and the first
   symptom was a 401. The builder's env fallback for that variable (`FanarClient.ENV_API_KEY`)
   already exists and was not found.
@@ -238,8 +240,8 @@ Three open questions, decided below:
 - **Non-goals.** `connect()` throws `UnsupportedOperationException`, as ADK's own text-only models
   do. Inline bytes are not mapped: `ImagePart` documents `data:` URIs, so the mapping is additive
   once the ledger records that Fanar accepts them. No embeddings. No ADK `BaseTool` wrappers for
-  the other domain facades — a separate record if wanted. No sample in this record's PR; the
-  dev-server sample that reproduces the loader failure is a follow-up.
+  the other domain facades — a separate record if wanted. The dev-server sample came after this
+  record's PR: `adk-sample` (2026-10-16) runs a single agent and a six-model pipeline in ADK's dev UI.
 
 - **Ordering, layout and docs.** ADK goes ahead of LangChain4j because its integration cost is
   measured and the others' is not, and because the ADK dev UI gives the SDK a demo surface. The
@@ -296,7 +298,7 @@ Three open questions, decided below:
 - Tool-using, schema-using and freely-transferring ADK setups are refused rather than degraded,
   which will arrive as support questions; the two multi-agent recipes and `IGNORE` are the
   answers.
-- Coupled to the ADK 1.x line (measured against 1.11.0), whose streaming protocol is enforced only
+- Coupled to the ADK 1.x line (measured against 1.12.0), whose streaming protocol is enforced only
   by `BaseLlmFlow`'s behaviour. An ADK bump is a seam-test run, and it moves `google-genai.version`
   and `rxjava.version` to what the new `google-adk` pom declares — Dependabot ignores both, because
   bumped alone they drift from what an ADK user runs. *2026-09-23, 1.9.0 → 1.10.1:* no adapter change;
@@ -310,7 +312,12 @@ Three open questions, decided below:
   resumable `ResumabilityConfig`; and `Tracing.traceFlowable` re-activates `call_llm` on subscribe
   and on each signal instead of holding one scope, under which the Fanar span still nests. genai had
   drifted to 1.76.0 through Dependabot and went back to the 1.75.0 ADK 1.11.0 declares — the
-  adapter's jar is byte-identical either way.
+  adapter's jar is byte-identical either way. *2026-10-16, 1.11.0 → 1.12.0:* taken on its release
+  notes and the seam tests, at the maintainer's call — the sources were not re-read. No adapter change;
+  genai moves to the 1.77.0 that release declares, RxJava stays 3.1.12. Two test-side deprecations:
+  `RunConfig.Builder.setStreamingMode` gives way to `streamingMode`, and `Session.events()` is kept
+  over `immutableEvents()`, whose Guava return type would fail `dependency:analyze`. `google-adk-dev`
+  joins the root's managed versions at ADK's version, for `adk-sample`.
 - ADK's dependency tree is large and reaches the adapter's test classpath through `provided`
   scope; CI's newer-JDK leg has to load it.
 - The `Runner`-level tests depend on ADK internals — `InMemorySessionService`, transfer injection —
@@ -359,6 +366,10 @@ Seam-crossing, in `qa.fanar.adk`, through `FanarClient.builder()` and `ScriptedH
 - Live, in `e2e`: `LiveAgenticGateTest` — `Fanar-Agentic` answers 422 "Model not authorized" today,
   before any tools question can be asked (core carries no `tools` field); pinned by a dated ledger
   row, it fails loudly the day the gate lifts.
+- Sample, in `adk-sample`: `AgentDiscoveryIntegrationTest` — ADK's dev-server loader
+  (`CompiledAgentLoader`) lists the sample's two agents in a JVM without `FANAR_API_KEY`, which holds
+  only because the client is built on the first request; built eagerly, the loader logs the
+  `Linkage error … : null` line and lists none (checked by mutation, 2026-10-16).
 - Units: the config conversion, the finish-reason table, the stream aggregator and the part
   mapping.
 
@@ -386,4 +397,5 @@ Seam-crossing, in `qa.fanar.adk`, through `FanarClient.builder()` and `ScriptedH
   dependency rule this record was checked against.
 - [Google ADK Java](https://github.com/google/adk-java) — `BaseLlm`, `BaseLlmFlow`, `Runner`,
   `AgentTransfer`, `LlmRegistry`, `Contents` and `CompiledAgentLoader` are the types named
-  throughout; behaviour verified against the 1.9.0 sources and re-checked against 1.10.1 and 1.11.0.
+  throughout; behaviour verified against the 1.9.0 sources and re-checked against 1.10.1 and 1.11.0;
+  1.12.0 was taken on its release notes and the seam tests, not re-read at source.

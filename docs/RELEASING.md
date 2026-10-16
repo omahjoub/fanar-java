@@ -42,7 +42,7 @@ NEXT=0.7.0-SNAPSHOT      # main's next development version
       previous run's first TTS call. (`tasks/` is git-ignored and absent from a fresh clone, hence the
       `mkdir`.)
 - [ ] GraalVM native smoke green — and **confirm it actually ran**. `graalvm.yml` has no `push`
-      trigger and a `paths:` filter, so a docs-only or `spring-*`-only PR produces no check at all,
+      trigger and a `paths:` filter, so a docs-only, `spring-*`-only or `adk*`-only PR produces no check at all,
       which looks the same as "nothing failed". If the last merged PR was outside its paths, trigger
       the `self-test` dispatch on `release/$VERSION`.
 - [ ] `docs/PROJECT_STATE.md` reflects reality (its cadence rule: updated in the same PR as

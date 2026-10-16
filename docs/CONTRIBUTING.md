@@ -207,10 +207,10 @@ Rules for every test:
 
 Every shipping module enforces:
 
-- **JaCoCo 100 %** on instructions, lines, branches, methods and complexity. Five modules opt out with
-  `jacoco.skip=true`: both sample apps, `e2e`, `e2e-graalvm` and the `test-support` fixture.
-- **`dependency:analyze` strict** — fails on undeclared or unused direct deps. Four modules unbind it: both sample
-  apps, `e2e` and `e2e-graalvm`. `test-support` keeps it — it has no dependencies to get wrong.
+- **JaCoCo 100 %** on instructions, lines, branches, methods and complexity. Six modules opt out with
+  `jacoco.skip=true`: the three sample apps, `e2e`, `e2e-graalvm` and the `test-support` fixture.
+- **`dependency:analyze` strict** — fails on undeclared or unused direct deps. Five modules unbind it: the three
+  sample apps, `e2e` and `e2e-graalvm`. `test-support` keeps it — it has no dependencies to get wrong.
 - **Doclint** at javac time (`-Xdoclint:all,-missing`), on every module.
 - **Build invariants** — `python3 .github/scripts/check-build-invariants.py`, run by the `check-build` job. Three
   things a green build otherwise hides: a published module missing from (or stale in) `bom/pom.xml`, which shipped

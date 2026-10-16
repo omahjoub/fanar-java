@@ -100,7 +100,7 @@ class FanarLlmTracingIntegrationTest {
             EXPORTER.reset();
             ENDS.reset();
             runner.runAsync("user", session.id(), Content.fromParts(Part.fromText("again")),
-                            RunConfig.builder().setStreamingMode(StreamingMode.SSE).build())
+                            RunConfig.builder().streamingMode(StreamingMode.SSE).build())
                     .toList().blockingGet();
             assertTrue(ENDS.await(Duration.ofSeconds(10), "call_llm", "fanar.chat.stream"), "both spans ended");
             assertNested("fanar.chat.stream");

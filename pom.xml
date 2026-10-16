@@ -58,9 +58,10 @@
         <spring-ai.version>2.0.1</spring-ai.version>
         <!-- Google ADK line the fanar-adk adapter is measured against (ADR-030); genai, RxJava and
              reactive-streams are what that ADK release declares, pinned so a Boot bump cannot move them.
-             genai and RxJava move by hand with each ADK bump, so Dependabot ignores them. -->
-        <google-adk.version>1.11.0</google-adk.version>
-        <google-genai.version>1.75.0</google-genai.version>
+             genai and RxJava move by hand with each ADK bump, so Dependabot ignores them. The dev server
+             (google-adk-dev, used by adk-sample only) is released with ADK and shares its version. -->
+        <google-adk.version>1.12.0</google-adk.version>
+        <google-genai.version>1.77.0</google-genai.version>
         <rxjava.version>3.1.12</rxjava.version>
         <reactive-streams.version>1.0.4</reactive-streams.version>
         <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
@@ -101,6 +102,7 @@
         <module>spring-ai-starter</module>
         <module>spring-ai-sample</module>
         <module>adk</module>
+        <module>adk-sample</module>
         <module>bom</module>
         <!--
           `test-support` is the JDK-only fixture module behind every `*IntegrationTest` (scripted
@@ -190,6 +192,11 @@
             <dependency>
                 <groupId>com.google.adk</groupId>
                 <artifactId>google-adk</artifactId>
+                <version>${google-adk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.adk</groupId>
+                <artifactId>google-adk-dev</artifactId>
                 <version>${google-adk.version}</version>
             </dependency>
             <dependency>

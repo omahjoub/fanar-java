@@ -60,6 +60,13 @@ in the [wire-observations ledger](WIRE_OBSERVATIONS.md); the retry boundary publ
 rate-limit window (ADR-026) and stops sleeping past a total budget (ADR-027, that release's one
 breaking change).
 
+**Landed on `main` for 0.8.0 — `fanar-adk-sample`, and ADK 1.12** ([ADR-030](adr/030-google-adk-adapter.md)).
+The ADK adapter gets the runnable sample the two starters have: ADK's dev UI with a single-agent `assistant` and a
+six-model `story_studio` pipeline (chat steps, plus image, moderation, translation and speech as custom agents),
+started with `./mvnw -pl adk-sample spring-boot:run`. Its `AgentDiscoveryIntegrationTest` runs the dev server's
+agent loader over it without a key — the lazy-client guidance ADR-030 opens with. ADK moved to 1.12 (genai
+1.77.0) on its release notes and the seam tests; the adapter did not change.
+
 **Open on `main` (0.8.0-SNAPSHOT).** One item shipped untriaged: `LivePoemsTest` overran its 3×
 verse-match tolerance on the 2026-09-15 run, so a full live run produces **16 failures, or 17 when
 a run's Diwan misses concentrate on one case** — the sixteen gated by design, plus that one. Miss rate
