@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>qa.fanar</groupId>
+        <artifactId>fanar-java</artifactId>
+        <version>0.8.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fanar-adk-sample</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Fanar Java :: Google ADK Sample</name>
+    <description>Runnable Google ADK agents on Fanar models through fanar-adk: a single-agent assistant and
+        a seven-model "Story Studio" pipeline, in ADK's dev UI or from the command line. Not published; not
+        part of the BOM. Run the dev UI with `./mvnw -pl adk-sample spring-boot:run`, or the studio
+        headless with `./mvnw -pl adk-sample compile exec:java`, after exporting `FANAR_API_KEY`.</description>
+
+    <!--
+      Sample app: never publishes, never enforces JaCoCo, doesn't run dep-analyze. The point is to
+      stay small, pull in what the ADK dev server bundles, and "just work" when a developer reads it.
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- Never published, so no -sources/-javadoc jar under -Ppublish. -->
+        <maven.source.skip>true</maven.source.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.install.skip>true</maven.install.skip>
+        <jacoco.skip>true</jacoco.skip>
+        <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
+    </properties>
+
+    <dependencies>
+        <!-- The adapter under demonstration. Pulls fanar-core, and the Jackson 2 codec at runtime. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-adk</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- One line per Fanar call on stderr, so the run shows which model answered what. -->
+        <dependency>
+            <groupId>qa.fanar</groupId>
+            <artifactId>fanar-interceptor-logging</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ADK itself (the adapter declares it provided: the application chooses the version) and its
+             dev server, a Spring Boot application serving the dev UI. Both at the root's ADK version. -->
+        <dependency>
+            <groupId>com.google.adk</groupId>
+            <artifactId>google-adk</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.adk</groupId>
+            <artifactId>google-adk-dev</artifactId>
+        </dependency>
+
+        <!-- Test: the dev UI's own agent loader, offline. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- `spring-boot:run` starts ADK's dev server. It runs with the module as its working
+                 directory, so the server's default agent loader finds the `ROOT_AGENT` fields in this
+                 module's target/classes. No `repackage`: inside a fat jar that loader finds nothing. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <configuration>
+                    <mainClass>com.google.adk.web.AdkWebServer</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- `compile exec:java` runs the studio headless. It runs inside Maven's JVM, whose working
+                 directory is wherever Maven was started, so the output directory is passed in. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec-maven-plugin.version}</version>
+                <configuration>
+                    <mainClass>qa.fanar.sample.adk.studio.RunStoryStudio</mainClass>
+                    <systemProperties>
+                        <systemProperty>
+                            <key>studio.out</key>
+                            <value>${project.build.directory}/studio</value>
+                        </systemProperty>
+                    </systemProperties>
+                </configuration>
+            </plugin>
+
+            <!-- The dev UI must list the agents before any key is used (ADR-030): the test JVM never sees one. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedEnvironmentVariables>
+                        <excludedEnvironmentVariable>FANAR_API_KEY</excludedEnvironmentVariable>
+                    </excludedEnvironmentVariables>
+                </configuration>
+            </plugin>
+
+            <!-- Disable dep-analyze gate. The dev server pulls a wide set of transitive deps that the
+                 sample's small code surface doesn't import directly, which is exactly what
+                 `failOnWarning=true` flags. Same rationale as the other samples. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>analyze</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
