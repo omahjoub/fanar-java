@@ -64,7 +64,7 @@
         <google-genai.version>1.77.0</google-genai.version>
         <rxjava.version>3.1.12</rxjava.version>
         <reactive-streams.version>1.0.4</reactive-streams.version>
-        <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+        <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
         <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
