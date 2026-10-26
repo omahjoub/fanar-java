@@ -60,7 +60,7 @@
              reactive-streams are what that ADK release declares, pinned so a Boot bump cannot move them.
              genai and RxJava move by hand with each ADK bump, so Dependabot ignores them. The dev server
              (google-adk-dev, used by adk-sample only) is released with ADK and shares its version. -->
-        <google-adk.version>1.12.0</google-adk.version>
+        <google-adk.version>1.13.0</google-adk.version>
         <google-genai.version>1.77.0</google-genai.version>
         <rxjava.version>3.1.12</rxjava.version>
         <reactive-streams.version>1.0.4</reactive-streams.version>
